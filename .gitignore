@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Entorno virtual
+.venv/
+
+# Django
+db.sqlite3
+media/
+private_media/
+staticfiles/
+
+# Variables privadas
+.env
+.env.*
+!.env.example
+
+# IDE y sistema
+.DS_Store
+.vscode/
+.idea/
+
+# Cobertura y cachés
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
