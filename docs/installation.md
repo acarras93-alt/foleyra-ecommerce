@@ -32,4 +32,39 @@ Este documento describe cómo preparar y ejecutar el proyecto desde un entorno l
 
 ## 7. Django
 
-Esta sección se completará después de crear el proyecto, configurar PostgreSQL y ejecutar la primera migración.
+### 7.1. Estructura inicial
+
+El proyecto utiliza `config` para la configuración global y agrupa las
+aplicaciones de negocio bajo `apps`. La primera aplicación es `apps.users`,
+que define el modelo de usuario personalizado `users.User`.
+
+La variable `AUTH_USER_MODEL` se configuró antes de generar o aplicar ninguna
+migración. La conexión `default` utiliza exclusivamente el backend de
+PostgreSQL y obtiene sus credenciales desde `.env`.
+
+### 7.2. Generación y aplicación de las migraciones iniciales
+
+Con el contenedor de PostgreSQL en estado saludable:
+
+```bash
+python manage.py makemigrations users
+python manage.py migrate --plan
+python manage.py migrate
+```
+
+La primera ejecución creó las tablas estándar de Django y la tabla
+`users_user`. No se creó la tabla `auth_user` del modelo sustituido.
+
+### 7.3. Verificaciones
+
+```bash
+python manage.py check
+python manage.py makemigrations --check --dry-run
+pytest -q
+ruff check .
+ruff format --check .
+```
+
+Estas comprobaciones validan la configuración de Django, la ausencia de
+cambios de modelo sin migración, el uso del usuario personalizado, su
+persistencia en PostgreSQL y la calidad estática del código.

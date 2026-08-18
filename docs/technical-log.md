@@ -50,3 +50,52 @@ de instalación
 ### Siguiente fase
 
 Crear la estructura Django, configurar PostgreSQL, definir el usuario personalizado y ejecutar la primera migración.
+
+## 2026-08-18 — Inicialización de Django y primera migración
+
+### Contexto
+
+El repositorio tenía el entorno y PostgreSQL preparados, pero todavía no
+contenía un proyecto Django. La decisión ADR-003 exige definir el usuario
+personalizado antes de la primera migración.
+
+### Decisión
+
+Se creó manualmente el proyecto `config` y la aplicación `apps.users`. El
+modelo `users.User` hereda de `AbstractUser`, sin añadir todavía campos que no
+estén respaldados por requisitos aprobados.
+
+La conexión `default` usa el backend de PostgreSQL y carga sus parámetros
+desde `.env`. Se configuró `AUTH_USER_MODEL = "users.User"` antes de generar la
+migración inicial.
+
+### Acciones realizadas
+
+1. Se creó la estructura mínima de Django, incluidas las interfaces WSGI y ASGI.
+2. Se registraron Django REST Framework y la aplicación `users`.
+3. Se definió y registró el usuario personalizado en Django Admin.
+4. Se generó `users.0001_initial`.
+5. Se revisó el plan y se aplicaron las migraciones sobre PostgreSQL.
+6. Se añadieron pruebas de configuración y persistencia del usuario.
+7. Se ejecutaron las comprobaciones de Django, pytest y Ruff.
+
+### Resultado
+
+- Backend de base de datos: PostgreSQL.
+- Modelo de usuario activo: `users.User`.
+- Tabla de usuario creada: `users_user`.
+- Tabla sustituida `auth_user`: no creada.
+- Migraciones pendientes: ninguna.
+- Funcionalidades del catálogo: no iniciadas.
+
+### Commits del checkpoint
+
+- `feat: initialize Django with custom user`
+- `feat: add initial custom user migration`
+- `test: verify custom user persistence`
+- `docs: record Django initialization checkpoint`
+
+### Siguiente fase
+
+Definir el alcance y los criterios de aceptación del primer incremento del
+catálogo antes de iniciar su implementación mediante pruebas.
