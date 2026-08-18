@@ -125,3 +125,68 @@ con criterios de aceptación suficientes.
 - El uso de IA queda documentado con transparencia.
 - Existe una guía personal para reproducir y defender las decisiones técnicas.
 - El siguiente paso inmediato es de revisión y aprendizaje, no de código.
+
+## 2026-08-18 — Comprobación de arquitectura del entorno Django
+
+### Objetivo
+
+Completar el punto pendiente del manual que exige una prueba de arquitectura
+independiente para PostgreSQL y el usuario personalizado.
+
+### Cambios
+
+- Se creó `tests/test_environment.py`.
+- Se adaptó la referencia del manual `accounts.User` al modelo real
+  `users.User`.
+- Se trasladaron a esta prueba las comprobaciones globales que estaban dentro
+  de las pruebas específicas de la aplicación `users`.
+- La prueba de persistencia del usuario se mantuvo en `apps.users`.
+
+### Comprobaciones ejecutadas
+
+- Prueba de entorno: 2 pruebas superadas.
+- Suite completa: 3 pruebas superadas.
+- `manage.py check --database default`: sin problemas.
+- `makemigrations --check --dry-run`: sin cambios detectados.
+- `migrate --check`: sin migraciones pendientes.
+- Ruff: análisis y formato correctos.
+- `pip check`: sin dependencias incompatibles.
+
+### Resultado y alcance excluido
+
+El proyecto verifica de forma explícita que usa PostgreSQL y que Django resuelve
+`users.User` como usuario principal. No se modificaron modelos, migraciones,
+dependencias ni funcionalidades del catálogo.
+
+## 2026-08-19 — Documentación del checkpoint de entorno
+
+### Objetivo y alcance
+
+Actualizar el punto de entrada documental del repositorio para describir el
+estado verificado del entorno Django. Este cambio no corresponde a un requisito
+funcional: los requisitos de catálogo, compra y API continúan en estado
+`Propuesto`.
+
+### Decisión y archivos afectados
+
+- GitHub Copilot actualizó `README.md` como resumen del proyecto, sus requisitos
+  locales, las comprobaciones disponibles y los enlaces a la documentación
+  canónica.
+- El README no duplica valores de `.env` ni declara implementadas
+  funcionalidades que todavía no están aprobadas.
+- Esta entrada registra el cambio en `docs/technical-log.md` sin modificar
+  modelos, migraciones, dependencias ni configuración.
+
+### Verificación documental
+
+- `.venv/bin/python -m pytest tests/test_environment.py -q`: 2 pruebas
+  superadas.
+- `.venv/bin/python -m pytest -q`: 3 pruebas superadas.
+
+### Resultado, riesgos y alcance excluido
+
+El repositorio dispone de un README alineado con ADR-001, ADR-002 y ADR-003,
+incluidas las garantías comprobadas de PostgreSQL y `users.User`. El manual de
+instalación conserva secciones pendientes de completar y no formó parte de este
+cambio. No se implementaron funcionalidades de dominio ni se creó ningún
+commit.
