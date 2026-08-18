@@ -123,4 +123,5 @@ con criterios de aceptación suficientes.
 - La fase 01 queda cerrada como checkpoint reproducible.
 - Existe un inventario de capturas que evita exponer secretos.
 - El uso de IA queda documentado con transparencia.
+- Existe una guía personal para reproducir y defender las decisiones técnicas.
 - El siguiente paso inmediato es de revisión y aprendizaje, no de código.
