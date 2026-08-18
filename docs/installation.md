@@ -68,3 +68,13 @@ ruff format --check .
 Estas comprobaciones validan la configuración de Django, la ausencia de
 cambios de modelo sin migración, el uso del usuario personalizado, su
 persistencia en PostgreSQL y la calidad estática del código.
+
+### 7.4. Evidencias del checkpoint
+
+El inventario de capturas, sus comandos reproducibles y las reglas para no
+exponer secretos se encuentran en
+[`docs/evidence/phase-01/README.md`](evidence/phase-01/README.md).
+
+El prompt empleado durante esta inicialización y el alcance real de la
+asistencia de IA se registran en
+[`docs/ai-assisted-development.md`](ai-assisted-development.md).

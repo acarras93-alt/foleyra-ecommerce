@@ -99,3 +99,28 @@ migración inicial.
 
 Definir el alcance y los criterios de aceptación del primer incremento del
 catálogo antes de iniciar su implementación mediante pruebas.
+
+## 2026-08-18 — Política de desarrollo asistido por IA
+
+### Contexto
+
+La estructura inicial de Django fue creada con asistencia de ChatGPT Codex. Al
+cerrar el checkpoint se decidió detener la escritura de código, conservar el
+prompt y las evidencias, y utilizar GitHub Copilot como asistente principal en
+las fases posteriores.
+
+### Decisión
+
+Registrar de forma explícita la herramienta, el prompt, el alcance, las
+verificaciones y los commits. Ninguna sugerencia futura se aceptará sin revisar
+el diff, comprender el cambio y ejecutar las pruebas correspondientes.
+
+El desarrollo del catálogo no comenzará hasta que exista un requisito aprobado
+con criterios de aceptación suficientes.
+
+### Resultado
+
+- La fase 01 queda cerrada como checkpoint reproducible.
+- Existe un inventario de capturas que evita exponer secretos.
+- El uso de IA queda documentado con transparencia.
+- El siguiente paso inmediato es de revisión y aprendizaje, no de código.
