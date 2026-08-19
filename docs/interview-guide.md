@@ -166,3 +166,15 @@ correcta, no una pérdida de tiempo.
 
 - [Personalización de autenticación en Django 5.2](https://docs.djangoproject.com/en/5.2/topics/auth/customizing/)
 - [Migraciones en Django 5.2](https://docs.djangoproject.com/en/5.2/topics/migrations/)
+
+## 2026-08-19 — Módulo Core y página inicial
+
+Se creó la aplicación core para responsabilizarse únicamente de la página inicial y de futuras páginas generales. no contiene modelos, ni reglas del catálogo porque esas responsabilidades perteneceran a apliciones de dominio independientes.
+
+La pagina inicial se desarrolló mediante un flujo test-fists. Primero se definieron pruebas para comprobar que la ruta raiz podía resolverse mediante su nombre, que era pública, que respondia con HTTP 200 y que mostraba el contenido principal esperado. Después se implementaron la URL, la vista y la plantilla mínimas y se ejecutaron nuevamente las pruebas.
+
+La petición GET/ entra por config.urls, se delega en apps.core.urls, ejecuta la vista home y renderiza home.html. LA aplicación no necesita acceder a la base de datos porque la página actual es estática.
+
+## Explicación de la fase
+
+Separé la página principal en una aplicación core para manetener fuera del catálogo las responsabilidades generales del sitio. Definí primero el comportamiento mediante pruebas, implemente la solución mínima y ejecuté después la regresión completa. De esta manera, la estructura modular no es solo organizativa: cada aplicacion de dominio tiene una responsabilidad concreta y verificable.

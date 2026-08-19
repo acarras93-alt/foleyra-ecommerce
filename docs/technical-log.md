@@ -190,3 +190,46 @@ incluidas las garantías comprobadas de PostgreSQL y `users.User`. El manual de
 instalación conserva secciones pendientes de completar y no formó parte de este
 cambio. No se implementaron funcionalidades de dominio ni se creó ningún
 commit.
+
+## 2026-08-19 — Página de inicio técnica y corrección de su integración
+
+### Objetivo y alcance
+
+Incorporar y verificar la página de inicio pública de `apps.core` como soporte
+técnico del proyecto. Este cambio no implementa el catálogo ni ningún otro
+requisito funcional: RF-01 y los requisitos posteriores permanecen en estado
+`Propuesto`.
+
+### Decisiones y archivos afectados
+
+- GitHub Copilot añadió pruebas HTTP en `apps/core/test_views.py` para verificar
+  la URL nombrada `core:home`, el acceso anónimo y el encabezado público.
+- Se corrigió el enrutamiento global para importar `include` e integrar
+  `apps.core.urls` en la raíz.
+- La configuración existente de `apps.core` se completó con el directorio global
+  `templates/`, y la vista de inicio pasó a resolver la plantilla existente
+  `home.html`.
+- Se eliminaron los stubs vacíos de `admin.py`, `models.py` y `tests.py` en
+  `apps.core`; las pruebas de la aplicación quedan en `test_views.py`.
+- No se modificaron modelos, migraciones, dependencias, otras aplicaciones ni
+  requisitos funcionales.
+
+### Comprobaciones ejecutadas
+
+- Estado Red: `.venv/bin/python -m pytest apps/core/test_views.py -q` falló con
+  `NameError` al cargar `include` desde la configuración de URLs.
+- Estado Green: `.venv/bin/python -m pytest apps/core/test_views.py -q`: 3
+  pruebas superadas.
+- `.venv/bin/python manage.py check --database default`: sin incidencias.
+- `.venv/bin/python manage.py makemigrations --check --dry-run`: sin cambios
+  detectados.
+- `.venv/bin/python manage.py migrate --check`: sin migraciones pendientes.
+- `.venv/bin/python -m pytest -q`: 6 pruebas superadas.
+- Ruff, comprobación de formato, `pip check` y `git diff --check`: correctos.
+
+### Resultado, riesgos y alcance excluido
+
+La raíz `/` resuelve la página de inicio pública mediante el namespace
+`core:home`, sin acceso a PostgreSQL. La limpieza conserva una única convención
+activa de pruebas en la aplicación. El aviso de permisos de la caché de `pip`
+no afectó al resultado de `pip check`. No se creó ningún commit.
