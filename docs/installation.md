@@ -55,6 +55,11 @@ python manage.py migrate
 La primera ejecución creó las tablas estándar de Django y la tabla
 `users_user`. No se creó la tabla `auth_user` del modelo sustituido.
 
+La migración `catalog.0001_initial` se generó con Django, se revisó mediante
+`migrate catalog --plan` y se aplicó después sobre PostgreSQL. Crea las tablas
+de categorías, productos, tipos de licencia y ofertas producto-licencia; no
+incorpora modelos de suscripción, pedido, pago ni descarga.
+
 ### 7.3. Verificaciones
 
 ```bash

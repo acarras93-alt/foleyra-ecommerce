@@ -20,10 +20,13 @@ Las instrucciones globales se cargan automáticamente. Los archivos
 `.instructions.md` se aplican cuando coinciden con los archivos de trabajo. Los
 prompts se invocan manualmente para mantener cada responsabilidad separada.
 
-## Situación actual: cerrar y aprender
+## Situación actual: iniciar el primer incremento del catálogo
 
-No es necesario escribir más código ahora. Antes del primer requisito de
-catálogo:
+El checkpoint de decisiones quedó aprobado el 2026-08-25. `apps.catalog`, su
+modelo base y `catalog.0001_initial` ya existen; todavía no hay catálogo web,
+detalle, filtros ni API implementados o verificados.
+
+Antes de escribir el primer comportamiento de catálogo:
 
 1. realizar las capturas indicadas en `docs/evidence/phase-01/README.md`;
 2. leer `config/settings.py`, `apps/users/models.py` y la migración inicial;
@@ -32,7 +35,15 @@ catálogo:
    existe;
 5. repetir las pruebas y comprender qué comprueba cada una;
 6. revisar los cuatro commits de implementación de la fase 01;
-7. no iniciar el catálogo hasta aprobar el requisito y sus criterios.
+7. revisar el
+   [checkpoint de decisiones del catálogo](requirements/catalog-decision-checkpoint.md);
+8. seleccionar CA-RF01-01 como alcance exclusivo del siguiente incremento;
+9. no avanzar a otro criterio ni requisito hasta registrar un Red válido y el
+   Green del criterio actual.
+
+La separación entre trabajo manual, asistencia de Copilot, pruebas y
+actualización documental para v0.2.0 está definida en el
+[flujo de desarrollo del catálogo](catalog-development-workflow.md).
 
 ## Ciclo para cada incremento futuro
 
@@ -82,6 +93,7 @@ hallazgo contra el código y descartar los que no sean reproducibles.
 ### 5. Verificación humana
 
 ```bash
+set -e
 .venv/bin/python manage.py check --database default
 .venv/bin/python manage.py makemigrations --check --dry-run
 .venv/bin/python manage.py migrate --check
