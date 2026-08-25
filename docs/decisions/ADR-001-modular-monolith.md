@@ -1,4 +1,4 @@
-## ADR-001: monolito modular
+# ADR-001: monolito modular
 
 - Estado: aceptada
 
