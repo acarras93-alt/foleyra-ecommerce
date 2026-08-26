@@ -11,4 +11,10 @@
             <li>No hay productos disponibles en este momento.</li>
         {% endfor %}
     </ul>
+    {% if products.has_previous %}
+        <a href="?page={{ products.previous_page_number }}">Anterior</a>
+    {% endif %}
+    {% if products.has_next %}
+        <a href="?page={{ products.next_page_number }}">Siguiente</a>
+    {% endif %}
 {% endblock %}

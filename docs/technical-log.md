@@ -631,3 +631,46 @@ se implementaron filtros, paginación, precio mínimo, detalle, API, consultas
 N+1 ni los demás criterios pendientes de RF-01. El cambio preexistente de
 formato en `docs/requirements/functional-requirements.md` no forma parte de
 este incremento.
+
+## 2026-08-27 — CA-RF01-04: paginación del catálogo
+
+### Objetivo y alcance
+
+Implementar y verificar CA-RF01-04: el catálogo público divide los productos
+disponibles en bloques de 12 y permite al visitante cambiar entre páginas
+existentes. Se verificó además FE-01, que exige un `404` para páginas
+inexistentes o inválidas.
+
+### Cambios realizados
+
+- Se actualizó `apps/catalog/views.py` para paginar el selector de productos
+  disponibles con `Paginator` y 12 elementos por página.
+- La vista usa `Paginator.page()` con página `1` por defecto y transforma
+  `EmptyPage` y `PageNotAnInteger` en `Http404`.
+- Se actualizó `apps/catalog/templates/catalog/product_list.html` con enlaces
+  condicionales anterior y siguiente hacia páginas existentes.
+- Se amplió `apps/catalog/tests/test_views.py` con preparación reutilizable y
+  pruebas HTTP para la segunda página, enlaces y páginas inválidas.
+- Se creó `docs/evidence/RF-01/CA-RF01-04.md` y se actualizó el resumen de
+  estado de `README.md`.
+
+### Comprobaciones ejecutadas
+
+- RED de segunda página: `1 failed, 3 passed`; la vista ignoraba `page` y
+  devolvía los 13 productos.
+- RED de navegación: `1 failed, 4 passed`; la plantilla no contenía los enlaces
+  de paginación.
+- RED de FE-01: `3 failed, 5 passed`; `Paginator.get_page()` respondía `200`
+  para página inexistente, no numérica o menor que uno.
+- GREEN focalizado: `.venv/bin/python -m pytest apps/catalog/tests/test_views.py -q`
+  finalizó con `8 passed`.
+- Puerta de calidad: comprobaciones de Django y migraciones, suite completa
+  (`15 passed`), Ruff, `pip check` y `git diff --check` correctos.
+
+### Resultado y alcance excluido
+
+La página pública del catálogo permite navegar entre páginas existentes y
+responde `404` ante páginas inválidas o inexistentes. No se modificaron el
+selector, los modelos, las migraciones ni dependencias. No se implementaron
+filtros, ordenación, precio mínimo, detalle, API, consultas N+1 ni conservación
+de parámetros de consulta, que pertenece a RF-03.
