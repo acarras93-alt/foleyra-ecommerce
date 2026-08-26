@@ -82,3 +82,11 @@ def test_catalog_excludes_an_inactive_product_with_an_active_category_and_licens
 
     assert response.status_code == 200
     assert product.name not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_catalog_displays_a_message_when_no_products_are_available(client):
+    response = client.get("/catalog/")
+
+    assert response.status_code == 200
+    assert "No hay productos disponibles en este momento." in response.content.decode()

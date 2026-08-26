@@ -7,6 +7,8 @@
     <ul>
         {% for product in products %}
             <li>{{ product.name }}</li>
+        {% empty %}
+            <li>No hay productos disponibles en este momento.</li>
         {% endfor %}
     </ul>
 {% endblock %}

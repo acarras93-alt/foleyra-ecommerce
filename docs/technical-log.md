@@ -594,3 +594,40 @@ RED-GREEN ni como un cambio de producción.
 No se modificaron selector, vista, URLs, plantilla, modelos, migraciones,
 dependencias ni documentación de requisitos. Los criterios restantes de RF-01
 continúan pendientes.
+
+## 2026-08-26 — CA-RF01-03: estado vacío del catálogo
+
+### Objetivo y alcance
+
+Implementar y verificar CA-RF01-03: cuando no hay productos disponibles, un
+visitante que abre `/catalog/` recibe una respuesta correcta y un mensaje de
+estado vacío comprensible.
+
+### Cambios realizados
+
+- Se añadió una prueba HTTP aislada en `apps/catalog/tests/test_views.py` que
+  consulta un catálogo vacío y comprueba el estado `200` y el mensaje visible.
+- Se actualizó `apps/catalog/templates/catalog/product_list.html` con el bloque
+  `{% empty %}` y el texto `No hay productos disponibles en este momento.`.
+- Se creó `docs/evidence/RF-01/CA-RF01-03.md` con el ciclo Red-Green y los
+  resultados verificados.
+- Se actualizó el resumen de estado de `README.md`.
+
+### Comprobaciones ejecutadas
+
+- RED válido: Ruff fue correcto y la prueba focalizada finalizó con
+  `1 failed, 2 passed`; `/catalog/` respondió `200`, pero la lista vacía no
+  mostraba el mensaje requerido.
+- GREEN: `.venv/bin/python -m pytest apps/catalog/tests/test_views.py -q`
+  finalizó con `3 passed`.
+- Puerta de calidad: comprobaciones de Django y migraciones, suite completa
+  (`10 passed`), Ruff, `pip check` y `git diff --check` correctos.
+
+### Resultado y alcance excluido
+
+El catálogo comunica su estado vacío sin error HTTP. No se modificaron el
+selector, la vista, las URLs, los modelos, las migraciones ni dependencias. No
+se implementaron filtros, paginación, precio mínimo, detalle, API, consultas
+N+1 ni los demás criterios pendientes de RF-01. El cambio preexistente de
+formato en `docs/requirements/functional-requirements.md` no forma parte de
+este incremento.
