@@ -711,3 +711,38 @@ La tarjeta pública comunica el precio mínimo de las ofertas activas como
 `Desde <precio> EUR`. No se implementaron filtros, ordenación, detalle, API,
 consultas N+1, cambios de moneda, archivos privados ni los demás criterios
 pendientes de RF-01.
+
+## 2026-08-27 — CA-RF01-07: carga eficiente de relaciones del catálogo
+
+### Objetivo y alcance
+
+Implementar y verificar CA-RF01-07: cargar categorías y ofertas activas de los
+productos disponibles sin añadir una consulta por cada producto de la página.
+
+### Cambios realizados
+
+- Se creó una prueba de integración de PostgreSQL para el selector que compara
+  la carga de un producto frente a doce y accede de forma explícita a categoría
+  y ofertas activas.
+- `get_available_products()` carga la categoría con `select_related()` y
+  precarga exclusivamente ofertas activas con `Prefetch`.
+- Se actualizó la trazabilidad del requisito, el README y la evidencia del
+  criterio.
+
+### Comprobaciones ejecutadas
+
+- RED válido: la prueba focalizada finalizó con `1 failed`; al acceder a las
+  relaciones, el conteo aumentó de 3 consultas para un producto a 25 para doce.
+- GREEN: la prueba de selectores finalizó con `1 passed` y las pruebas HTTP de
+  catálogo con `9 passed`.
+- Medición posterior con PostgreSQL, en una transacción revertida: un producto
+  y doce productos requirieron 2 consultas cada uno.
+- Regresión: `.venv/bin/python -m pytest -q` finalizó con `17 passed`.
+- Puerta de calidad: comprobaciones de Django y migraciones, Ruff, `pip check`
+  y `git diff --check` correctos; Ruff informó de 61 archivos ya formateados.
+
+### Resultado y alcance excluido
+
+El selector evita N+1 al cargar categorías y ofertas activas. No se
+implementaron filtros, ordenación, detalle, API, cambios de moneda, archivos
+privados ni los demás criterios pendientes de RF-01.

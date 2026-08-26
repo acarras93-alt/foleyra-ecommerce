@@ -9,7 +9,7 @@ Python, Django, Django REST Framework y PostgreSQL.
 - PostgreSQL 18.6 es la única base de datos admitida y se ejecuta localmente mediante Docker Compose.
 - El modelo de usuario activo es `users.User`, definido antes de la primera migración.
 - `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
-- `apps.catalog` contiene el modelo base y su migración inicial para categorías, productos, tipos de licencia y ofertas. La lista pública mínima `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente, y presenta el precio mínimo de las ofertas activas como `Desde <precio> EUR`; detalle, filtros y API continúan pendientes.
+- `apps.catalog` contiene el modelo base y su migración inicial para categorías, productos, tipos de licencia y ofertas. La lista pública mínima `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente, presenta el precio mínimo de las ofertas activas como `Desde <precio> EUR` y carga categorías y ofertas activas sin N+1; detalle, filtros y API continúan pendientes.
 - RF-01, RF-02, RF-03, RF-12 y RF-15 están `Aprobado`. El checkpoint del catálogo habilita iniciar el ciclo test-first con CA-RF01-01; los requisitos de compra y las funciones privadas continúan en estado `Propuesto`.
 
 ## Requisitos locales

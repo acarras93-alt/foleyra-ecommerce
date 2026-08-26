@@ -174,10 +174,10 @@ El requisito está disponible para usuarios anónimos y autenticados.
 
 | Elemento | Referencia |
 |---|---|
-| Pruebas | `apps/catalog/tests/test_views.py` (CA-RF01-01 a CA-RF01-04 y CA-RF01-06) |
+| Pruebas | `apps/catalog/tests/test_views.py` (CA-RF01-01 a CA-RF01-04 y CA-RF01-06) y `apps/catalog/tests/test_selectors.py` (CA-RF01-07) |
 | Implementación web | `apps/catalog/selectors.py`, `apps/catalog/views.py` y `apps/catalog/templates/catalog/product_list.html` |
 | Implementación API | RF-12 |
-| Evidencia | `docs/evidence/RF-01/CA-RF01-01.md`, `CA-RF01-03.md`, `CA-RF01-04.md` y `CA-RF01-06.md` |
+| Evidencia | `docs/evidence/RF-01/CA-RF01-01.md`, `CA-RF01-03.md`, `CA-RF01-04.md`, `CA-RF01-06.md` y `CA-RF01-07.md` |
 | Commit | Pendiente |
 
 ### RF-02 — Consultar detalle y escuchar una preview pública
