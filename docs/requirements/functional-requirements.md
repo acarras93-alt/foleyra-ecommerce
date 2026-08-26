@@ -172,13 +172,25 @@ El requisito está disponible para usuarios anónimos y autenticados.
 
 #### Trazabilidad
 
+RF-01 mantiene el estado `Aprobado`; no está completamente verificado porque
+CA-RF01-05 permanece pendiente. El modelo actual no tiene contrato ni campo para
+el archivo maestro privado. Su verificación se difiere a RF-11, que definirá el
+almacenamiento y la entrega autorizada.
+
 | Elemento | Referencia |
 |---|---|
-| Pruebas | `apps/catalog/tests/test_views.py` (CA-RF01-01 a CA-RF01-04 y CA-RF01-06) y `apps/catalog/tests/test_selectors.py` (CA-RF01-07) |
 | Implementación web | `apps/catalog/selectors.py`, `apps/catalog/views.py` y `apps/catalog/templates/catalog/product_list.html` |
 | Implementación API | RF-12 |
-| Evidencia | `docs/evidence/RF-01/CA-RF01-01.md`, `CA-RF01-03.md`, `CA-RF01-04.md`, `CA-RF01-06.md` y `CA-RF01-07.md` |
-| Commit | Pendiente |
+
+| Criterio | Prueba | Evidencia | Commit | Estado |
+|---|---|---|---|---|
+| CA-RF01-01 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-01.md` | `ece0f52` | Verificado |
+| CA-RF01-02 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-02.md` | `472ae50` | Verificado: comportamiento preexistente |
+| CA-RF01-03 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-03.md` | `5be00ca` | Verificado |
+| CA-RF01-04 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-04.md` | `c8e2a20` | Verificado |
+| CA-RF01-05 | Pendiente: requiere contrato de archivo maestro privado | No aplica hasta RF-11 | No aplica | Pendiente, diferido a RF-11 |
+| CA-RF01-06 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-06.md` | `8415d55` | Verificado |
+| CA-RF01-07 | `apps/catalog/tests/test_selectors.py` | `docs/evidence/RF-01/CA-RF01-07.md` | `b2d6eab` | Verificado |
 
 ### RF-02 — Consultar detalle y escuchar una preview pública
 
