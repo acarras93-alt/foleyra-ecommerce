@@ -568,3 +568,29 @@ No se implementaron filtros, paginación, precio mínimo, detalle, API, fixture
 de demostración, modelos, migraciones ni dependencias. El cambio preexistente
 en `docs/requirements/functional-requirements.md` no forma parte de este
 incremento.
+
+## 2026-08-26 — CA-RF01-02: exclusión de producto inactivo
+
+### Objetivo y resultado
+
+Se añadió cobertura HTTP para CA-RF01-02: un producto inactivo, con categoría
+y oferta de licencia activas, no aparece al consultar `/catalog/`.
+
+La prueba pasó en su primera ejecución porque
+`get_available_products()` ya filtraba `Product.is_active=True`. Se registra
+como cobertura añadida de comportamiento preexistente, no como un nuevo ciclo
+RED-GREEN ni como un cambio de producción.
+
+### Comprobaciones ejecutadas
+
+- `.venv/bin/ruff format apps/catalog/tests/test_views.py`: sin cambios.
+- `.venv/bin/ruff check apps/catalog/tests/test_views.py`: correcto.
+- `.venv/bin/python -m pytest apps/catalog/tests/test_views.py -q`: `2 passed`.
+- Puerta de calidad: comprobaciones de Django y migraciones, suite completa
+  (`9 passed`), Ruff, `pip check` y `git diff --check` correctos.
+
+### Alcance excluido
+
+No se modificaron selector, vista, URLs, plantilla, modelos, migraciones,
+dependencias ni documentación de requisitos. Los criterios restantes de RF-01
+continúan pendientes.
