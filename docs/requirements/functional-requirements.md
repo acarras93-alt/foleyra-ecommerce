@@ -149,6 +149,8 @@ El requisito está disponible para usuarios anónimos y autenticados.
 - El catálogo excluye productos inactivos.
 - El catálogo muestra correctamente el estado vacío.
 - La paginación devuelve la página solicitada.
+- La tarjeta de un producto con varias ofertas activas muestra el importe mínimo,
+  su moneda y la etiqueta `Desde`.
 - La consulta carga las categorías sin provocar un problema N+1.
 - La consulta calcula o precarga las ofertas activas sin provocar un problema
   N+1.
@@ -172,10 +174,10 @@ El requisito está disponible para usuarios anónimos y autenticados.
 
 | Elemento | Referencia |
 |---|---|
-| Pruebas | Pendiente hasta v0.2.0 |
-| Implementación web | Pendiente |
+| Pruebas | `apps/catalog/tests/test_views.py` (CA-RF01-01 a CA-RF01-04 y CA-RF01-06) |
+| Implementación web | `apps/catalog/selectors.py`, `apps/catalog/views.py` y `apps/catalog/templates/catalog/product_list.html` |
 | Implementación API | RF-12 |
-| Evidencia | Pendiente |
+| Evidencia | `docs/evidence/RF-01/CA-RF01-01.md`, `CA-RF01-03.md`, `CA-RF01-04.md` y `CA-RF01-06.md` |
 | Commit | Pendiente |
 
 ### RF-02 — Consultar detalle y escuchar una preview pública

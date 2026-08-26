@@ -167,3 +167,54 @@ def test_catalog_returns_404_for_an_invalid_page(client, page):
     response = client.get("/catalog/", {"page": page})
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_catalog_displays_the_minimum_price_for_multiple_active_offers(client):
+    category = Category.objects.create(
+        name="Ambientes",
+        slug="ambientes",
+    )
+    product = Product.objects.create(
+        category=category,
+        name="Nocturnos urbanos",
+        slug="nocturnos-urbanos",
+        sku="AMB-001",
+        summary="Ambiente ficticio de ciudad durante la noche.",
+        description="Grabación preparada para una producción audiovisual.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+    )
+    license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+    )
+    commercial_license_type = LicenseType.objects.create(
+        name="Publicidad comercial",
+        slug="publicidad-comercial",
+        usage_scope="Una campaña publicitaria",
+        summary="Uso en una campaña de publicidad comercial.",
+        terms_version="1.0",
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=license_type,
+        price=Decimal("12.90"),
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=commercial_license_type,
+        price=Decimal("29.90"),
+    )
+
+    response = client.get("/catalog/")
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Desde 12.90 EUR" in content
+    assert "Desde 29.90 EUR" not in content

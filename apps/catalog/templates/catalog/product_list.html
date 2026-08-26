@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 
 {% block title %}Catálogo | SoundMarket{% endblock %}
 
@@ -6,7 +7,7 @@
     <h1>Catálogo</h1>
     <ul>
         {% for product in products %}
-            <li>{{ product.name }}</li>
+            <li>{{ product.name }}: Desde {{ product.minimum_price|unlocalize }} EUR</li>
         {% empty %}
             <li>No hay productos disponibles en este momento.</li>
         {% endfor %}

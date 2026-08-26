@@ -674,3 +674,40 @@ responde `404` ante páginas inválidas o inexistentes. No se modificaron el
 selector, los modelos, las migraciones ni dependencias. No se implementaron
 filtros, ordenación, precio mínimo, detalle, API, consultas N+1 ni conservación
 de parámetros de consulta, que pertenece a RF-03.
+
+## 2026-08-27 — CA-RF01-06: precio mínimo de las ofertas activas
+
+### Objetivo y alcance
+
+Implementar y verificar CA-RF01-06: la tarjeta de un producto con varias
+ofertas activas muestra el precio mínimo sin ambigüedad.
+
+### Cambios realizados
+
+- Se amplió `get_available_products()` con la anotación `minimum_price`, que
+  calcula el mínimo exclusivamente entre las ofertas activas.
+- La plantilla de catálogo muestra `Desde <precio> EUR` en cada tarjeta y
+  desactiva la localización del importe para conservar el separador decimal
+  definido por el criterio.
+- Se añadió una prueba HTTP con dos ofertas activas, de `12.90 EUR` y
+  `29.90 EUR`, que comprueba que solo aparece el precio menor.
+- Se actualizó el plan de pruebas y se creó la evidencia del criterio.
+
+### Comprobaciones ejecutadas
+
+- RED válido: Ruff fue correcto y la prueba focalizada finalizó con
+  `1 failed, 8 passed`; `/catalog/` devolvió `200` y mostró el producto, pero
+  no contenía `Desde 12.90 EUR`.
+- La primera comprobación tras implementar el cálculo mostró `12,90 EUR` por
+  la localización de Django. Se corrigió la representación con `unlocalize` y
+  la prueba focalizada finalizó con `9 passed`.
+- Regresión: `.venv/bin/python -m pytest -q` finalizó con `16 passed`.
+- Puerta de calidad: comprobaciones de Django y migraciones, Ruff, `pip check`
+  y `git diff --check` correctos; Ruff informó de 59 archivos ya formateados.
+
+### Resultado y alcance excluido
+
+La tarjeta pública comunica el precio mínimo de las ofertas activas como
+`Desde <precio> EUR`. No se implementaron filtros, ordenación, detalle, API,
+consultas N+1, cambios de moneda, archivos privados ni los demás criterios
+pendientes de RF-01.
