@@ -523,3 +523,48 @@ mínimo.
 - La trazabilidad de IA, la bitácora, la guía de entrevista, las instrucciones
   del repositorio y el ajuste de ADR se mantienen en un commit documental
   separado.
+
+## 2026-08-26 — CA-RF01-01: lista pública mínima de catálogo
+
+### Objetivo y alcance
+
+Implementar y verificar CA-RF01-01: un visitante puede abrir `/catalog/` y ver
+un producto cuando el producto, su categoría y una oferta de licencia están
+activos. El incremento crea una consulta reutilizable de productos disponibles
+y una interfaz web mínima que la utiliza.
+
+### Cambios realizados
+
+- Se creó `apps/catalog/selectors.py` con `get_available_products()`, que
+  filtra producto, categoría y oferta activos, elimina duplicados y ordena por
+  nombre e identificador.
+- Se añadieron la vista, las URLs de `apps.catalog`, su inclusión global y una
+  plantilla mínima para publicar `/catalog/`.
+- Se creó `apps/catalog/tests/test_views.py` con una prueba aislada que prepara
+  una categoría, producto y oferta activos y comprueba la respuesta pública.
+- Se incorporó `docs/evidence/RF-01/CA-RF01-01.md` con los resultados reales
+  del ciclo Red-Green y de la puerta de calidad.
+
+### Comprobaciones ejecutadas
+
+- RED válido: la prueba focalizada falló con `404` para `/catalog/` mientras
+  PostgreSQL y las siete pruebas preexistentes funcionaban correctamente.
+- GREEN: `.venv/bin/python -m pytest apps/catalog/tests/test_views.py -q`
+  finalizó con `1 passed`.
+- Puerta de calidad: comprobaciones de Django y migraciones, suite completa
+  (`8 passed`), Ruff, `pip check` y `git diff --check` correctos.
+
+### Incidencia de proceso
+
+La integración HTTP (vista, URLs, inclusión global y plantilla) se añadió antes
+de recibir autorización específica para ese cambio. Tras la revisión del diff,
+el responsable aprobó expresamente conservarla como implementación mínima de
+CA-RF01-01. La incidencia se registra para mantener trazabilidad del flujo de
+autorización; no modifica los resultados observados de las pruebas.
+
+### Alcance excluido
+
+No se implementaron filtros, paginación, precio mínimo, detalle, API, fixture
+de demostración, modelos, migraciones ni dependencias. El cambio preexistente
+en `docs/requirements/functional-requirements.md` no forma parte de este
+incremento.

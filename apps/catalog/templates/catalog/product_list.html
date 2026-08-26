@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Catálogo | SoundMarket{% endblock %}
+
+{% block content %}
+    <h1>Catálogo</h1>
+    <ul>
+        {% for product in products %}
+            <li>{{ product.name }}</li>
+        {% endfor %}
+    </ul>
+{% endblock %}
