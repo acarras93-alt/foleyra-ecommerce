@@ -787,3 +787,42 @@ pendientes preview y reproductor, comprobaciones específicas de productos no
 disponibles, exclusión explícita de ofertas inactivas, ausencia de preview y
 privacidad del archivo maestro. No se generaron evidencias visuales ni se creó
 ningún commit.
+
+## 2026-08-27 — CA-RF02-03: detalle no disponible o inexistente
+
+### Objetivo y alcance
+
+Verificar CA-RF02-03 para los casos de un producto inactivo y de un slug que
+no existe. El comportamiento se incorporó como cobertura de la vista de
+detalle existente, no como una nueva implementación de producción.
+
+### Cambios realizados
+
+- Se añadieron dos pruebas HTTP aisladas en
+  `apps/catalog/tests/test_views.py`: una crea un producto inactivo con
+  categoría y oferta activas, y otra solicita un slug sin datos creados.
+- Ambas prueban que el detalle responde `404`.
+- No se modificaron vista, selector, URLs, modelos, migraciones, dependencias
+  ni configuración.
+
+### Comprobaciones ejecutadas
+
+- `.venv/bin/ruff format apps/catalog/tests/test_views.py`: un archivo sin
+  cambios.
+- `.venv/bin/ruff check apps/catalog/tests/test_views.py`: correcto.
+- `.venv/bin/python -m pytest apps/catalog/tests/test_views.py -q`: `11 passed
+  in 0.65s`.
+- `.venv/bin/python -m pytest
+  apps/catalog/tests/test_views.py::test_product_detail_returns_404_for_an_unknown_slug
+  -q`: `1 passed in 0.43s`.
+- Puerta de calidad: comprobaciones Django y migraciones, Ruff, `pip check` y
+  `git diff --check` correctos; `.venv/bin/python -m pytest -q` finalizó con
+  `19 passed in 1.02s`.
+
+### Resultado y alcance excluido
+
+CA-RF02-03 queda cubierto como comportamiento preexistente: la vista usa
+`get_object_or_404()` sobre `get_available_products()`, que excluye productos
+inactivos y no encuentra slugs inexistentes. No se implementaron preview,
+reproductor, exclusión específica de ofertas inactivas, ausencia de preview ni
+privacidad del archivo maestro.
