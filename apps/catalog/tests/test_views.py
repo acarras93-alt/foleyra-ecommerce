@@ -462,3 +462,45 @@ def test_product_detail_excludes_an_inactive_license_offer(client):
     assert response.status_code == 200
     assert active_license_type.name in content
     assert inactive_license_type.name not in content
+
+
+@pytest.mark.django_db
+def test_product_detail_displays_a_message_when_preview_is_unavailable(client):
+    category = Category.objects.create(
+        name="Ambientes",
+        slug="ambientes",
+        is_active=True,
+    )
+    product = Product.objects.create(
+        category=category,
+        name="Nocturnos urbanos sin preview",
+        slug="nocturnos-urbanos-sin-preview",
+        sku="AMB-006",
+        summary="Ambiente ficticio de ciudad durante la noche.",
+        description="Grabacion preparada para una produccion audiovisual.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+        preview_file="",
+        is_active=True,
+    )
+    license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+        is_active=True,
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=license_type,
+        price=Decimal("12.90"),
+        is_active=True,
+    )
+
+    response = client.get("/catalog/nocturnos-urbanos-sin-preview/")
+
+    assert response.status_code == 200
+    assert "Preview no disponible." in response.content.decode()

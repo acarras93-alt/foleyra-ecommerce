@@ -888,3 +888,38 @@ CA-RF02-04 queda cubierto como comportamiento preexistente: el prefetch del
 selector compartido solo incluye `ProductLicenseOffer` activas. No se
 implementaron preview, reproductor, control de productos no disponibles,
 ausencia de preview ni privacidad del archivo maestro.
+
+## 2026-08-27 — CA-RF02-05: aviso parcial de preview ausente
+
+### Objetivo y alcance
+
+Implementar la parte visible de CA-RF02-05: si un producto disponible no tiene
+`preview_file` configurado, el detalle público sigue respondiendo y muestra el
+aviso `Preview no disponible.`.
+
+### Cambios realizados
+
+- Se añadió una prueba HTTP aislada en `apps/catalog/tests/test_views.py` con
+  producto, categoría y oferta activos, pero sin preview configurada.
+- Se actualizó `apps/catalog/templates/catalog/product_detail.html` para
+  mostrar el aviso solo cuando `preview_file` está vacío.
+- No se modificaron modelos, migraciones, dependencias, configuración ni
+  almacenamiento.
+
+### Comprobaciones ejecutadas
+
+- RED: `.venv/bin/python -m pytest
+  apps/catalog/tests/test_views.py::test_product_detail_displays_a_message_when_preview_is_unavailable
+  -q` falló porque el HTML no contenía `Preview no disponible.`.
+- GREEN: el mismo comando finalizó con `1 passed in 0.44s` después de añadir el
+  aviso.
+- Puerta de calidad: `.venv/bin/python -m pytest -q` finalizó con `24 passed in
+  1.01s`; comprobaciones Django y migraciones, Ruff, `pip check` y
+  `git diff --check` correctos.
+
+### Resultado y alcance excluido
+
+El detalle comunica la indisponibilidad de la preview configurada sin alterar
+la disponibilidad del producto. CA-RF02-05 no se declara cerrado: queda por
+verificar que el archivo maestro no se usa ni se expone. No se implementaron
+reproductor, almacenamiento, archivo maestro ni otros criterios.

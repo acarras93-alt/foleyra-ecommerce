@@ -13,6 +13,9 @@
         <li>{{ product.sample_rate_hz }} Hz</li>
         <li>{{ product.bit_depth }} bits</li>
     </ul>
+    {% if not product.preview_file %}
+        <p>Preview no disponible.</p>
+    {% endif %}
     <ul>
         {% for offer in product.license_offers.all %}
             <li>
