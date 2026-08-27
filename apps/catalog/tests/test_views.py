@@ -322,3 +322,85 @@ def test_product_detail_returns_404_for_an_unknown_slug(client):
     response = client.get("/catalog/slug-inexistente/")
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_product_detail_returns_404_for_an_inactive_category(client):
+    category = Category.objects.create(
+        name="Ambientes archivados",
+        slug="ambientes-archivados",
+        is_active=False,
+    )
+    product = Product.objects.create(
+        category=category,
+        name="Nocturnos urbanos de categoria archivada",
+        slug="nocturnos-urbanos-categoria-archivada",
+        sku="AMB-003",
+        summary="Ambiente ficticio de ciudad durante la noche.",
+        description="Grabación preparada para una producción audiovisual.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+        preview_file="previews/nocturnos-urbanos-categoria-archivada.mp3",
+        is_active=True,
+    )
+    license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+        is_active=True,
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=license_type,
+        price=Decimal("12.90"),
+        is_active=True,
+    )
+
+    response = client.get("/catalog/nocturnos-urbanos-categoria-archivada/")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_product_detail_returns_404_without_an_active_license_offer(client):
+    category = Category.objects.create(
+        name="Ambientes",
+        slug="ambientes",
+        is_active=True,
+    )
+    product = Product.objects.create(
+        category=category,
+        name="Nocturnos urbanos sin oferta activa",
+        slug="nocturnos-urbanos-sin-oferta-activa",
+        sku="AMB-004",
+        summary="Ambiente ficticio de ciudad durante la noche.",
+        description="Grabación preparada para una producción audiovisual.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+        preview_file="previews/nocturnos-urbanos-sin-oferta-activa.mp3",
+        is_active=True,
+    )
+    license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+        is_active=True,
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=license_type,
+        price=Decimal("12.90"),
+        is_active=False,
+    )
+
+    response = client.get("/catalog/nocturnos-urbanos-sin-oferta-activa/")
+
+    assert response.status_code == 404

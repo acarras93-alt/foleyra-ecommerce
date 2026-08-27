@@ -826,3 +826,31 @@ CA-RF02-03 queda cubierto como comportamiento preexistente: la vista usa
 inactivos y no encuentra slugs inexistentes. No se implementaron preview,
 reproductor, exclusión específica de ofertas inactivas, ausencia de preview ni
 privacidad del archivo maestro.
+
+## 2026-08-27 — CA-RF02-03: casos adicionales de producto no disponible
+
+### Objetivo y alcance
+
+Ampliar la cobertura de CA-RF02-03 para una categoría inactiva y para un
+producto que no tiene ninguna oferta activa. Ambos casos pertenecen a la misma
+definición de disponibilidad pública del detalle.
+
+### Cambios realizados
+
+- Se añadieron dos pruebas HTTP aisladas en `apps/catalog/tests/test_views.py`.
+- La primera mantiene producto y oferta activos con categoría inactiva; la
+  segunda mantiene producto y categoría activos con una oferta inactiva.
+- No se modificaron producción, migraciones, dependencias ni configuración.
+
+### Comprobación ejecutada
+
+- `.venv/bin/python -m pytest
+  apps/catalog/tests/test_views.py::test_product_detail_returns_404_for_an_inactive_category
+  apps/catalog/tests/test_views.py::test_product_detail_returns_404_without_an_active_license_offer
+  -q`: `2 passed in 0.48s`.
+
+### Resultado y alcance excluido
+
+Los dos casos pasan como comportamiento preexistente del selector compartido.
+No se implementaron preview, reproductor, exclusión de una oferta inactiva
+cuando existan otras activas, ausencia de preview ni privacidad del maestro.
