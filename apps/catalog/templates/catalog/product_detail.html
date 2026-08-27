@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load l10n %}
+
+{% block title %}{{ product.name }} | SoundMarket{% endblock %}
+
+{% block content %}
+    <h1>{{ product.name }}</h1>
+    <p>{{ product.category.name }}</p>
+    <p>{{ product.description }}</p>
+    <ul>
+        <li>{{ product.duration_ms }} ms</li>
+        <li>{{ product.get_audio_format_display }}</li>
+        <li>{{ product.sample_rate_hz }} Hz</li>
+        <li>{{ product.bit_depth }} bits</li>
+    </ul>
+    <ul>
+        {% for offer in product.license_offers.all %}
+            <li>
+                {{ offer.license_type.name }}
+                {{ offer.license_type.usage_scope }}
+                {{ offer.license_type.summary }}
+                {{ offer.price|unlocalize }} {{ offer.currency }}
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}

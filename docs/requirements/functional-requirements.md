@@ -313,12 +313,17 @@ la interfaz pública.
 
 | Elemento | Referencia |
 |---|---|
-| Pruebas | Pendiente hasta v0.2.0 |
-| Implementación web | Pendiente |
-| Consulta compartida | Pendiente; debe reutilizar RF-01 |
+| Pruebas | `apps/catalog/tests/test_views.py` |
+| Implementación web | `apps/catalog/urls.py`, `apps/catalog/views.py` y `apps/catalog/templates/catalog/product_detail.html` |
+| Consulta compartida | `apps/catalog/selectors.py:get_available_products()` |
 | Implementación API | RF-12 |
-| Evidencia | Pendiente |
+| Evidencia | `docs/evidence/RF-02/CA-RF02-01.md` |
 | Commit | Pendiente |
+
+| Criterio | Prueba | Evidencia | Commit | Estado |
+|---|---|---|---|---|
+| CA-RF02-01 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-01.md` | Pendiente | Verificado |
+| CA-RF02-02 a CA-RF02-06 | Pendiente | Pendiente | Pendiente | Pendiente |
 
 ### RF-03 — Buscar, filtrar, ordenar y paginar el catálogo
 

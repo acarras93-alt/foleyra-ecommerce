@@ -746,3 +746,44 @@ productos disponibles sin añadir una consulta por cada producto de la página.
 El selector evita N+1 al cargar categorías y ofertas activas. No se
 implementaron filtros, ordenación, detalle, API, cambios de moneda, archivos
 privados ni los demás criterios pendientes de RF-01.
+
+## 2026-08-27 — CA-RF02-01: detalle público de producto disponible
+
+### Objetivo y alcance
+
+Implementar y verificar CA-RF02-01: un visitante puede consultar el detalle de
+un producto disponible y ver sus metadatos técnicos y sus ofertas de licencia
+activas. GitHub Copilot se utilizó para crear la prueba RED, implementar el
+detalle mínimo y actualizar esta trazabilidad.
+
+### Cambios realizados
+
+- Se añadió una prueba HTTP aislada para `GET /catalog/nocturnos-urbanos/` con
+  categoría, producto, tipo de licencia y oferta activos.
+- Se registró la ruta `/catalog/<slug>/` y una vista pública que resuelve el
+  producto mediante `get_available_products()`; los productos no disponibles
+  conservan la respuesta 404 del helper de Django.
+- Se creó la plantilla de detalle con nombre, categoría, descripción, duración,
+  formato, frecuencia, profundidad y datos públicos de cada oferta activa.
+- No se modificaron modelos, selector, migraciones, dependencias ni
+  configuración de PostgreSQL.
+
+### Comprobaciones ejecutadas
+
+- RED válido: `.venv/bin/python -m pytest
+  apps/catalog/tests/test_views.py::test_product_detail_displays_technical_metadata_and_active_license_offer
+  -q` falló con `assert 404 == 200`, porque aún no existía la ruta de detalle.
+- GREEN: el mismo comando finalizó con `1 passed in 0.45s`.
+- Puerta de calidad: `manage.py check --database default`,
+  `makemigrations --check --dry-run`, `migrate --check`, Ruff, `pip check` y
+  `git diff --check` fueron correctos; `.venv/bin/python -m pytest -q`
+  finalizó con `18 passed in 0.94s`.
+
+### Resultado y alcance excluido
+
+El detalle público reutiliza la misma definición de disponibilidad que el
+catálogo y muestra la representación mínima de CA-RF02-01. Permanecen
+pendientes preview y reproductor, comprobaciones específicas de productos no
+disponibles, exclusión explícita de ofertas inactivas, ausencia de preview y
+privacidad del archivo maestro. No se generaron evidencias visuales ni se creó
+ningún commit.

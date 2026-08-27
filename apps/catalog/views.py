@@ -1,6 +1,6 @@
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.http import Http404
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
 from apps.catalog.selectors import get_available_products
 
@@ -15,4 +15,13 @@ def product_list(request):
         request,
         "catalog/product_list.html",
         {"products": products},
+    )
+
+
+def product_detail(request, slug):
+    product = get_object_or_404(get_available_products(), slug=slug)
+    return render(
+        request,
+        "catalog/product_detail.html",
+        {"product": product},
     )
