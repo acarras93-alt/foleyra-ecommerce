@@ -854,3 +854,37 @@ definición de disponibilidad pública del detalle.
 Los dos casos pasan como comportamiento preexistente del selector compartido.
 No se implementaron preview, reproductor, exclusión de una oferta inactiva
 cuando existan otras activas, ausencia de preview ni privacidad del maestro.
+
+## 2026-08-27 — CA-RF02-04: exclusión de oferta inactiva en el detalle
+
+### Objetivo y alcance
+
+Verificar CA-RF02-04: cuando un producto disponible tiene una oferta de
+licencia activa y otra inactiva, el detalle público solo representa la activa.
+
+### Cambios realizados
+
+- Se añadió una prueba HTTP aislada en `apps/catalog/tests/test_views.py` con
+  dos tipos de licencia y sus ofertas correspondientes.
+- La prueba comprueba `200`, la presencia de la licencia activa y la ausencia
+  de la licencia vinculada a la oferta inactiva.
+- No se modificaron selector, vista, URL, plantilla, modelos, migraciones,
+  dependencias ni configuración.
+
+### Comprobaciones ejecutadas
+
+- `.venv/bin/ruff format apps/catalog/tests/test_views.py`: un archivo sin
+  cambios.
+- `.venv/bin/ruff check apps/catalog/tests/test_views.py`: correcto.
+- `.venv/bin/python -m pytest apps/catalog/tests/test_views.py -q`: `15 passed
+  in 0.69s`.
+- Puerta de calidad: comprobaciones Django y migraciones, Ruff, `pip check` y
+  `git diff --check` correctos; `.venv/bin/python -m pytest -q` finalizó con
+  `23 passed in 1.03s`.
+
+### Resultado y alcance excluido
+
+CA-RF02-04 queda cubierto como comportamiento preexistente: el prefetch del
+selector compartido solo incluye `ProductLicenseOffer` activas. No se
+implementaron preview, reproductor, control de productos no disponibles,
+ausencia de preview ni privacidad del archivo maestro.

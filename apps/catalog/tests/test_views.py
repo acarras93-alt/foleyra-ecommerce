@@ -404,3 +404,61 @@ def test_product_detail_returns_404_without_an_active_license_offer(client):
     response = client.get("/catalog/nocturnos-urbanos-sin-oferta-activa/")
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_product_detail_excludes_an_inactive_license_offer(client):
+    category = Category.objects.create(
+        name="Ambientes",
+        slug="ambientes",
+        is_active=True,
+    )
+    product = Product.objects.create(
+        category=category,
+        name="Nocturnos urbanos",
+        slug="nocturnos-urbanos",
+        sku="AMB-005",
+        summary="Ambiente ficticio de ciudad durante la noche.",
+        description="Grabación preparada para una producción audiovisual.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+        preview_file="previews/nocturnos-urbanos.mp3",
+        is_active=True,
+    )
+    active_license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+        is_active=True,
+    )
+    inactive_license_type = LicenseType.objects.create(
+        name="Publicidad comercial",
+        slug="publicidad-comercial",
+        usage_scope="Una campaña publicitaria",
+        summary="Uso en una campaña de publicidad comercial.",
+        terms_version="1.0",
+        is_active=True,
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=active_license_type,
+        price=Decimal("12.90"),
+        is_active=True,
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=inactive_license_type,
+        price=Decimal("29.90"),
+        is_active=False,
+    )
+
+    response = client.get("/catalog/nocturnos-urbanos/")
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert active_license_type.name in content
+    assert inactive_license_type.name not in content
