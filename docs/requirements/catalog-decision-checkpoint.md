@@ -37,7 +37,7 @@ compatibilidad técnica del archivo.
 ## Modelo mínimo aprobado
 
 | Entidad | Responsabilidad | Datos principales |
-|---|---|---|
+| --- | --- | --- |
 | `Category` | Clasificar el catálogo | nombre, `slug`, descripción, `is_active` |
 | `Product` | Describir el contenido sonoro | SKU, nombre, `slug`, resúmenes, categoría, duración, formato, frecuencia, profundidad, preview, maestro y estado |
 | `LicenseType` | Definir un permiso por destino de uso | nombre, `slug`, destino, resumen, versión de términos y estado |
@@ -270,13 +270,13 @@ recorrer Red, Green, regresión y evidencia real.
 ## Estado de cobertura técnica al aprobar
 
 | Decisión | Estado de decisión | Cobertura técnica actual |
-|---|---|---|
+| --- | --- | --- |
 | D-CAT-01 | Aprobada | Parcial: existe la oferta unitaria; la compra pertenece a RF-06 |
 | D-CAT-02 | Aprobada | Parcial: existen los modelos; faltan selectores e interfaces |
 | D-CAT-03 | Aprobada | Pendiente de fixture de demostración |
 | D-CAT-04 | Aprobada | Parcial: existen campos; faltan pruebas de valores admitidos |
-| D-CAT-05 | Aprobada | Parcial: `preview_file` usa almacenamiento público y el detalle ofrece un reproductor; la preparación manual, marca audible y duración máxima permanecen como política externa sin verificación automática |
-| D-CAT-06 | Contrato mínimo aprobado | Parcial: `master_file` persiste en almacenamiento privado sin URL, la preview usa una raíz distinta y CA-RF02-05 y CA-RF02-06 están verificados; la entrega de RF-11 permanece pendiente |
+| D-CAT-05 | Aprobada | Parcial: `preview_file` usa almacenamiento público, el detalle ofrece un reproductor y CA-RF02-02 verifica el GET anónimo y los bytes entregados; la preparación manual, marca audible y duración máxima permanecen como política externa sin verificación automática |
+| D-CAT-06 | Contrato mínimo aprobado | Parcial: `master_file` persiste en almacenamiento privado sin URL, la preview usa una raíz distinta y pública en desarrollo, y CA-RF02-02, CA-RF02-05 y CA-RF02-06 están verificados; la entrega autorizada de RF-11 y el servicio de medios en producción permanecen pendientes |
 | D-CAT-07 | Aprobada | No implementada |
 | D-CAT-08 | Aprobada | Fixture pendiente de creación |
 | D-CAT-09 | Principio aprobado | Implementación diferida a RF-06 |

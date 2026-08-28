@@ -9,7 +9,9 @@ Python, Django, Django REST Framework y PostgreSQL.
 - PostgreSQL 18.6 es la única base de datos admitida y se ejecuta localmente mediante Docker Compose.
 - El modelo de usuario activo es `users.User`, definido antes de la primera migración.
 - `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
-- `apps.catalog` contiene el modelo base y su migración inicial para categorías, productos, tipos de licencia y ofertas. La lista pública mínima `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente, presenta el precio mínimo de las ofertas activas como `Desde <precio> EUR` y carga categorías y ofertas activas sin N+1. El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible, e informa cuando la preview no está disponible; reproductor, privacidad del archivo maestro, filtros y API continúan pendientes.
+- `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública mínima `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente, presenta el precio mínimo de las ofertas activas como `Desde <precio> EUR` y carga categorías y ofertas activas sin N+1.
+- El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
+- Las previews usan una raíz pública independiente y pueden obtenerse mediante `/media/` en desarrollo con `DEBUG=True`. Los archivos maestros permanecen en almacenamiento privado sin URL pública, y su nombre, ruta y contenido no se incluyen en el HTML ni en el contexto público. La entrega autorizada del maestro corresponde a RF-11 y continúa fuera del alcance implementado.
 - RF-01, RF-02, RF-03, RF-12 y RF-15 están `Aprobado`. El checkpoint del catálogo habilita iniciar el ciclo test-first con CA-RF01-01; los requisitos de compra y las funciones privadas continúan en estado `Propuesto`.
 
 ## Requisitos locales
@@ -47,7 +49,10 @@ Las pruebas de entorno comprueban que Django usa PostgreSQL y que resuelve
 `users.User` como el modelo de usuario principal. La prueba de la aplicación
 `users` valida además que dicho usuario puede persistirse en PostgreSQL. Las
 pruebas de `apps.core` verifican la URL raíz, el acceso anónimo y el contenido
-público de la página de inicio.
+público de la página de inicio. Las pruebas de `apps.catalog` cubren el flujo
+público catálogo-detalle con PostgreSQL, la entrega HTTP anónima de la preview
+desde almacenamiento temporal y la exclusión del archivo maestro del HTML y
+del contexto público.
 
 ## Documentación
 

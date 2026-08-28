@@ -1,9 +1,14 @@
+import importlib
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from django.core.files.base import ContentFile
+from django.test import override_settings
+from django.urls import clear_url_caches
 
 from apps.catalog.models import Category, LicenseType, Product, ProductLicenseOffer
+from config import urls as project_urls
 
 
 def _create_available_products(number_of_products):
@@ -706,3 +711,41 @@ def test_anonymous_visitor_can_browse_the_public_product_flow_safely(client):
     ):
         assert private_value not in detail_content
         assert private_value not in str(public_context)
+
+
+def test_anonymous_visitor_receives_the_public_preview_file(
+    client,
+    monkeypatch,
+    tmp_path,
+):
+    preview_bytes = b"ID3\x04\x00\x00fictional-preview-bytes"
+    preview_storage = Product._meta.get_field("preview_file").storage
+    monkeypatch.setattr(preview_storage, "_location", tmp_path)
+    preview_storage.__dict__.pop("base_location", None)
+    preview_storage.__dict__.pop("location", None)
+
+    try:
+        with override_settings(
+            DEBUG=True,
+            MEDIA_ROOT=tmp_path,
+            MEDIA_URL="/media/",
+        ):
+            clear_url_caches()
+            importlib.reload(project_urls)
+            product = Product()
+            product.preview_file.save(
+                "ca-rf02-02-public-preview.mp3",
+                ContentFile(preview_bytes),
+                save=False,
+            )
+
+            try:
+                response = client.get(product.preview_file.url)
+
+                assert response.status_code == 200
+                assert b"".join(response.streaming_content) == preview_bytes
+            finally:
+                product.preview_file.delete(save=False)
+    finally:
+        clear_url_caches()
+        importlib.reload(project_urls)

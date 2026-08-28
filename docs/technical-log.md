@@ -1,3 +1,7 @@
+# Bitácora técnica
+
+<!-- markdownlint-disable MD024 -->
+
 ## 2026-08-17 — Corrección y fijación del entorno Python
 
 ### Contexto
@@ -1174,3 +1178,53 @@ la URL del maestro fuera del HTML y del contexto.
 La preparación manual del MP3, su marca audible y su duración máxima no se
 validan dentro de Django. También permanecen fuera de alcance la API, la
 entrega autorizada, los permisos de descarga y RF-11. No se creó ningún commit.
+
+## 2026-08-28 — Entrega HTTP de previews y cierre de CA-RF02-02
+
+### Objetivo y requisito relacionado
+
+Completar la comprobación observable de CA-RF02-02: no solo publicar la URL en
+el HTML, sino permitir que un visitante anónimo obtenga mediante GET los bytes
+del archivo promocional, manteniendo el maestro en almacenamiento privado. La
+asistencia utilizada fue GitHub Copilot.
+
+### Cambios realizados
+
+- Se declararon `MEDIA_ROOT` y `MEDIA_URL` para la raíz pública de previews.
+- El URLconf sirve esa raíz únicamente cuando `DEBUG=True`; `private_media` no
+  forma parte de las rutas públicas.
+- La prueba específica guarda bytes MP3 ficticios en almacenamiento temporal,
+  solicita `preview_file.url`, comprueba respuesta 200 y contenido exacto, y
+  elimina el archivo temporal.
+- La prueba recarga y restaura el URLconf para no depender del orden de la
+  suite. No se modificaron modelos, migraciones ni dependencias.
+
+### Ciclo Red-Green y comprobaciones ejecutadas
+
+- RED válido: la prueba específica finalizó con `1 failed in 0.16s`; el GET a
+  `/media/previews/ca-rf02-02-public-preview.mp3` devolvió 404 porque la ruta
+  pública aún no estaba registrada.
+- GREEN específico: `.venv/bin/python -m pytest -q
+  apps/catalog/tests/test_views.py::test_anonymous_visitor_receives_the_public_preview_file`
+  finalizó con `1 passed in 0.05s`.
+- Regresión final: `.venv/bin/python -m pytest -q` finalizó con `29 passed in
+  1.08s` después de corregir el aislamiento del URLconf de la prueba.
+- La aceptación vertical preexistente de RF-02 finalizó con `1 passed in
+  0.45s` y mantuvo nombre, ruta y URL del maestro fuera del HTML y del contexto.
+- `.venv/bin/python manage.py check --database default` no detectó incidencias;
+  `.venv/bin/python manage.py makemigrations --check --dry-run` indicó `No
+  changes detected`; y `.venv/bin/python manage.py migrate --check` finalizó
+  correctamente sin migraciones pendientes ni aplicadas.
+- `.venv/bin/ruff check .` finalizó con `All checks passed!`;
+  `.venv/bin/ruff format --check .` indicó `67 files already formatted`;
+  `.venv/bin/pip check` indicó `No broken requirements found`; y `git diff
+  --check` no detectó errores de whitespace.
+
+### Resultado y alcance excluido
+
+CA-RF02-02 queda verificado mediante una entrega HTTP real en desarrollo. La
+preview pública y el maestro conservan raíces distintas, y el almacenamiento
+privado continúa sin proporcionar URL pública. Permanecen fuera de alcance el
+servicio de medios en producción, la entrega autorizada de RF-11, la API y la
+validación automática de la preparación, marca audible y duración del MP3. No
+se generaron ni aplicaron migraciones y no se creó ningún commit.
