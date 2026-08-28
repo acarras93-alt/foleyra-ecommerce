@@ -20,8 +20,28 @@ def product_list(request):
 
 def product_detail(request, slug):
     product = get_object_or_404(get_available_products(), slug=slug)
+    product_context = {
+        "name": product.name,
+        "category_name": product.category.name,
+        "description": product.description,
+        "duration_ms": product.duration_ms,
+        "audio_format": product.get_audio_format_display(),
+        "sample_rate_hz": product.sample_rate_hz,
+        "bit_depth": product.bit_depth,
+        "preview_available": bool(product.preview_file),
+        "license_offers": [
+            {
+                "name": offer.license_type.name,
+                "usage_scope": offer.license_type.usage_scope,
+                "summary": offer.license_type.summary,
+                "price": offer.price,
+                "currency": offer.currency,
+            }
+            for offer in product.license_offers.all()
+        ],
+    }
     return render(
         request,
         "catalog/product_detail.html",
-        {"product": product},
+        {"product_detail": product_context},
     )

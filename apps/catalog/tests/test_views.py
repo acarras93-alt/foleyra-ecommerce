@@ -564,3 +564,53 @@ def test_product_detail_without_preview_never_exposes_the_private_master(client)
     assert "Preview no disponible." in content
     assert master_name not in content
     assert Path(master_name).name not in content
+
+
+@pytest.mark.django_db
+def test_product_detail_context_excludes_the_private_master(client):
+    master_name = "masters/context-identifiable-private-master.wav"
+    category = Category.objects.create(
+        name="Ambientes con contexto público",
+        slug="ambientes-con-contexto-publico",
+        is_active=True,
+    )
+    product = Product.objects.create(
+        category=category,
+        name="Nocturnos urbanos con contexto público",
+        slug="nocturnos-urbanos-con-contexto-publico",
+        sku="AMB-008",
+        summary="Ambiente ficticio con contexto público.",
+        description="Grabación preparada con un maestro privado identificable.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+        preview_file="previews/context-public-preview.mp3",
+        master_file=master_name,
+        is_active=True,
+    )
+    license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales con contexto público",
+        slug="youtube-redes-sociales-con-contexto-publico",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+        is_active=True,
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=license_type,
+        price=Decimal("12.90"),
+        is_active=True,
+    )
+
+    response = client.get("/catalog/nocturnos-urbanos-con-contexto-publico/")
+    public_context = {}
+    for context in response.context:
+        public_context.update(context.flatten())
+
+    assert response.status_code == 200
+    assert all(not hasattr(value, "master_file") for value in public_context.values())
+    assert master_name not in str(public_context)
+    assert Path(master_name).name not in str(public_context)
+    assert str(product.master_file.storage.location) not in str(public_context)

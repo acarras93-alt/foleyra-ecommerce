@@ -1,27 +1,27 @@
 {% extends "base.html" %}
 {% load l10n %}
 
-{% block title %}{{ product.name }} | SoundMarket{% endblock %}
+{% block title %}{{ product_detail.name }} | SoundMarket{% endblock %}
 
 {% block content %}
-    <h1>{{ product.name }}</h1>
-    <p>{{ product.category.name }}</p>
-    <p>{{ product.description }}</p>
+    <h1>{{ product_detail.name }}</h1>
+    <p>{{ product_detail.category_name }}</p>
+    <p>{{ product_detail.description }}</p>
     <ul>
-        <li>{{ product.duration_ms }} ms</li>
-        <li>{{ product.get_audio_format_display }}</li>
-        <li>{{ product.sample_rate_hz }} Hz</li>
-        <li>{{ product.bit_depth }} bits</li>
+        <li>{{ product_detail.duration_ms }} ms</li>
+        <li>{{ product_detail.audio_format }}</li>
+        <li>{{ product_detail.sample_rate_hz }} Hz</li>
+        <li>{{ product_detail.bit_depth }} bits</li>
     </ul>
-    {% if not product.preview_file %}
+    {% if not product_detail.preview_available %}
         <p>Preview no disponible.</p>
     {% endif %}
     <ul>
-        {% for offer in product.license_offers.all %}
+        {% for offer in product_detail.license_offers %}
             <li>
-                {{ offer.license_type.name }}
-                {{ offer.license_type.usage_scope }}
-                {{ offer.license_type.summary }}
+                {{ offer.name }}
+                {{ offer.usage_scope }}
+                {{ offer.summary }}
                 {{ offer.price|unlocalize }} {{ offer.currency }}
             </li>
         {% endfor %}

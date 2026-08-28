@@ -1071,3 +1071,59 @@ CA-RF02-06 permanece pendiente porque exige revisar de forma independiente
 todo el HTML y el contexto público. También permanecen fuera de alcance el
 reproductor de CA-RF02-02, la API, la entrega autorizada, los permisos de
 descarga y RF-11. No se creó ningún commit.
+
+## 2026-08-28 — Verificación de CA-RF02-06 en HTML y contexto público
+
+### Objetivo y requisito relacionado
+
+Verificar CA-RF02-06 sobre el almacenamiento privado aprobado en D-CAT-06 y
+RNF-06. Ante un producto con una clave de maestro identificable, ni el HTML ni
+el contexto público del detalle deben permitir obtener su nombre, ruta o URL.
+La asistencia utilizada fue GitHub Copilot.
+
+### Cambios realizados
+
+- Se añadió una prueba HTTP aislada que inspecciona el HTML y los contextos
+  renderizados por Django.
+- La vista de detalle dejó de entregar objetos ORM al contexto y construye una
+  proyección explícita con los metadatos públicos del producto y sus ofertas.
+- El template consume esa proyección pública y conserva el contenido observable
+  del detalle.
+- No se modificaron URLs, selectores, modelos, almacenamiento, configuración ni
+  migraciones.
+
+### Ciclo Red-Green y comprobaciones ejecutadas
+
+- La primera ejecución de la prueba falló por una preparación incorrecta al
+  intentar usar `flatten()` directamente sobre `ContextList`; se corrigió solo
+  la prueba y ese resultado no se consideró un Red funcional.
+- RED válido: `.venv/bin/python -m pytest
+  apps/catalog/tests/test_views.py::test_product_detail_context_excludes_the_private_master
+  -q` finalizó con `1 failed in 0.52s`. El contexto incluía el objeto
+  `Product`, que permitía acceder a `master_file`.
+- GREEN: el mismo nodo finalizó inicialmente con `1 passed in 0.44s` y su
+  comprobación final con `1 passed in 0.43s`.
+- Regresión focalizada: `.venv/bin/python -m pytest
+  apps/catalog/tests/test_views.py -q` finalizó con `18 passed in 0.66s`.
+- Regresión completa: `.venv/bin/python -m pytest -q` finalizó con `27 passed
+  in 1.11s`, sin pruebas fallidas ni errores.
+- `.venv/bin/python manage.py check --database default` finalizó sin
+  incidencias.
+- `.venv/bin/python manage.py makemigrations --check --dry-run` indicó `No
+  changes detected` y `.venv/bin/python manage.py migrate --check` confirmó que
+  no había migraciones pendientes.
+- `.venv/bin/ruff check .` finalizó con `All checks passed!` y
+  `.venv/bin/ruff format --check .` con `67 files already formatted`.
+- `.venv/bin/pip check` indicó `No broken requirements found` y
+  `git diff --check` finalizó correctamente sin salida.
+
+### Resultado y alcance excluido
+
+CA-RF02-06 queda verificado. El contexto del detalle contiene únicamente una
+proyección de datos públicos y el HTML no contiene la clave, el nombre, la ruta
+ni una URL del maestro. El almacenamiento privado conserva el aislamiento
+verificado en el incremento anterior.
+
+Permanecen fuera de alcance CA-RF02-02, la API, la entrega autorizada, los
+permisos de descarga y RF-11. No se generaron ni aplicaron migraciones y no se
+creó ningún commit.
