@@ -5,6 +5,11 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
 
+from apps.catalog.storage import PreviewStorage, PrivateMasterStorage
+
+preview_storage = PreviewStorage()
+private_master_storage = PrivateMasterStorage()
+
 
 class Category(models.Model):
     name = models.CharField(max_length=80, unique=True)
@@ -40,7 +45,16 @@ class Product(models.Model):
     audio_format = models.CharField(max_length=8, choices=AudioFormat.choices)
     sample_rate_hz = models.PositiveIntegerField()
     bit_depth = models.PositiveSmallIntegerField()
-    preview_file = models.FileField(upload_to="previews/", blank=True)
+    preview_file = models.FileField(
+        upload_to="previews/",
+        storage=preview_storage,
+        blank=True,
+    )
+    master_file = models.FileField(
+        upload_to="masters/",
+        storage=private_master_storage,
+        blank=True,
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

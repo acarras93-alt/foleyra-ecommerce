@@ -1,4 +1,5 @@
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -63,3 +64,37 @@ def test_product_license_offer_defines_a_unitary_purchase_option():
         .order_by("price")
         .values_list("price", flat=True)
     ) == [Decimal("12.90"), Decimal("49.90")]
+
+
+@pytest.mark.django_db
+def test_product_master_file_uses_private_storage_without_a_public_url():
+    master_name = "masters/identifiable-private-master.wav"
+    category = Category.objects.create(
+        name="Ambientes privados",
+        slug="ambientes-privados",
+    )
+    product = Product.objects.create(
+        category=category,
+        name="Nocturnos urbanos privados",
+        slug="nocturnos-urbanos-privados",
+        sku="AMB-PRIVATE-001",
+        summary="Ambiente ficticio con archivo maestro privado.",
+        description="Grabación preparada para comprobar almacenamiento privado.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+        preview_file="previews/public-preview.mp3",
+        master_file=master_name,
+    )
+
+    product.refresh_from_db()
+
+    assert product.master_file.name == master_name
+    assert (
+        Path(product.preview_file.storage.location).resolve()
+        != Path(product.master_file.storage.location).resolve()
+    )
+    with pytest.raises(NotImplementedError) as error:
+        assert product.master_file.url is None
+    assert master_name not in str(error.value)

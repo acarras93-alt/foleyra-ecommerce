@@ -923,3 +923,151 @@ El detalle comunica la indisponibilidad de la preview configurada sin alterar
 la disponibilidad del producto. CA-RF02-05 no se declara cerrado: queda por
 verificar que el archivo maestro no se usa ni se expone. No se implementaron
 reproductor, almacenamiento, archivo maestro ni otros criterios.
+
+## 2026-08-28 — Contrato mínimo de almacenamiento público y privado
+
+### Objetivo y decisión aprobada
+
+Concretar D-CAT-06 y RNF-06 sin implementar todavía el archivo maestro. Se
+aprobó que `Product.preview_file` y el futuro `Product.master_file` utilicen
+almacenamientos explícitos con raíces físicas distintas. Solo las previews
+podrán disponer de URL pública en desarrollo; el almacenamiento privado no
+generará URL y deberá fallar sin revelar el nombre ni la ruta del maestro.
+
+`Product.master_file` representará una única clave interna y admitirá un valor
+vacío hasta que RF-11 defina su obligatoriedad. Las interfaces públicas no
+recibirán el campo ni sus datos derivados, y la ausencia o fallo de preview
+nunca habilitará el maestro como alternativa.
+
+### División del trabajo futuro
+
+La aprobación no autoriza una implementación conjunta. Los incrementos se
+realizarán por separado y requerirán su propio ciclo Red-Green y aprobación de
+alcance:
+
+1. persistencia de `master_file` y separación de los almacenamientos;
+2. CA-RF02-05, ausencia o fallo de preview sin fallback al maestro;
+3. CA-RF02-06, exclusión del maestro en HTML y contexto público;
+4. entrega autorizada en RF-11.
+
+### Comprobaciones y alcance excluido
+
+Se revisaron D-CAT-06, RNF-06, RF-02, el estado propuesto de RF-11 y el código y
+configuración actuales antes de aprobar el contrato. Este cambio es
+exclusivamente documental: no se modificaron código, pruebas, configuración,
+migraciones ni dependencias, y no se ejecutaron pruebas automáticas.
+
+La vista de descarga, la respuesta del archivo, los permisos y las
+comprobaciones de usuario, pedido, licencia y autorización permanecen fuera de
+alcance hasta que RF-11 y sus criterios sean aprobados.
+
+## 2026-08-28 — Persistencia y almacenamiento privado de `master_file`
+
+### Objetivo y requisito relacionado
+
+Implementar exclusivamente el primer incremento aprobado de D-CAT-06 y RNF-06:
+persistir una clave opcional en `Product.master_file`, separar físicamente el
+almacenamiento de previews y maestros, y evitar que el almacenamiento privado
+genere una URL pública. La asistencia utilizada fue GitHub Copilot.
+
+### Cambios realizados
+
+- Se añadieron `PreviewStorage` y `PrivateMasterStorage` con raíces distintas.
+- `PrivateMasterStorage.url()` lanza `NotImplementedError` con un mensaje
+  constante que no contiene el nombre ni la ruta solicitados.
+- `Product.preview_file` utiliza el almacenamiento público explícito.
+- `Product.master_file` utiliza el almacenamiento privado, admite un valor
+  vacío mediante `blank=True` y no utiliza `null=True`.
+- Django generó la migración
+  `catalog.0002_product_master_file_alter_product_preview_file`, con una
+  operación `AddField` y una operación `AlterField`.
+
+### Comprobaciones ejecutadas
+
+- RED: `.venv/bin/python -m pytest
+  apps/catalog/tests/test_models.py::test_product_master_file_uses_private_storage_without_a_public_url
+  -q` falló con `TypeError: Product() got unexpected keyword arguments:
+  'master_file'` antes de implementar el campo.
+- GREEN: la misma prueba finalizó con `1 passed in 0.36s` después de implementar
+  el contrato y generar la migración.
+- `.venv/bin/python manage.py makemigrations catalog --check --dry-run`: `No
+  changes detected in app 'catalog'`.
+- El plan de migración mostró únicamente
+  `catalog.0002_product_master_file_alter_product_preview_file`, con
+  `Add field master_file to product` y `Alter field preview_file on product`.
+- La migración se aplicó por nombre exacto con resultado `OK`; `showmigrations
+  catalog` confirmó `0001_initial` y `0002` aplicadas.
+- `.venv/bin/python manage.py check --database default`: sin incidencias.
+- Comprobación de migraciones: sin cambios ni migraciones pendientes.
+- `.venv/bin/python -m pytest -q`: `25 passed in 1.06s`.
+- `.venv/bin/ruff check .`: detectó inicialmente dos errores locales; después
+  de corregirlos finalizó con `All checks passed!`.
+- `.venv/bin/ruff format --check .`: `67 files already formatted`.
+- `.venv/bin/pip check`: `No broken requirements found`.
+- `git diff --check`: correcto, sin salida.
+
+### Resultado y alcance excluido
+
+El primer incremento de D-CAT-06 queda implementado y comprobado: la clave del
+maestro persiste, previews y maestros usan raíces distintas, y solicitar la URL
+privada falla sin revelar la clave. No se creó ninguna ruta pública para el
+maestro.
+
+CA-RF02-05 y CA-RF02-06 no se declaran verificados. No se implementaron cambios
+en URLs, vistas, templates, selectores ni la entrega autorizada; RF-11 conserva
+su estado propuesto. No se creó ningún commit.
+
+## 2026-08-28 — Verificación de CA-RF02-05 con almacenamiento privado
+
+### Objetivo y requisito relacionado
+
+Completar la verificación de CA-RF02-05 sobre el contrato mínimo aprobado de
+D-CAT-06 y RNF-06. La asistencia utilizada fue GitHub Copilot.
+
+La prueba aprobada crea un producto disponible con `preview_file` vacío y una
+clave de maestro identificable. Comprueba que la clave persiste, que preview y
+maestro usan raíces distintas y que solicitar la URL privada lanza
+`NotImplementedError` sin revelar el nombre del maestro. También comprueba que
+el detalle responde 200, muestra `Preview no disponible.` y no contiene la
+clave ni el nombre del maestro en el HTML.
+
+### Resultado test-first y comprobaciones ejecutadas
+
+- La nueva prueba no produjo un estado Red: su primera ejecución finalizó con
+  `1 passed in 0.48s` porque los incrementos previos ya proporcionaban el
+  comportamiento observable y el almacenamiento requerido. Se clasificó como
+  Green preexistente, no como fallo de entorno o configuración.
+- Tras corregir únicamente el estilo de la prueba, `.venv/bin/python -m pytest
+  apps/catalog/tests/test_views.py::test_product_detail_without_preview_never_exposes_the_private_master
+  -q` finalizó con `1 passed in 0.48s`.
+- `.venv/bin/python manage.py makemigrations catalog --check --dry-run` indicó
+  `No changes detected in app 'catalog'`.
+- La migración `catalog.0002_product_master_file_alter_product_preview_file` se
+  revisó sin editarla: contiene solo `AddField` para `master_file` y
+  `AlterField` para `preview_file`, sin valores por defecto, migraciones de
+  datos ni cambios ajenos.
+- El plan por nombre exacto no mostró operaciones pendientes y
+  `showmigrations catalog` confirmó `0001_initial` y `0002` aplicadas. Durante
+  esta verificación no se aplicó ninguna migración.
+- `.venv/bin/python manage.py check --database default` finalizó sin
+  incidencias y la comprobación de migraciones no detectó cambios ni
+  migraciones pendientes.
+- `.venv/bin/python -m pytest -q` finalizó con `26 passed in 1.06s`.
+- La primera puerta global de Ruff detectó `B018` y un cambio de formato en la
+  prueba nueva. Después de corregir solo esas dos incidencias,
+  `.venv/bin/ruff check .` finalizó con `All checks passed!` y
+  `.venv/bin/ruff format --check .` con `67 files already formatted`.
+- `.venv/bin/pip check` indicó `No broken requirements found` y
+  `git diff --check` finalizó correctamente sin salida.
+
+### Resultado y alcance excluido
+
+CA-RF02-05 queda verificado: ante una preview ausente, el detalle permanece
+consultable, informa de la indisponibilidad y no usa ni revela el archivo
+maestro en el HTML. El almacenamiento privado tampoco proporciona una URL ni
+revela la clave solicitada en el error.
+
+CA-RF02-06 permanece pendiente porque exige revisar de forma independiente
+todo el HTML y el contexto público. También permanecen fuera de alcance el
+reproductor de CA-RF02-02, la API, la entrega autorizada, los permisos de
+descarga y RF-11. No se creó ningún commit.

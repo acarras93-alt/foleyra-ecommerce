@@ -146,19 +146,42 @@ audible y sin utilizar nunca el maestro como alternativa.
 
 ### D-CAT-06 — Separación de almacenamiento público y privado
 
-**Estado:** principio aprobado el 2026-08-25; detalle de entrega diferido a
-RF-11.
+**Estado:** principio aprobado el 2026-08-25; contrato mínimo aprobado el
+2026-08-28; detalle de entrega diferido a RF-11.
 
 **Decisión:** previews y archivos maestros usan raíces de almacenamiento
 distintas. Solo la raíz de previews puede servirse públicamente en desarrollo.
 El maestro se entregará mediante una vista autorizada en RF-11, nunca mediante
 una URL de medios pública.
 
+El contrato mínimo aprobado para el catálogo es:
+
+- `Product.preview_file` conserva el archivo promocional público y utiliza un
+  almacenamiento de previews explícito;
+- `Product.master_file` representa una única clave interna del archivo maestro,
+  admite un valor vacío hasta que RF-11 defina la obligatoriedad y utiliza un
+  almacenamiento privado explícito;
+- los dos almacenamientos usan raíces físicas distintas y solo el de previews
+  dispone de URL pública en desarrollo;
+- el almacenamiento privado no genera URL: solicitarla debe fallar sin revelar
+  el nombre ni la ruta del maestro;
+- ninguna interfaz pública recibe `master_file`, su nombre, su ruta o una URL,
+  y la ausencia o fallo de la preview nunca utiliza el maestro como alternativa.
+
 **Por qué:** omitir un campo del template o serializer no protege un directorio
 que el servidor ya publica.
 
-La raíz privada concreta y la estrategia de entrega se definirán antes de
-RF-11. Este detalle diferido no bloquea la estructura lógica del catálogo.
+La aprobación documental no autoriza una implementación conjunta. El trabajo
+futuro se divide en incrementos independientes:
+
+1. persistencia de `master_file` y separación de los almacenamientos;
+2. CA-RF02-05, ausencia o fallo de preview sin fallback al maestro;
+3. CA-RF02-06, exclusión del maestro en HTML y contexto público;
+4. entrega autorizada en RF-11, después de aprobar su contrato y criterios.
+
+La estrategia de entrega, la comprobación de usuario, pedido, licencia y
+autorización, y cualquier respuesta de descarga permanecen fuera de alcance
+hasta RF-11.
 
 ### D-CAT-07 — Contrato público y paginación
 
@@ -253,7 +276,7 @@ recorrer Red, Green, regresión y evidencia real.
 | D-CAT-03 | Aprobada | Pendiente de fixture de demostración |
 | D-CAT-04 | Aprobada | Parcial: existen campos; faltan pruebas de valores admitidos |
 | D-CAT-05 | Aprobada | Parcial: existe `preview_file`; faltan política y almacenamiento |
-| D-CAT-06 | Principio aprobado | Implementación privada diferida a RF-11 |
+| D-CAT-06 | Contrato mínimo aprobado | Parcial: `master_file` persiste en almacenamiento privado sin URL, la preview usa una raíz distinta y CA-RF02-05 está verificado; CA-RF02-06 y la entrega de RF-11 permanecen pendientes |
 | D-CAT-07 | Aprobada | No implementada |
 | D-CAT-08 | Aprobada | Fixture pendiente de creación |
 | D-CAT-09 | Principio aprobado | Implementación diferida a RF-06 |
