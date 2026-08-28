@@ -13,7 +13,9 @@
         <li>{{ product_detail.sample_rate_hz }} Hz</li>
         <li>{{ product_detail.bit_depth }} bits</li>
     </ul>
-    {% if not product_detail.preview_available %}
+    {% if product_detail.preview_available %}
+        <audio controls src="{{ product_detail.preview_url }}"></audio>
+    {% else %}
         <p>Preview no disponible.</p>
     {% endif %}
     <ul>

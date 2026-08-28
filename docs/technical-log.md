@@ -1127,3 +1127,50 @@ verificado en el incremento anterior.
 Permanecen fuera de alcance CA-RF02-02, la API, la entrega autorizada, los
 permisos de descarga y RF-11. No se generaron ni aplicaron migraciones y no se
 creó ningún commit.
+
+## 2026-08-28 — Preview pública y aceptación integrada de RF-02
+
+### Objetivo y requisito relacionado
+
+Completar CA-RF02-02 y comprobar en una única prueba de aceptación el recorrido
+público de RF-02 con el cliente HTTP de Django y PostgreSQL. La asistencia
+utilizada fue GitHub Copilot.
+
+### Cambios realizados
+
+- La proyección pública del detalle incluye únicamente la URL generada por el
+  almacenamiento de previews cuando existe un archivo promocional.
+- El template muestra un reproductor HTML `audio` con esa URL pública y conserva
+  el aviso `Preview no disponible.` cuando falta la preview.
+- Se añadió una prueba de aceptación para un visitante anónimo que consulta el
+  catálogo, abre el detalle, recibe metadatos y ofertas activas, excluye ofertas
+  inactivas y comprueba la preview pública y la privacidad del maestro en HTML
+  y contexto.
+- No se modificaron URLs, selectores, modelos, configuración, almacenamiento ni
+  migraciones y no se añadieron dependencias.
+
+### Ciclo Red-Green y comprobaciones ejecutadas
+
+- RED: `.venv/bin/python -m pytest
+  apps/catalog/tests/test_views.py::test_anonymous_visitor_can_browse_the_public_product_flow_safely
+  -q` finalizó con `1 failed in 0.59s`. El catálogo, el detalle, los metadatos,
+  las ofertas y la privacidad pasaban, pero el HTML no contenía
+  `/media/previews/rf02-public-preview.mp3`.
+- GREEN: el mismo nodo finalizó con `1 passed in 0.45s` después de añadir la URL
+  pública al contexto seguro y el reproductor al template.
+- Puerta posterior observada: `.venv/bin/python manage.py check --database
+  default` finalizó sin incidencias; `.venv/bin/python -m pytest -q` finalizó
+  con `28 passed in 1.04s`; `.venv/bin/ruff check .` finalizó con `All checks
+  passed!`; y `.venv/bin/ruff format --check .` indicó `67 files already
+  formatted`.
+
+### Resultado y alcance excluido
+
+CA-RF02-02 queda verificado: el detalle de un producto con preview referencia
+exclusivamente la URL del archivo promocional público. La aceptación integrada
+confirma además el recorrido catálogo-detalle y mantiene el nombre, la ruta y
+la URL del maestro fuera del HTML y del contexto.
+
+La preparación manual del MP3, su marca audible y su duración máxima no se
+validan dentro de Django. También permanecen fuera de alcance la API, la
+entrega autorizada, los permisos de descarga y RF-11. No se creó ningún commit.

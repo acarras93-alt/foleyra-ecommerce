@@ -275,7 +275,7 @@ recorrer Red, Green, regresión y evidencia real.
 | D-CAT-02 | Aprobada | Parcial: existen los modelos; faltan selectores e interfaces |
 | D-CAT-03 | Aprobada | Pendiente de fixture de demostración |
 | D-CAT-04 | Aprobada | Parcial: existen campos; faltan pruebas de valores admitidos |
-| D-CAT-05 | Aprobada | Parcial: existe `preview_file`; faltan política y almacenamiento |
+| D-CAT-05 | Aprobada | Parcial: `preview_file` usa almacenamiento público y el detalle ofrece un reproductor; la preparación manual, marca audible y duración máxima permanecen como política externa sin verificación automática |
 | D-CAT-06 | Contrato mínimo aprobado | Parcial: `master_file` persiste en almacenamiento privado sin URL, la preview usa una raíz distinta y CA-RF02-05 y CA-RF02-06 están verificados; la entrega de RF-11 permanece pendiente |
 | D-CAT-07 | Aprobada | No implementada |
 | D-CAT-08 | Aprobada | Fixture pendiente de creación |

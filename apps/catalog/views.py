@@ -29,6 +29,7 @@ def product_detail(request, slug):
         "sample_rate_hz": product.sample_rate_hz,
         "bit_depth": product.bit_depth,
         "preview_available": bool(product.preview_file),
+        "preview_url": product.preview_file.url if product.preview_file else "",
         "license_offers": [
             {
                 "name": offer.license_type.name,

@@ -614,3 +614,95 @@ def test_product_detail_context_excludes_the_private_master(client):
     assert master_name not in str(public_context)
     assert Path(master_name).name not in str(public_context)
     assert str(product.master_file.storage.location) not in str(public_context)
+
+
+@pytest.mark.django_db
+def test_anonymous_visitor_can_browse_the_public_product_flow_safely(client):
+    master_name = "masters/rf02-acceptance-private-master.wav"
+    category = Category.objects.create(
+        name="Ambientes RF-02",
+        slug="ambientes-rf02",
+        is_active=True,
+    )
+    product = Product.objects.create(
+        category=category,
+        name="Nocturnos urbanos RF-02",
+        slug="nocturnos-urbanos-rf02",
+        sku="AMB-RF02",
+        summary="Ambiente ficticio para la aceptación de RF-02.",
+        description="Grabación preparada para el flujo público de RF-02.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+        preview_file="previews/rf02-public-preview.mp3",
+        master_file=master_name,
+        is_active=True,
+    )
+    active_license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales RF-02",
+        slug="youtube-redes-sociales-rf02",
+        usage_scope="Un canal por plataforma",
+        summary="Uso activo para el flujo público de RF-02.",
+        terms_version="1.0",
+        is_active=True,
+    )
+    inactive_license_type = LicenseType.objects.create(
+        name="Publicidad inactiva RF-02",
+        slug="publicidad-inactiva-rf02",
+        usage_scope="Una campaña publicitaria",
+        summary="Oferta inactiva que no debe ser pública.",
+        terms_version="1.0",
+        is_active=True,
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=active_license_type,
+        price=Decimal("12.90"),
+        is_active=True,
+    )
+    ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=inactive_license_type,
+        price=Decimal("29.90"),
+        is_active=False,
+    )
+
+    catalog_response = client.get("/catalog/")
+    catalog_content = catalog_response.content.decode()
+
+    assert catalog_response.status_code == 200
+    assert product.name in catalog_content
+
+    detail_response = client.get(f"/catalog/{product.slug}/")
+    detail_content = detail_response.content.decode()
+    public_context = {}
+    for context in detail_response.context:
+        public_context.update(context.flatten())
+
+    assert detail_response.status_code == 200
+    for public_value in (
+        product.name,
+        category.name,
+        product.description,
+        "18500 ms",
+        "WAV",
+        "48000 Hz",
+        "24 bits",
+        active_license_type.name,
+        active_license_type.usage_scope,
+        active_license_type.summary,
+        "12.90 EUR",
+    ):
+        assert public_value in detail_content
+    assert inactive_license_type.name not in detail_content
+    assert product.preview_file.url in detail_content
+    assert "Preview no disponible." not in detail_content
+    assert all(not hasattr(value, "master_file") for value in public_context.values())
+    for private_value in (
+        master_name,
+        Path(master_name).name,
+        str(product.master_file.storage.location),
+    ):
+        assert private_value not in detail_content
+        assert private_value not in str(public_context)

@@ -323,7 +323,7 @@ la interfaz pública.
 | Criterio | Prueba | Evidencia | Commit | Estado |
 |---|---|---|---|---|
 | CA-RF02-01 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-01.md` | `5a7c1cf` | Verificado |
-| CA-RF02-02 | Pendiente | Pendiente | Pendiente | Pendiente |
+| CA-RF02-02 | `apps/catalog/tests/test_views.py` | `docs/technical-log.md` | Pendiente | Verificado |
 | CA-RF02-03 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-03.md` | Pendiente | Verificado: comportamiento preexistente |
 | CA-RF02-04 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-04.md` | Pendiente | Verificado: comportamiento preexistente |
 | CA-RF02-05 | `apps/catalog/tests/test_views.py` | `docs/technical-log.md` | Pendiente | Verificado |
