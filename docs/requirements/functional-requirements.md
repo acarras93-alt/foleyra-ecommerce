@@ -347,6 +347,19 @@ la interfaz pública.
 | Estado | Aprobado |
 | Dependencias | RF-01, RF-02, RNF-03 a RNF-05, RNF-07, RNF-09 y RNF-11 |
 
+#### Estado de preparación
+
+Los conflictos previos quedaron cerrados el 2026-09-01:
+
+- contrato y alcance aprobados en `3e30a7c`;
+- ofertas asociadas a tipos de licencia inactivos excluidas en `3c58ae7`;
+- carga de `license_type` sin N+1 verificada en `f3991b7`;
+- trazabilidad previa consolidada en `9674d9b`.
+
+Este estado habilita comenzar CA-RF03-01, pero no implementa RF-03. El código
+todavía no procesa `q`, `category`, `license` ni `ordering`, y la plantilla no
+conserva esos controles.
+
 #### Objetivo
 
 Permitir que el visitante reduzca y ordene el catálogo público mediante un
@@ -418,20 +431,26 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 
 #### Criterios de aceptación
 
-- CA-RF03-01: dada una palabra contenida en el nombre o descripción, cuando se
-  busca, entonces solo aparecen productos disponibles coincidentes.
-- CA-RF03-02: dados filtros de categoría y licencia, cuando se combinan,
-  entonces solo aparecen productos que cumplen ambos.
-- CA-RF03-03: cuando se ordena por precio ascendente o descendente, entonces se
-  usa el precio mínimo activo y el orden es estable.
-- CA-RF03-04: cuando se cambia de página, entonces se conservan la búsqueda,
-  filtros y orden actuales.
-- CA-RF03-05: dada una consulta válida sin coincidencias, entonces se muestra un
-  mensaje comprensible y se conservan los controles de búsqueda.
+- CA-RF03-01: dada una palabra o frase normalizada contenida en `name`, `summary`
+  o `description`, cuando se busca sin distinguir mayúsculas de minúsculas,
+  entonces solo aparecen productos disponibles coincidentes.
+- CA-RF03-02: dados los `slug` de una categoría y un tipo de licencia activos,
+  cuando se combinan ambos filtros, entonces solo aparecen productos disponibles
+  de esa categoría que poseen una oferta pública para esa licencia.
+- CA-RF03-03: cuando se ordena por `price` o `-price`, entonces se utiliza el
+  precio mínimo global de las ofertas y tipos de licencia activos y se añade el
+  identificador como desempate estable.
+- CA-RF03-04: cuando se cambia de página, entonces se conservan únicamente `q`,
+  `category`, `license` y `ordering`, y solo se sustituye el valor de `page`.
+- CA-RF03-05: dada una consulta válida sin coincidencias, entonces la respuesta
+  es 200, se muestra un mensaje comprensible y se conservan visibles los
+  controles con sus valores reconocidos.
 - CA-RF03-06: dado un valor no permitido en `ordering`, entonces la respuesta es
-  400 y no se ejecuta una ordenación arbitraria.
-- CA-RF03-07: dada una página inexistente o inválida, entonces la respuesta es
-  404.
+  400, identifica ese parámetro sin detalles internos y no ejecuta una
+  ordenación construida con el texto recibido.
+- CA-RF03-07: dada una página posterior a la última, no numérica o menor que uno,
+  entonces la respuesta es 404; la página 1 de una consulta válida vacía
+  responde 200.
 
 #### Pruebas previstas
 
@@ -463,17 +482,29 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 
 | Elemento | Referencia |
 |---|---|
-| Pruebas | Pendiente hasta v0.2.0 |
-| Decisiones aplicables | `docs/requirements/rf03-decision-checkpoint.md` |
+| Pruebas | CA-RF03-01 a CA-RF03-06 pendientes; CA-RF03-07 reutiliza pruebas de RF-01 |
+| Decisiones aplicables | `docs/requirements/rf03-decision-checkpoint.md`, commit `3e30a7c` |
+| Selector base disponible | `apps/catalog/selectors.py:get_available_products()`, commits `3c58ae7` y `f3991b7` |
 | Implementación web | Pendiente |
 | Consulta compartida | Pendiente; extensión de RF-01 |
 | Implementación API | RF-12 |
-| Evidencia | Pendiente |
-| Commit | Pendiente |
+| Evidencia | CA-RF03-07 en `docs/evidence/RF-03/CA-RF03-07.md`; resto pendiente |
+| Commits de preparación | `3e30a7c`, `3c58ae7`, `f3991b7`, `9674d9b` |
 
-CA-RF03-07 reutiliza la paginación y las pruebas 404 implementadas por RF-01.
-Se documenta como Green preexistente en `docs/evidence/RF-03/CA-RF03-07.md`;
-no se revierte comportamiento correcto para fabricar un Red.
+| Criterio | Prueba | Evidencia | Commit | Estado |
+|---|---|---|---|---|
+| CA-RF03-01 | Pendiente | Pendiente | Pendiente | No implementado |
+| CA-RF03-02 | Pendiente | Pendiente | Pendiente | No implementado |
+| CA-RF03-03 | Pendiente | Pendiente | Pendiente | No implementado |
+| CA-RF03-04 | Pendiente | Pendiente | Pendiente | No implementado |
+| CA-RF03-05 | Pendiente | Pendiente | Pendiente | No implementado |
+| CA-RF03-06 | Pendiente | Pendiente | Pendiente | No implementado |
+| CA-RF03-07 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-03/CA-RF03-07.md` | `c8e2a20` | Verificado: Green preexistente de RF-01 |
+
+CA-RF03-07 reutiliza la paginación y las pruebas 404 implementadas por RF-01;
+no se revierte comportamiento correcto para fabricar un Red. RF-03 conservará
+el estado `Aprobado` hasta que los seis comportamientos pendientes recorran su
+ciclo test-first y la puerta de calidad correspondiente.
 
 ## RF-04: Registrarse, iniciar sesión y cerrar sesión
 
