@@ -1267,3 +1267,33 @@ La regresión específica de las pruebas 404 de paginación finalizó con `3
 passed`. Este incremento es documental: no modificó modelos, selector, vistas,
 templates, URLs, migraciones ni dependencias. CA-RF03-01 a CA-RF03-06 continúan
 sin implementar.
+
+## 2026-09-01 — Disponibilidad pública del tipo de licencia
+
+### Objetivo
+
+Resolver antes de RF-03 una inconsistencia heredada del selector: una oferta
+activa asociada a un `LicenseType` inactivo hacía disponible el producto,
+abarataba `minimum_price` y se precargaba como oferta pública.
+
+### Ciclo Red-Green
+
+- RED válido: `test_available_products_require_an_active_license_type` finalizó
+  con `1 failed`; el selector devolvía un producto cuya única licencia estaba
+  inactiva.
+- Después de la implementación mínima, la prueba alcanzó la exclusión correcta
+  y detectó un error de preparación: la anotación se consultaba en la instancia
+  creada, no en la devuelta por el selector. Se corrigió solo esa referencia de
+  la prueba.
+- GREEN: la prueba específica finalizó con `1 passed`.
+- Regresión de selector y vistas: `22 passed`.
+- Regresión completa: `30 passed`.
+- Ruff sobre los dos archivos modificados finalizó correctamente y confirmó que
+  ambos estaban formateados.
+
+### Implementación y alcance
+
+El selector exige `license_type__is_active=True` en disponibilidad, cálculo del
+precio mínimo y ofertas precargadas. No se modificaron modelos, migraciones,
+vistas, templates, URLs o dependencias. No se implementó ningún criterio de
+RF-03.
