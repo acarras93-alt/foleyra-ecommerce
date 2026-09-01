@@ -185,14 +185,22 @@ del sitio de referencia.
 
 ### WP-05 — RF-03: búsqueda, filtros y orden
 
+Antes de iniciar un criterio, comprobar el
+[checkpoint específico de RF-03](requirements/rf03-decision-checkpoint.md) y
+cerrar sus conflictos técnicos previos sin implementar parámetros de consulta.
+
 Implementar un parámetro cada vez. Orden sugerido:
 
 1. `q`;
 2. `category` y `license`;
-3. características técnicas;
-4. lista cerrada de `ordering`;
-5. conservación de parámetros al paginar;
-6. errores 400 y 404 acordados.
+3. lista cerrada de `ordering`;
+4. conservación de parámetros al paginar;
+5. estado vacío y controles conservados;
+6. errores 400 acordados y evidencia del 404 preexistente.
+
+Los filtros por formato, frecuencia de muestreo y profundidad de bits quedan
+fuera de v0.2.0. CA-RF03-07 reutiliza el 404 ya probado por RF-01 y se registra
+como Green preexistente; no se revierte código correcto para forzar un Red.
 
 No se añade `django-filter` en v0.2.0 porque no es una dependencia aprobada. Si
 la implementación manual deja de ser razonable, se propone el cambio de

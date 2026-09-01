@@ -12,7 +12,7 @@ Python, Django, Django REST Framework y PostgreSQL.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública mínima `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente, presenta el precio mínimo de las ofertas activas como `Desde <precio> EUR` y carga categorías y ofertas activas sin N+1.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
 - Las previews usan una raíz pública independiente y pueden obtenerse mediante `/media/` en desarrollo con `DEBUG=True`. Los archivos maestros permanecen en almacenamiento privado sin URL pública, y su nombre, ruta y contenido no se incluyen en el HTML ni en el contexto público. La entrega autorizada del maestro corresponde a RF-11 y continúa fuera del alcance implementado.
-- RF-01, RF-02, RF-03, RF-12 y RF-15 están `Aprobado`. El checkpoint del catálogo habilita iniciar el ciclo test-first con CA-RF01-01; los requisitos de compra y las funciones privadas continúan en estado `Propuesto`.
+- RF-01, RF-02, RF-03, RF-12 y RF-15 están `Aprobado`. RF-01 y RF-02 disponen de implementación y pruebas; RF-03 cuenta con un checkpoint específico que debe cerrarse antes de iniciar CA-RF03-01. Los requisitos de compra y las funciones privadas continúan en estado `Propuesto`.
 
 ## Requisitos locales
 

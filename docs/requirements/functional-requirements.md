@@ -75,7 +75,8 @@ El visitante accede a la página pública del catálogo.
 
 1. El visitante solicita la página del catálogo.
 2. El sistema consulta únicamente los productos activos, pertenecientes a una
-   categoría activa y con alguna oferta de licencia activa.
+   categoría activa y con alguna oferta cuyo tipo de licencia y estado estén
+   activos.
 3. El sistema carga la categoría y el precio mínimo vigente asociado a cada
    producto sin provocar consultas repetidas.
 4. El sistema ordena por nombre e identificador y pagina los resultados en
@@ -92,8 +93,9 @@ El visitante accede a la página pública del catálogo.
 #### Reglas de negocio
 
 - RN-RF01-01: los productos inactivos no aparecen en el catálogo.
-- RN-RF01-02: un producto sin categoría activa o sin oferta de licencia activa
-  no se considera disponible para compra y no aparece.
+- RN-RF01-02: un producto sin categoría activa o sin una oferta activa asociada
+  a un tipo de licencia activo no se considera disponible para compra y no
+  aparece.
 - RN-RF01-03: no es necesario iniciar sesión para consultar el catálogo.
 - RN-RF01-04: el archivo sonoro completo nunca se expone públicamente.
 - RN-RF01-05: los cambios del catálogo no modifican pedidos anteriores; cuando
@@ -212,7 +214,8 @@ sin obtener acceso al archivo maestro.
 
 #### Precondiciones
 
-- El producto, su categoría y al menos una oferta de licencia están activos.
+- El producto, su categoría, al menos una oferta y el tipo de licencia de esa
+  oferta están activos.
 - Existe un `slug` público y único para el producto.
 - Existe una preview pública y es un archivo distinto del maestro.
 
@@ -224,7 +227,8 @@ detalle.
 #### Flujo principal
 
 1. El sistema localiza el producto activo por su `slug`.
-2. El sistema carga su categoría y sus ofertas de licencia activas.
+2. El sistema carga su categoría y las ofertas activas asociadas a tipos de
+   licencia activos.
 3. La página muestra nombre, descripción, duración, formato del archivo
    adquirido, frecuencia de muestreo y profundidad de bits.
 4. La página muestra cada licencia disponible, su plataforma o destino de uso,
@@ -237,13 +241,15 @@ detalle.
 - FA-01: si la preview está temporalmente no disponible, el detalle permanece
   consultable, muestra un aviso y nunca usa el archivo maestro como sustituto.
 - FE-01: si el `slug` no existe, el sistema responde con 404.
-- FE-02: si el producto, su categoría o todas sus ofertas están inactivos, el
-  sistema responde con 404 aunque el visitante conozca la URL anterior.
+- FE-02: si el producto, su categoría, todas sus ofertas o todos los tipos de
+  licencia asociados están inactivos, el sistema responde con 404 aunque el
+  visitante conozca la URL anterior.
 
 #### Reglas de negocio
 
 - RN-RF02-01: el detalle es público para usuarios anónimos y autenticados.
-- RN-RF02-02: solo se muestran ofertas de licencia activas.
+- RN-RF02-02: solo se muestran ofertas activas asociadas a tipos de licencia
+  activos.
 - RN-RF02-03: una licencia expresa un destino de uso; no representa el sistema
   operativo desde el que se descarga el archivo.
 - RN-RF02-04: la preview es un archivo promocional separado, preparado antes de
@@ -317,17 +323,17 @@ la interfaz pública.
 | Implementación web | `apps/catalog/urls.py`, `apps/catalog/views.py` y `apps/catalog/templates/catalog/product_detail.html` |
 | Consulta compartida | `apps/catalog/selectors.py:get_available_products()` |
 | Implementación API | RF-12 |
-| Evidencia | `docs/evidence/RF-02/CA-RF02-01.md` |
-| Commit | Pendiente |
+| Evidencia | `docs/evidence/RF-02/` y `docs/technical-log.md` |
+| Commits | `5a7c1cf` a `20e9747` |
 
 | Criterio | Prueba | Evidencia | Commit | Estado |
 |---|---|---|---|---|
 | CA-RF02-01 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-01.md` | `5a7c1cf` | Verificado |
-| CA-RF02-02 | `apps/catalog/tests/test_views.py` | `docs/technical-log.md` | Pendiente | Verificado |
-| CA-RF02-03 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-03.md` | Pendiente | Verificado: comportamiento preexistente |
-| CA-RF02-04 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-04.md` | Pendiente | Verificado: comportamiento preexistente |
-| CA-RF02-05 | `apps/catalog/tests/test_views.py` | `docs/technical-log.md` | Pendiente | Verificado |
-| CA-RF02-06 | `apps/catalog/tests/test_views.py` | `docs/technical-log.md` | Pendiente | Verificado |
+| CA-RF02-02 | `apps/catalog/tests/test_views.py` | `docs/technical-log.md` | `01714b6`, `20e9747` | Verificado |
+| CA-RF02-03 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-03.md` | `bd4b913`, `954f535` | Verificado: comportamiento preexistente |
+| CA-RF02-04 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-02/CA-RF02-04.md` | `b77ef70` | Verificado: comportamiento preexistente |
+| CA-RF02-05 | `apps/catalog/tests/test_views.py` | `docs/technical-log.md` | `1125c4b` | Verificado |
+| CA-RF02-06 | `apps/catalog/tests/test_views.py` | `docs/technical-log.md` | `bb599cd` | Verificado |
 
 ### RF-03 — Buscar, filtrar, ordenar y paginar el catálogo
 
@@ -346,16 +352,13 @@ la interfaz pública.
 Permitir que el visitante reduzca y ordene el catálogo público mediante un
 contrato de consulta limitado, comprensible y reutilizable por la web y la API.
 
-#### Contrato de consulta propuesto
+#### Contrato de consulta aprobado
 
 | Parámetro | Finalidad | Valores admitidos |
 |---|---|---|
-| `q` | Buscar en nombre y descripción breve | Texto de hasta 100 caracteres |
-| `category` | Filtrar categoría | `slug` de categoría activa |
-| `license` | Filtrar destino de licencia | `slug` de licencia activa |
-| `format` | Filtrar formato maestro | Valor publicado por el catálogo |
-| `sample_rate` | Filtrar frecuencia | Entero positivo en Hz |
-| `bit_depth` | Filtrar profundidad | Entero positivo en bits |
+| `q` | Buscar en nombre, resumen y descripción | Texto normalizado de hasta 100 caracteres |
+| `category` | Filtrar categoría | `slug` de categoría activa o valor vacío |
+| `license` | Filtrar destino de licencia | `slug` de licencia activa o valor vacío |
 | `ordering` | Ordenar | `name`, `-name`, `price`, `-price` |
 | `page` | Seleccionar página | Entero positivo |
 
@@ -371,20 +374,23 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 
 #### Flujo principal
 
-1. El sistema normaliza espacios del texto de búsqueda.
-2. El sistema valida únicamente los parámetros conocidos.
+1. El sistema elimina espacios exteriores y agrupa espacios interiores
+   consecutivos del texto de búsqueda.
+2. El sistema valida los parámetros públicos conocidos; los desconocidos se
+   ignoran y nunca se convierten en expresiones ORM ni se propagan al paginar.
 3. El sistema parte de la consulta pública definida por RF-01.
 4. El sistema aplica búsqueda y filtros combinándolos mediante una condición
    lógica `AND`.
 5. El sistema aplica exclusivamente un orden permitido y añade el identificador
    como desempate estable.
 6. El sistema pagina 12 productos y conserva los filtros al cambiar de página.
-7. La página muestra los filtros activos y el número total de resultados.
+7. La página mantiene visibles los controles y sus valores activos.
 
 #### Flujos alternativos y errores
 
 - FA-01: una búsqueda sin coincidencias muestra un estado vacío contextual.
 - FA-02: `q` vacío equivale a no aplicar búsqueda.
+- FA-03: `category` o `license` vacíos equivalen a no aplicar ese filtro.
 - FE-01: un valor inválido de un parámetro conocido responde 400 y señala el
   parámetro, sin incluir detalles internos.
 - FE-02: una página inexistente, no numérica o menor que uno responde 404.
@@ -392,14 +398,23 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 #### Reglas de negocio
 
 - RN-RF03-01: los filtros nunca permiten recuperar un producto no disponible.
-- RN-RF03-02: la búsqueda no distingue mayúsculas de minúsculas.
-- RN-RF03-03: ordenar por precio utiliza el precio mínimo de las ofertas activas.
+- RN-RF03-02: la búsqueda no distingue mayúsculas de minúsculas y compara la
+  frase normalizada con `name`, `summary` y `description` mediante una condición
+  lógica `OR`.
+- RN-RF03-03: ordenar por precio utiliza el mínimo de todas las ofertas públicas
+  del producto, es decir, ofertas activas asociadas a tipos de licencia activos.
+  El filtro de licencia comprueba que el producto ofrece ese destino, pero no
+  sustituye el precio global mostrado como `Desde` por el de la licencia filtrada.
 - RN-RF03-04: los valores de ordenación pertenecen a una lista cerrada; no se
   convierten parámetros del usuario directamente en expresiones ORM.
 - RN-RF03-05: el orden siempre es determinista para impedir duplicados o saltos
   entre páginas.
 - RN-RF03-06: web y API reutilizan la misma construcción de consulta, aunque
   cada interfaz valide y represente sus errores en su propia capa HTTP.
+- RN-RF03-07: RF-03 implementa primero la interfaz web `/catalog/`; RF-12
+  reutiliza después la consulta aprobada para la API DRF.
+- RN-RF03-08: un `slug` inexistente o inactivo en `category` o `license` es un
+  valor conocido inválido y responde 400; un valor vacío omite el filtro.
 
 #### Criterios de aceptación
 
@@ -421,8 +436,9 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 #### Pruebas previstas
 
 - Búsqueda por nombre y descripción sin distinguir mayúsculas.
-- Combinación de categoría, licencia y características técnicas.
-- Exclusión de productos, categorías y ofertas inactivos.
+- Combinación de categoría y licencia.
+- Exclusión de productos, categorías, ofertas y tipos de licencia inactivos.
+- Rechazo de categorías y licencias inexistentes o inactivas.
 - Cada opción permitida de ordenación y su desempate estable.
 - Rechazo de valores de ordenación no permitidos.
 - Persistencia de parámetros en enlaces de paginación.
@@ -439,6 +455,7 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 
 - Autocompletado, tolerancia a errores ortográficos y búsqueda semántica.
 - Etiquetas múltiples, géneros jerárquicos y recomendaciones.
+- Filtros por formato, frecuencia de muestreo y profundidad de bits.
 - Ordenación por popularidad o comportamiento del usuario.
 - Tamaño de página configurable por el consumidor.
 
@@ -447,11 +464,16 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 | Elemento | Referencia |
 |---|---|
 | Pruebas | Pendiente hasta v0.2.0 |
+| Decisiones aplicables | `docs/requirements/rf03-decision-checkpoint.md` |
 | Implementación web | Pendiente |
 | Consulta compartida | Pendiente; extensión de RF-01 |
 | Implementación API | RF-12 |
 | Evidencia | Pendiente |
 | Commit | Pendiente |
+
+CA-RF03-07 reutiliza la paginación y las pruebas 404 implementadas por RF-01.
+Se documenta como Green preexistente en `docs/evidence/RF-03/CA-RF03-07.md`;
+no se revierte comportamiento correcto para fabricar un Red.
 
 ## RF-04: Registrarse, iniciar sesión y cerrar sesión
 

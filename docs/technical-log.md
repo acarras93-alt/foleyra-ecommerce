@@ -1228,3 +1228,42 @@ privado continúa sin proporcionar URL pública. Permanecen fuera de alcance el
 servicio de medios en producción, la entrega autorizada de RF-11, la API y la
 validación automática de la preparación, marca audible y duración del MP3. No
 se generaron ni aplicaron migraciones y no se creó ningún commit.
+
+## 2026-09-01 — Cierre de decisiones y alcance previo de RF-03
+
+### Objetivo y referencia de producto
+
+Resolver las contradicciones detectadas antes del primer ciclo test-first de
+RF-03 sin implementar búsqueda, filtros, ordenación ni conservación de
+parámetros. Se inspeccionó la página pública de efectos de sonido de Epidemic
+Sound únicamente como referencia: organiza el descubrimiento mediante
+categorías visibles y representa cada sonido mediante un título descriptivo,
+duración y categoría. No se copiaron marca, contenido, diseño ni el modelo de
+suscripción del tercero.
+
+### Decisiones aprobadas
+
+- RF-03 implementará la web; RF-12 añadirá después la interfaz DRF sobre el
+  selector compartido.
+- `q` buscará la frase normalizada en `name`, `summary` y `description`.
+- v0.2.0 filtrará por categoría y licencia; los filtros técnicos quedan
+  diferidos porque no están exigidos por los criterios aprobados.
+- Una oferta pública exige que tanto la oferta como su tipo de licencia estén
+  activos.
+- El precio `Desde` seguirá siendo el mínimo global de ofertas públicas aunque
+  el catálogo esté filtrado por una licencia concreta.
+- Los parámetros conocidos inválidos producirán 400. Los desconocidos se
+  ignorarán y no se propagarán a enlaces ni expresiones ORM.
+- CA-RF03-07 se clasifica como Green preexistente de RF-01, con implementación
+  en `c8e2a20`; no se fabricará un Red.
+
+Las decisiones completas se registraron en
+`docs/requirements/rf03-decision-checkpoint.md`. También se completaron las
+referencias de commits ya existentes en la trazabilidad de RF-02.
+
+### Verificación y alcance excluido
+
+La regresión específica de las pruebas 404 de paginación finalizó con `3
+passed`. Este incremento es documental: no modificó modelos, selector, vistas,
+templates, URLs, migraciones ni dependencias. CA-RF03-01 a CA-RF03-06 continúan
+sin implementar.

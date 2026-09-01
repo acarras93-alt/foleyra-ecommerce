@@ -195,10 +195,16 @@ hasta RF-11.
 - orden inicial por nombre e identificador;
 - página inválida o inexistente con respuesta 404;
 - filtro conocido inválido con respuesta 400;
+- parámetros desconocidos ignorados y excluidos de los enlaces generados;
 - lista válida sin resultados con respuesta 200 y estado vacío.
 
 **Por qué:** un contrato único hace comparables web y API y permite pruebas
 deterministas.
+
+El alcance y la semántica concretos de `q`, `category`, `license`, `ordering` y
+`page` se cerraron el 2026-09-01 en el
+[checkpoint de RF-03](rf03-decision-checkpoint.md). Los filtros por propiedades
+técnicas del archivo quedan diferidos y la API continúa perteneciendo a RF-12.
 
 ### D-CAT-08 — Administración necesaria para v0.2.0
 
