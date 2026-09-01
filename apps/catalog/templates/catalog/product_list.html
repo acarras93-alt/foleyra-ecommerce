@@ -5,6 +5,29 @@
 
 {% block content %}
     <h1>Catálogo</h1>
+    <form method="get">
+        <input type="text" name="q" value="{{ search_query }}">
+        <select name="category">
+            <option value="">Todas</option>
+            {% for category in categories %}
+                <option value="{{ category.slug }}"{% if category.slug == category_slug %} selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="license">
+            <option value="">Todas</option>
+            {% for license_type in license_types %}
+                <option value="{{ license_type.slug }}"{% if license_type.slug == license_slug %} selected{% endif %}>{{ license_type.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="ordering">
+            <option value="">Predeterminado</option>
+            <option value="name"{% if ordering == "name" %} selected{% endif %}>Nombre (A-Z)</option>
+            <option value="-name"{% if ordering == "-name" %} selected{% endif %}>Nombre (Z-A)</option>
+            <option value="price"{% if ordering == "price" %} selected{% endif %}>Precio (menor a mayor)</option>
+            <option value="-price"{% if ordering == "-price" %} selected{% endif %}>Precio (mayor a menor)</option>
+        </select>
+        <button type="submit">Filtrar</button>
+    </form>
     <ul>
         {% for product in products %}
             <li>{{ product.name }}: Desde {{ product.minimum_price|unlocalize }} EUR</li>
@@ -13,9 +36,9 @@
         {% endfor %}
     </ul>
     {% if products.has_previous %}
-        <a href="?page={{ products.previous_page_number }}">Anterior</a>
+        <a href="?{% if preserved_query_string %}{{ preserved_query_string }}&{% endif %}page={{ products.previous_page_number }}">Anterior</a>
     {% endif %}
     {% if products.has_next %}
-        <a href="?page={{ products.next_page_number }}">Siguiente</a>
+        <a href="?{% if preserved_query_string %}{{ preserved_query_string }}&{% endif %}page={{ products.next_page_number }}">Siguiente</a>
     {% endif %}
 {% endblock %}

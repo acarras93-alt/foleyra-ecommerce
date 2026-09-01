@@ -1363,3 +1363,240 @@ dependencias ni almacenamiento privado. La suite completa mantuvo en Green las
 pruebas existentes del almacenamiento privado. CA-RF03-02 a CA-RF03-06 siguen
 sin implementar. CA-RF03-01 queda implementado y comprobado localmente, con
 evidencia y commit pendientes.
+
+## 2026-09-01 — CA-RF03-02: combinación de categoría y licencia
+
+### Objetivo y ciclo Red-Green
+
+Implementar únicamente el filtro combinado aprobado: dados los `slug` de una
+categoría y un tipo de licencia activos, solo aparecen productos disponibles
+de esa categoría que poseen una oferta pública para esa licencia.
+
+- RED válido: la prueba
+  `test_catalog_filters_available_products_by_category_and_license_slug`
+  finalizó con `1 failed in 0.58s`; `Tráfico distante` apareció en la respuesta
+  aunque su única oferta correspondía a `publicidad-comercial` y se filtró por
+  `youtube-redes-sociales`, porque la vista todavía ignoraba `category` y
+  `license`.
+- Implementación mínima: `get_available_products()` incorpora los parámetros
+  `category_slug` y `license_slug` y filtra por `category__slug` y por
+  `license_offers__license_type__slug` sobre el conjunto ya restringido a
+  ofertas y tipos de licencia activos; `product_list()` lee `category` y
+  `license` de `request.GET` y los reenvía al selector compartido.
+- GREEN específico: el mismo nodo finalizó con `1 passed in 0.45s`.
+- Regresión completa: `.venv/bin/python -m pytest -q` finalizó con
+  `32 passed in 1.17s`.
+
+### Puerta de calidad y alcance
+
+- `.venv/bin/python manage.py check --database default`:
+  `System check identified no issues (0 silenced).`
+- `.venv/bin/python manage.py makemigrations --check --dry-run`:
+  `No changes detected`; no se generó ni aplicó ninguna migración porque
+  `Product.category`, `ProductLicenseOffer.license_type` y los `is_active`
+  existentes bastan para expresar el filtro.
+- `.venv/bin/python manage.py migrate --check`: sin migraciones pendientes.
+- `.venv/bin/ruff check .`: `All checks passed!`.
+- `.venv/bin/ruff format --check .`: `70 files already formatted`.
+- `.venv/bin/pip check`: `No broken requirements found.`
+- `git diff --check`: sin errores de whitespace.
+- `git status --short`: modificados `apps/catalog/selectors.py`,
+  `apps/catalog/tests/test_views.py` y `apps/catalog/views.py` antes de esta
+  actualización documental.
+
+No se modificaron modelos, migraciones, URLs, templates ni almacenamiento
+privado; la prueba de almacenamiento privado
+(`test_product_master_file_uses_private_storage_without_a_public_url`) se
+verificó junto a la prueba objetivo y permaneció en Green. CA-RF03-03 a
+CA-RF03-06 siguen sin implementar. CA-RF03-02 queda implementado y comprobado
+localmente, con evidencia y commit pendientes.
+
+## 2026-09-01 — CA-RF03-03 y CA-RF03-04: orden por precio y conservación de estado en paginación
+
+### Estado al iniciar esta sesión de documentación
+
+CA-RF03-03 (orden por `price`/`-price` con desempate estable por `pk`) y
+CA-RF03-04 (los enlaces de paginación conservan únicamente `q`, `category`,
+`license` y `ordering`, sustituyendo solo `page`) ya estaban implementados en
+el árbol de trabajo antes de iniciar esta sesión de revisión y documentación,
+sin commit. No se dispone de una transcripción Red aislada de este ciclo
+porque el incremento se implementó en una sesión anterior no registrada en
+esta bitácora.
+
+### Verificación realizada en esta sesión
+
+- Ejecución aislada de
+  `test_catalog_pagination_link_preserves_only_search_filters_and_ordering`:
+  `PASSED`.
+- Batería completa (`.venv/bin/python -m pytest -q`): `34 passed in 1.29s`,
+  confirmada antes de aplicar ningún cambio adicional de esta sesión.
+
+Pruebas asociadas:
+`apps/catalog/tests/test_views.py::test_catalog_orders_available_products_by_minimum_price_with_stable_tiebreak`
+y
+`apps/catalog/tests/test_views.py::test_catalog_pagination_link_preserves_only_search_filters_and_ordering`.
+
+Ambos criterios quedan Implementados y comprobados localmente; evidencia
+formal y commit propio siguen pendientes.
+
+## 2026-09-01 — CA-RF03-05: controles visibles y estado vacío contextual
+
+### Incremento 1 — `category` y `license` como `<select>` poblados
+
+- RED válido: la prueba
+  `test_catalog_renders_category_and_license_selects_with_active_options_and_recognized_value`
+  finalizó con `1 failed in 0.59s`; la plantilla no contenía ningún `<select>`.
+- Implementación mínima: `get_active_categories()` y `get_active_license_types()`
+  en `selectors.py`; `product_list()` los expone en el contexto junto con
+  `search_query`, `category_slug`, `license_slug` y `ordering`;
+  `product_list.html` añade un `<form method="get">` con los dos `<select>`,
+  una opción vacía "Todas" y la opción reconocida marcada `selected`.
+- GREEN específico: `1 passed in 0.46s`.
+- Regresión completa: `35 passed in 1.31s`.
+- Puerta de calidad parcial ejecutada: `manage.py check` sin incidencias,
+  `makemigrations --check --dry-run` sin cambios, `migrate --check` sin
+  pendientes, `ruff check .` y `ruff format --check .` superados
+  (`70 files already formatted`), `pip check` sin dependencias rotas.
+
+### Incremento 2 — `q` y `ordering` visibles, mensaje de estado vacío
+
+- RED válido (confirmado por ejecución externa, código de salida `1`): la
+  prueba
+  `test_catalog_shows_message_and_keeps_all_recognized_controls_visible_when_query_has_no_matches`
+  falló porque `q` y `ordering` se renderizaban como `<input type="hidden">`,
+  no como controles visibles.
+- Implementación mínima: `q` pasa a `<input type="text">` visible sin
+  condición; se añade `<select name="ordering">` con las opciones
+  `name`/`-name`/`price`/`-price` y un valor por defecto "Predeterminado".
+- GREEN específico confirmado por ejecución externa (código de salida `0`).
+- Revisión posterior detectó que `-name` no invertía el orden porque
+  `ORDERING_OPTIONS` solo mapeaba `price`/`-price`; se retiraron `name`/`-name`
+  del `<select>` como mitigación mínima hasta resolver CA-RF03-06. Regresión
+  tras ese ajuste: `36 passed in 1.35s`.
+
+Pruebas asociadas: ambas citadas arriba. CA-RF03-05 queda Implementado y
+comprobado localmente; evidencia formal y commit propio siguen pendientes.
+
+## 2026-09-01 — CA-RF03-06: rechazo de `ordering` no permitido y corrección de `-name`
+
+- RED válido (confirmado por ejecución externa, código de salida `1`): dos
+  pruebas nuevas, `test_catalog_orders_available_products_by_name_in_descending_order`
+  (falló porque `-name` no invertía el orden) y
+  `test_catalog_returns_400_for_an_unrecognized_ordering_value` (falló porque
+  la vista respondía 200 con orden por defecto ante cualquier valor
+  desconocido).
+- Decisión aplicada: incluir la corrección de `-name` en el mismo incremento,
+  autorizada explícitamente porque el conjunto cerrado de cuatro valores ya
+  estaba declarado en D-RF03-06/D-RF03-09 y en la tabla de contrato de
+  consulta del requisito.
+- Implementación mínima: `ORDERING_OPTIONS` añade las claves `name` y `-name`;
+  `product_list()` responde `HttpResponseBadRequest("Parámetro ordering no
+  reconocido.")` cuando `ordering` no está vacío y no pertenece al mapa,
+  antes de construir el queryset y el paginador.
+- GREEN específico confirmado por ejecución externa (código de salida `0`).
+- Revisión del incremento: se confirmó que la validación no duplica reglas de
+  dominio, no afecta a CA-RF03-01 a CA-RF03-04, y no genera ni requiere
+  migración. Se detectó como riesgo pendiente que el `<select name="ordering">`
+  de la plantilla no exponía `name`/`-name` aunque el backend ya los soportaba
+  correctamente; se resolvió reincorporando esas dos opciones a la plantilla.
+  Regresión tras ese ajuste: `38 passed in 1.32s`.
+
+CA-RF03-06 queda Implementado y comprobado localmente; evidencia formal y
+commit propio siguen pendientes.
+
+## 2026-09-01 — RN-RF03-08 y precedencia FE-01/FE-02: `category`/`license` inválidos
+
+Durante la revisión de RF-03 se identificaron dos riesgos sin resolver:
+RN-RF03-08 (un `slug` de `category` o `license` inexistente o inactivo debe
+responder 400) carecía de implementación, y no existía una regla explícita de
+precedencia entre FE-01 (400) y FE-02 (404) cuando ambos errores coinciden en
+la misma petición.
+
+- RED válido: tres pruebas nuevas
+  (`test_catalog_returns_400_for_an_unrecognized_category_slug`,
+  `test_catalog_returns_400_for_an_unrecognized_license_slug`,
+  `test_catalog_returns_400_instead_of_404_when_an_invalid_category_and_an_invalid_page_are_combined`)
+  finalizaron con `3 failed in 0.55s`; la vista respondía 200 o 404 en lugar de
+  400.
+- Implementación mínima: `product_list()` responde `HttpResponseBadRequest`
+  cuando `category_slug` o `license_slug` no coinciden con ninguna categoría o
+  tipo de licencia activos (`get_active_categories().filter(slug=...).exists()`
+  y equivalente para licencias), ejecutando esa comprobación antes de
+  construir el `Paginator`. Esto fija de forma natural la precedencia: los
+  parámetros conocidos inválidos siempre se validan antes que la página.
+- GREEN específico y regresión completa: `41 passed in 1.36s`; tras corregir
+  el formato de `views.py` con `ruff format` (línea larga dividida), la
+  regresión se repitió con `41 passed in 1.31s` y
+  `manage.py check --database default` sin incidencias.
+
+Esta implementación no corresponde a ningún `CA-RF03-0X` numerado en
+`functional-requirements.md`; queda registrada la nota correspondiente allí y
+pendiente decidir su numeración formal.
+
+## 2026-09-01 — Cierre documental de RF-03 (sin declarar Verificado)
+
+### Estado consolidado
+
+Los siete criterios aprobados (CA-RF03-01 a CA-RF03-07) están implementados y
+comprobados localmente. La batería completa registró `41 passed in 1.42s` en
+la última verificación de esta sesión. No se generaron ni aplicaron
+migraciones en ningún incremento de RF-03.
+
+### Pendiente antes de declarar el requisito Verificado
+
+- Evidencia formal y commit propio para CA-RF03-01 a CA-RF03-06 (CA-RF03-07 ya
+  cuenta con `docs/evidence/RF-03/CA-RF03-07.md` y el commit `c8e2a20`).
+- Decisión sobre la numeración formal de la validación de `category`/`license`
+  inválidos (RN-RF03-08) y la precedencia FE-01/FE-02, registrada como
+  D-RF03-10 en `docs/requirements/rf03-decision-checkpoint.md`.
+- Dos limitaciones de cobertura de prueba, documentadas en
+  `functional-requirements.md`: (1) ninguna prueba combina un filtro `license`
+  activo con ofertas de precio distinto para comprobar que `Desde` conserva el
+  mínimo global; (2) el conteo acotado de consultas no se probó combinando
+  búsqueda, filtros, orden y paginación a la vez.
+- Ejecución de la puerta de calidad completa (`manage.py check`,
+  `makemigrations --check --dry-run`, `migrate --check`, `ruff check`,
+  `ruff format --check`, `pip check`, `git diff --check`, `git status
+  --short`) como paso previo a declarar `Verificado`.
+
+Este cierre es documental: no se modificó producción, pruebas, configuración
+ni migraciones, y no se ejecutó la puerta de calidad como parte de esta
+actualización.
+
+## 2026-09-01 — Ejecución de la puerta de calidad completa de RF-03
+
+### Resultado real de las nueve comprobaciones
+
+- `.venv/bin/python manage.py check --database default`:
+  `System check identified no issues (0 silenced).`
+- `.venv/bin/python manage.py makemigrations --check --dry-run`:
+  `No changes detected`.
+- `.venv/bin/python manage.py migrate --check`: sin salida, sin migraciones
+  pendientes.
+- `.venv/bin/python -m pytest -q`: `41 passed in 1.38s`.
+- `.venv/bin/python -m ruff check .`: `All checks passed!`.
+- `.venv/bin/python -m ruff format --check .`: `70 files already formatted`.
+- `.venv/bin/python -m pip check`: `No broken requirements found.`
+- `git diff --check`: sin salida, sin errores de whitespace.
+- `git status --short`: 8 archivos modificados (`README.md`,
+  `apps/catalog/selectors.py`, `apps/catalog/templates/catalog/product_list.html`,
+  `apps/catalog/tests/test_views.py`, `apps/catalog/views.py`,
+  `docs/requirements/functional-requirements.md`,
+  `docs/requirements/rf03-decision-checkpoint.md`, `docs/technical-log.md`),
+  sin archivos nuevos de código ni migraciones.
+
+Resultado registrado en `docs/evidence/RF-03/quality-gate-2026-09-01.md`.
+
+### Decisión sobre el estado del requisito
+
+RF-03 permanece en `Implementado`, no `Verificado`. Aunque las nueve
+comprobaciones fueron favorables, la cadena de trazabilidad exigida
+(`Requisito → Decisión → Implementación → Prueba → Evidencia → Versión Git`)
+sigue incompleta: no existe evidencia individual por criterio para
+CA-RF03-01 a CA-RF03-06 (solo la puerta de calidad consolidada), la nota sobre
+la numeración de RN-RF03-08 sigue sin resolver, y esta sesión tiene
+explícitamente prohibido hacer commit, por lo que la referencia de "Versión
+Git" no puede cerrarse todavía.
+
+Este incremento es documental: no se modificó producción, pruebas,
+configuración ni migraciones, y no se realizó ningún commit.

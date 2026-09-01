@@ -24,7 +24,7 @@ las pruebas, la implementación y las evidencias académicas.
 |---|---|---|---|---|---|
 | RF-01 | Consultar el catálogo | Visitante o cliente | Must | v0.2.0 | Aprobado |
 | RF-02 | Consultar el detalle y escuchar una preview pública | Visitante o cliente | Must | v0.2.0 | Aprobado |
-| RF-03 | Buscar, filtrar, ordenar y paginar el catálogo | Visitante o cliente | Should | v0.2.0 | Aprobado |
+| RF-03 | Buscar, filtrar, ordenar y paginar el catálogo | Visitante o cliente | Should | v0.2.0 | Implementado |
 | RF-04 | Registrarse, iniciar sesión y cerrar sesión | Visitante o cliente | Must | v0.3.0 | Propuesto |
 | RF-05 | Gestionar los productos del carrito privado | Cliente autenticado | Must | v0.3.0 | Propuesto |
 | RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Propuesto |
@@ -344,7 +344,7 @@ la interfaz pública.
 | Actor principal | Visitante o cliente |
 | Prioridad | Should |
 | Versión objetivo | v0.2.0 |
-| Estado | Aprobado |
+| Estado | Implementado |
 | Dependencias | RF-01, RF-02, RNF-03 a RNF-05, RNF-07, RNF-09 y RNF-11 |
 
 #### Estado de preparación
@@ -356,9 +356,12 @@ Los conflictos previos quedaron cerrados el 2026-09-01:
 - carga de `license_type` sin N+1 verificada en `f3991b7`;
 - trazabilidad previa consolidada en `9674d9b`.
 
-CA-RF03-01 está implementado y comprobado localmente, pendiente de evidencia y
-commit. El código todavía no procesa `category`, `license` ni `ordering`, y la
-plantilla no conserva esos controles.
+Los siete criterios (CA-RF03-01 a CA-RF03-07) están implementados y
+comprobados localmente. El código procesa `q`, `category`, `license` y
+`ordering`; valida los parámetros conocidos y responde 400 ante valores
+inválidos; pagina y conserva el estado de consulta; y la plantilla mantiene
+visibles los controles con sus valores reconocidos. CA-RF03-01 a CA-RF03-06
+siguen pendientes de evidencia formal y commit propio.
 
 #### Objetivo
 
@@ -445,9 +448,11 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 - CA-RF03-05: dada una consulta válida sin coincidencias, entonces la respuesta
   es 200, se muestra un mensaje comprensible y se conservan visibles los
   controles con sus valores reconocidos.
-- CA-RF03-06: dado un valor no permitido en `ordering`, entonces la respuesta es
-  400, identifica ese parámetro sin detalles internos y no ejecuta una
-  ordenación construida con el texto recibido.
+- CA-RF03-06: dado un valor no permitido en `ordering`, o un `slug` inexistente
+  o inactivo en `category` o `license`, entonces la respuesta es 400, identifica
+  ese parámetro sin detalles internos y no ejecuta una ordenación construida
+  con el texto recibido. Si además la página solicitada fuera inválida, la
+  respuesta sigue siendo 400 (FE-01 tiene precedencia sobre FE-02).
 - CA-RF03-07: dada una página posterior a la última, no numérica o menor que uno,
   entonces la respuesta es 404; la página 1 de una consulta válida vacía
   responde 200.
@@ -463,6 +468,17 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 - Persistencia de parámetros en enlaces de paginación.
 - Estado vacío contextual y página inexistente.
 - Número acotado de consultas al combinar relaciones y paginación.
+
+#### Limitaciones de cobertura conocidas
+
+- Ninguna prueba combina un filtro `license` activo con varias ofertas de
+  precio distinto para comprobar explícitamente que el precio `Desde`
+  mostrado sigue siendo el mínimo global (D-RF03-05); solo existe una prueba
+  general de precio mínimo sin filtro, heredada de RF-02.
+- La prueba de número acotado de consultas
+  (`apps/catalog/tests/test_selectors.py::test_available_product_relations_use_a_constant_number_of_queries`)
+  solo ejercita `get_available_products()` sin combinar búsqueda, filtros y
+  orden a la vez.
 
 #### Evidencias previstas
 
@@ -482,29 +498,43 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 
 | Elemento | Referencia |
 |---|---|
-| Pruebas | CA-RF03-01 implementado; CA-RF03-02 a CA-RF03-06 pendientes; CA-RF03-07 reutiliza pruebas de RF-01 |
+| Pruebas | CA-RF03-01 a CA-RF03-06 implementadas y comprobadas localmente; CA-RF03-07 reutiliza pruebas de RF-01 |
 | Decisiones aplicables | `docs/requirements/rf03-decision-checkpoint.md`, commit `3e30a7c` |
-| Selector base disponible | `apps/catalog/selectors.py:get_available_products()`, commits `3c58ae7` y `f3991b7` |
-| Implementación web | `apps/catalog/views.py:product_list()` para búsqueda `q` |
-| Consulta compartida | `apps/catalog/selectors.py:get_available_products()` para búsqueda `q` |
+| Selector base disponible | `apps/catalog/selectors.py:get_available_products()`, `get_active_categories()`, `get_active_license_types()`, `ORDERING_OPTIONS` |
+| Implementación web | `apps/catalog/views.py:product_list()` (búsqueda, filtros, orden, validación 400, conservación de estado) y `apps/catalog/templates/catalog/product_list.html` (controles visibles) |
+| Consulta compartida | `apps/catalog/selectors.py:get_available_products()` |
 | Implementación API | RF-12 |
-| Evidencia | CA-RF03-01 pendiente; CA-RF03-07 en `docs/evidence/RF-03/CA-RF03-07.md`; resto pendiente |
+| Evidencia | Puerta de calidad completa en `docs/evidence/RF-03/quality-gate-2026-09-01.md`; CA-RF03-07 en `docs/evidence/RF-03/CA-RF03-07.md`; CA-RF03-01 a CA-RF03-06 pendientes de evidencia individual por criterio |
 | Commits de preparación | `3e30a7c`, `3c58ae7`, `f3991b7`, `9674d9b` |
+| Commits de implementación | Pendientes (cambios todavía sin `git commit`) |
 
 | Criterio | Prueba | Evidencia | Commit | Estado |
 |---|---|---|---|---|
-| CA-RF03-01 | `apps/catalog/tests/test_views.py::test_catalog_searches_available_products_by_normalized_text_case_insensitively` | Pendiente | Pendiente | Implementado y comprobado localmente |
-| CA-RF03-02 | Pendiente | Pendiente | Pendiente | No implementado |
-| CA-RF03-03 | Pendiente | Pendiente | Pendiente | No implementado |
-| CA-RF03-04 | Pendiente | Pendiente | Pendiente | No implementado |
-| CA-RF03-05 | Pendiente | Pendiente | Pendiente | No implementado |
-| CA-RF03-06 | Pendiente | Pendiente | Pendiente | No implementado |
-| CA-RF03-07 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-03/CA-RF03-07.md` | `c8e2a20` | Verificado: Green preexistente de RF-01 |
+| CA-RF03-01 | `apps/catalog/tests/test_views.py::test_catalog_searches_available_products_by_normalized_text_case_insensitively` | `docs/evidence/RF-03/quality-gate-2026-09-01.md` | Pendiente | Implementado y comprobado localmente |
+| CA-RF03-02 | `apps/catalog/tests/test_views.py::test_catalog_filters_available_products_by_category_and_license_slug` | `docs/evidence/RF-03/quality-gate-2026-09-01.md` | Pendiente | Implementado y comprobado localmente |
+| CA-RF03-03 | `apps/catalog/tests/test_views.py::test_catalog_orders_available_products_by_minimum_price_with_stable_tiebreak` | `docs/evidence/RF-03/quality-gate-2026-09-01.md` | Pendiente | Implementado y comprobado localmente |
+| CA-RF03-04 | `apps/catalog/tests/test_views.py::test_catalog_pagination_link_preserves_only_search_filters_and_ordering` | `docs/evidence/RF-03/quality-gate-2026-09-01.md` | Pendiente | Implementado y comprobado localmente |
+| CA-RF03-05 | `apps/catalog/tests/test_views.py::test_catalog_renders_category_and_license_selects_with_active_options_and_recognized_value`, `test_catalog_shows_message_and_keeps_all_recognized_controls_visible_when_query_has_no_matches` | `docs/evidence/RF-03/quality-gate-2026-09-01.md` | Pendiente | Implementado y comprobado localmente |
+| CA-RF03-06 | `apps/catalog/tests/test_views.py::test_catalog_returns_400_for_an_unrecognized_ordering_value`, `test_catalog_orders_available_products_by_name_in_descending_order`, `test_catalog_returns_400_for_an_unrecognized_category_slug`, `test_catalog_returns_400_for_an_unrecognized_license_slug`, `test_catalog_returns_400_instead_of_404_when_an_invalid_category_and_an_invalid_page_are_combined` | `docs/evidence/RF-03/quality-gate-2026-09-01.md` | Pendiente | Implementado y comprobado localmente |
+| CA-RF03-07 | `apps/catalog/tests/test_views.py` (pruebas 404/200 reutilizadas de RF-01) | `docs/evidence/RF-03/CA-RF03-07.md` | `c8e2a20` | Verificado: Green preexistente de RF-01 |
+
+Nota resuelta: la validación de `category`/`license` inválidos (RN-RF03-08) y
+la precedencia de FE-01 sobre FE-02 quedan registradas como parte del texto
+ampliado de CA-RF03-06 (ver arriba), no como un criterio nuevo.
 
 CA-RF03-07 reutiliza la paginación y las pruebas 404 implementadas por RF-01;
-no se revierte comportamiento correcto para fabricar un Red. RF-03 conservará
-el estado `Aprobado` hasta que los cinco comportamientos pendientes recorran su
-ciclo test-first y la trazabilidad de CA-RF03-01 incorpore evidencia y commit.
+no se revierte comportamiento correcto para fabricar un Red. Los siete
+criterios aprobados están implementados y comprobados localmente mediante la
+batería de pruebas indicada. La puerta de calidad completa se ejecutó el
+2026-09-01 con resultado favorable en las nueve comprobaciones (`manage.py
+check`, `makemigrations --check --dry-run`, `migrate --check`, `pytest -q`
+con `41 passed`, `ruff check`, `ruff format --check`, `pip check`, `git diff
+--check` y `git status --short`), registrado en
+`docs/evidence/RF-03/quality-gate-2026-09-01.md`. RF-03 permanece en estado
+`Implementado`; no se declara `Verificado` porque falta evidencia individual
+por criterio para CA-RF03-01 a CA-RF03-06, la nota anterior sobre RN-RF03-08
+sigue sin resolver, y ningún cambio de este cierre tiene todavía un commit
+asociado.
 
 ## RF-04: Registrarse, iniciar sesión y cerrar sesión
 

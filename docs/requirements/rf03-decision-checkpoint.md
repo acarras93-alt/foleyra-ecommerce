@@ -3,8 +3,12 @@
 ## Estado y alcance
 
 - Fecha de aprobación: 2026-09-01.
-- Estado: aprobado para resolver conflictos previos; los criterios CA-RF03-01 a
-  CA-RF03-06 continúan sin implementar.
+- Estado: los siete criterios (CA-RF03-01 a CA-RF03-07) están implementados y
+  comprobados localmente. La puerta de calidad completa se ejecutó el
+  2026-09-01 con resultado favorable (`docs/evidence/RF-03/quality-gate-2026-09-01.md`).
+  El requisito permanece en `Implementado`, no `Verificado`: falta evidencia
+  individual por criterio para CA-RF03-01 a CA-RF03-06 y ningún cambio tiene
+  todavía un commit propio.
 - Requisito afectado: RF-03.
 - Responsable de aprobación: propietario del repositorio, mediante solicitud
   explícita de resolver los conflictos antes de iniciar los criterios.
@@ -128,6 +132,47 @@ compartido recibirá únicamente datos ya normalizados.
 
 No se autoriza todavía a crear el formulario, extender el selector ni modificar
 la plantilla. Cada criterio debe iniciar después su ciclo test-first propio.
+
+## D-RF03-09 — Comportamiento interino de `ordering` inválido antes de CA-RF03-06
+
+**Cerrada: sustituida por la implementación de CA-RF03-06 (ver D-RF03-10).**
+
+Mientras CA-RF03-06 (rechazo con 400 de valores no permitidos en `ordering`) no
+esté implementado, un valor de `ordering` fuera del mapa cerrado (`name`,
+`-name`, `price`, `-price`) se ignora y el catálogo conserva el orden por
+defecto (`name`, `pk`), igual que un parámetro desconocido.
+
+Esta decisión evita romper la navegación de un visitante que llega con un
+enlace de campaña o marcador con un valor de `ordering` obsoleto, mantiene el
+alcance mínimo de CA-RF03-03 sin adelantar la validación de CA-RF03-06 y
+preserva RN-RF03-05, ya que el orden de respaldo es el mismo orden estable
+vigente hoy.
+
+Fecha de aprobación: 2026-09-01.
+
+## D-RF03-10 — Cierre de CA-RF03-06 y validación de `category`/`license`
+
+CA-RF03-06 quedó implementado: `ORDERING_OPTIONS` en `selectors.py` define
+ahora explícitamente las cuatro claves cerradas (`name`, `-name`, `price`,
+`-price`); antes solo mapeaba `price`/`-price` y `-name` caía silenciosamente
+al orden por defecto. `product_list()` rechaza con 400 cualquier valor de
+`ordering` ajeno a ese mapa, identificando el parámetro sin detalles internos.
+
+Además, se implementó RN-RF03-08 (registrada como ampliación de CA-RF03-06,
+no como criterio nuevo): un `slug` de `category` o `license` inexistente o
+inactivo también responde 400, reutilizando
+`get_active_categories()`/`get_active_license_types()`.
+
+Precedencia acordada entre FE-01 y FE-02: `category`, `license` y `ordering` se
+validan antes de resolver la página solicitada. Si un parámetro conocido es
+inválido y la página también lo es, la respuesta es 400 (FE-01), nunca 404
+(FE-02), porque no tiene sentido evaluar una página sobre una consulta cuyo
+filtro u orden no está definido.
+
+Fecha de aprobación: 2026-09-01. Resuelto: el texto de CA-RF03-06 en
+`functional-requirements.md` se amplió para cubrir explícitamente `category`
+y `license` inválidos y la precedencia FE-01/FE-02; no se numeró un criterio
+nuevo.
 
 ## Conflictos técnicos previos autorizados
 

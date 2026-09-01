@@ -1,6 +1,9 @@
+import html
 import importlib
+import re
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import pytest
 from django.core.files.base import ContentFile
@@ -159,6 +162,50 @@ def test_catalog_displays_navigation_links_only_for_existing_pages(client):
 
 
 @pytest.mark.django_db
+def test_catalog_pagination_link_preserves_only_search_filters_and_ordering(client):
+    _create_available_products(13)
+    query_params = {
+        "q": "ciudad",
+        "category": "ambientes",
+        "license": "youtube-redes-sociales",
+        "ordering": "name",
+        "utm_source": "newsletter",
+    }
+
+    first_page_response = client.get("/catalog/", query_params)
+    second_page_response = client.get("/catalog/", {**query_params, "page": "2"})
+
+    assert first_page_response.status_code == 200
+    assert second_page_response.status_code == 200
+    first_page_content = first_page_response.content.decode()
+    second_page_content = second_page_response.content.decode()
+
+    next_link_match = re.search(r'href="([^"]+)">Siguiente', first_page_content)
+    assert next_link_match is not None
+    next_query = parse_qs(html.unescape(next_link_match.group(1)).lstrip("?"))
+
+    assert next_query == {
+        "q": ["ciudad"],
+        "category": ["ambientes"],
+        "license": ["youtube-redes-sociales"],
+        "ordering": ["name"],
+        "page": ["2"],
+    }
+
+    previous_link_match = re.search(r'href="([^"]+)">Anterior', second_page_content)
+    assert previous_link_match is not None
+    previous_query = parse_qs(html.unescape(previous_link_match.group(1)).lstrip("?"))
+
+    assert previous_query == {
+        "q": ["ciudad"],
+        "category": ["ambientes"],
+        "license": ["youtube-redes-sociales"],
+        "ordering": ["name"],
+        "page": ["1"],
+    }
+
+
+@pytest.mark.django_db
 def test_catalog_returns_404_for_a_page_beyond_the_available_pages(client):
     _create_available_products(13)
 
@@ -306,6 +353,315 @@ def test_catalog_searches_available_products_by_normalized_text_case_insensitive
         assert product.name in content
     for product in products[3:]:
         assert product.name not in content
+
+
+@pytest.mark.django_db
+def test_catalog_filters_available_products_by_category_and_license_slug(client):
+    matching_category = Category.objects.create(name="Ambientes", slug="ambientes")
+    other_category = Category.objects.create(name="Efectos", slug="efectos")
+    matching_license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+    )
+    other_license_type = LicenseType.objects.create(
+        name="Publicidad comercial",
+        slug="publicidad-comercial",
+        usage_scope="Una campaña publicitaria",
+        summary="Uso en una campaña de publicidad comercial.",
+        terms_version="1.0",
+    )
+
+    matching_product = Product.objects.create(
+        category=matching_category,
+        name="Puerto al anochecer",
+        slug="puerto-al-anochecer",
+        sku="AMB-101",
+        summary="Ambiente de puerto durante la noche.",
+        description="Grabación de ambiente marítimo.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+    )
+    ProductLicenseOffer.objects.create(
+        product=matching_product,
+        license_type=matching_license_type,
+        price=Decimal("12.90"),
+    )
+
+    wrong_license_product = Product.objects.create(
+        category=matching_category,
+        name="Tráfico distante",
+        slug="trafico-distante",
+        sku="AMB-102",
+        summary="Ambiente de tráfico urbano.",
+        description="Grabación de una avenida.",
+        duration_ms=18_500,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+    )
+    ProductLicenseOffer.objects.create(
+        product=wrong_license_product,
+        license_type=other_license_type,
+        price=Decimal("29.90"),
+    )
+
+    wrong_category_product = Product.objects.create(
+        category=other_category,
+        name="Impacto metálico",
+        slug="impacto-metalico",
+        sku="EFE-101",
+        summary="Efecto de impacto metálico.",
+        description="Grabación de un golpe sobre metal.",
+        duration_ms=1_200,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+    )
+    ProductLicenseOffer.objects.create(
+        product=wrong_category_product,
+        license_type=matching_license_type,
+        price=Decimal("9.90"),
+    )
+
+    response = client.get(
+        "/catalog/",
+        {"category": matching_category.slug, "license": matching_license_type.slug},
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert matching_product.name in content
+    assert wrong_license_product.name not in content
+    assert wrong_category_product.name not in content
+
+
+@pytest.mark.django_db
+def test_catalog_orders_available_products_by_minimum_price_with_stable_tiebreak(
+    client,
+):
+    category = Category.objects.create(name="Ambientes", slug="ambientes")
+    license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+    )
+
+    def _create_product_with_price(name, slug, sku, price):
+        product = Product.objects.create(
+            category=category,
+            name=name,
+            slug=slug,
+            sku=sku,
+            summary="Ambiente ficticio de ciudad durante la noche.",
+            description="Grabación preparada para una producción audiovisual.",
+            duration_ms=18_500,
+            audio_format="wav",
+            sample_rate_hz=48_000,
+            bit_depth=24,
+        )
+        ProductLicenseOffer.objects.create(
+            product=product,
+            license_type=license_type,
+            price=Decimal(price),
+        )
+        return product
+
+    low_first = _create_product_with_price(
+        "Alfa baja uno", "alfa-baja-uno", "PRC-001", "10.00"
+    )
+    low_second = _create_product_with_price(
+        "Beta baja dos", "beta-baja-dos", "PRC-002", "10.00"
+    )
+    mid = _create_product_with_price("Gamma media", "gamma-media", "PRC-003", "20.00")
+    high = _create_product_with_price("Zeta alta", "zeta-alta", "PRC-004", "30.00")
+
+    ascending_content = client.get("/catalog/", {"ordering": "price"}).content.decode()
+    descending_content = client.get(
+        "/catalog/", {"ordering": "-price"}
+    ).content.decode()
+
+    ascending_positions = [
+        ascending_content.index(product.name)
+        for product in (low_first, low_second, mid, high)
+    ]
+    descending_positions = [
+        descending_content.index(product.name)
+        for product in (high, mid, low_first, low_second)
+    ]
+
+    assert ascending_positions == sorted(ascending_positions)
+    assert descending_positions == sorted(descending_positions)
+
+
+@pytest.mark.django_db
+def test_catalog_orders_available_products_by_name_in_descending_order(client):
+    category = Category.objects.create(name="Ambientes", slug="ambientes")
+    license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+    )
+
+    def _create_product(name, slug, sku):
+        product = Product.objects.create(
+            category=category,
+            name=name,
+            slug=slug,
+            sku=sku,
+            summary="Ambiente ficticio de ciudad durante la noche.",
+            description="Grabación preparada para una producción audiovisual.",
+            duration_ms=18_500,
+            audio_format="wav",
+            sample_rate_hz=48_000,
+            bit_depth=24,
+        )
+        ProductLicenseOffer.objects.create(
+            product=product,
+            license_type=license_type,
+            price=Decimal("12.90"),
+        )
+        return product
+
+    first_alphabetically = _create_product("Alfa baja", "alfa-baja", "PRC-101")
+    last_alphabetically = _create_product("Zeta alta", "zeta-alta", "PRC-102")
+
+    content = client.get("/catalog/", {"ordering": "-name"}).content.decode()
+
+    assert content.index(last_alphabetically.name) < content.index(
+        first_alphabetically.name
+    )
+
+
+@pytest.mark.django_db
+def test_catalog_returns_400_for_an_unrecognized_ordering_value(client):
+    response = client.get("/catalog/", {"ordering": "unknown"})
+
+    assert response.status_code == 400
+    assert "ordering" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_catalog_returns_400_for_an_unrecognized_category_slug(client):
+    response = client.get("/catalog/", {"category": "categoria-inexistente"})
+
+    assert response.status_code == 400
+    assert "category" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_catalog_returns_400_for_an_unrecognized_license_slug(client):
+    response = client.get("/catalog/", {"license": "licencia-inexistente"})
+
+    assert response.status_code == 400
+    assert "license" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_catalog_returns_400_instead_of_404_when_an_invalid_category_and_an_invalid_page_are_combined(
+    client,
+):
+    response = client.get(
+        "/catalog/", {"category": "categoria-inexistente", "page": "999"}
+    )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_catalog_renders_category_and_license_selects_with_active_options_and_recognized_value(
+    client,
+):
+    matching_category = Category.objects.create(name="Ambientes", slug="ambientes")
+    other_category = Category.objects.create(name="Efectos", slug="efectos")
+    Category.objects.create(name="Retirada", slug="retirada", is_active=False)
+    matching_license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+    )
+    other_license_type = LicenseType.objects.create(
+        name="Publicidad comercial",
+        slug="publicidad-comercial",
+        usage_scope="Una campaña publicitaria",
+        summary="Uso en una campaña de publicidad comercial.",
+        terms_version="1.0",
+    )
+    LicenseType.objects.create(
+        name="Retirada",
+        slug="retirada-licencia",
+        usage_scope="Uso retirado",
+        summary="Tipo de licencia retirado.",
+        terms_version="1.0",
+        is_active=False,
+    )
+
+    response = client.get(
+        "/catalog/",
+        {"category": matching_category.slug, "license": matching_license_type.slug},
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert '<select name="category">' in content
+    assert '<select name="license">' in content
+    assert content.count('<option value="">Todas</option>') == 2
+
+    assert (
+        f'<option value="{matching_category.slug}" selected>{matching_category.name}</option>'
+        in content
+    )
+    assert (
+        f'<option value="{other_category.slug}">{other_category.name}</option>'
+        in content
+    )
+    assert "retirada" not in content
+
+    assert (
+        f'<option value="{matching_license_type.slug}" selected>'
+        f"{matching_license_type.name}</option>" in content
+    )
+    assert (
+        f'<option value="{other_license_type.slug}">{other_license_type.name}</option>'
+        in content
+    )
+    assert "retirada-licencia" not in content
+
+
+@pytest.mark.django_db
+def test_catalog_shows_message_and_keeps_all_recognized_controls_visible_when_query_has_no_matches(
+    client,
+):
+    _create_available_products(1)
+
+    response = client.get(
+        "/catalog/",
+        {
+            "q": "cadena-sin-coincidencias",
+            "category": "ambientes",
+            "license": "youtube-redes-sociales",
+            "ordering": "price",
+        },
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "No hay productos disponibles en este momento." in content
+    assert '<option value="ambientes" selected>' in content
+    assert '<option value="youtube-redes-sociales" selected>' in content
+    assert '<input type="text" name="q" value="cadena-sin-coincidencias">' in content
+    assert '<select name="ordering">' in content
+    assert 'value="price" selected' in content
 
 
 @pytest.mark.django_db
