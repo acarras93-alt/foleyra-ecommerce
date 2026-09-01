@@ -227,6 +227,88 @@ def test_catalog_displays_the_minimum_price_for_multiple_active_offers(client):
 
 
 @pytest.mark.django_db
+def test_catalog_searches_available_products_by_normalized_text_case_insensitively(
+    client,
+):
+    category = Category.objects.create(
+        name="Ambientes",
+        slug="ambientes",
+    )
+    license_type = LicenseType.objects.create(
+        name="YouTube y redes sociales",
+        slug="youtube-redes-sociales",
+        usage_scope="Un canal por plataforma",
+        summary="Uso en contenido propio para redes sociales.",
+        terms_version="1.0",
+    )
+    product_data = (
+        (
+            "CITY NIGHT en el puerto",
+            "Puerto al anochecer.",
+            "Grabación de ambiente marítimo.",
+            True,
+        ),
+        (
+            "Tráfico distante",
+            "Ambiente de CITY NIGHT con tráfico.",
+            "Grabación de una avenida.",
+            True,
+        ),
+        (
+            "Pasos sobre asfalto",
+            "Pasos nocturnos.",
+            "Grabación durante una CITY NIGHT lluviosa.",
+            True,
+        ),
+        (
+            "Amanecer rural",
+            "Ambiente de campo.",
+            "Grabación de aves al amanecer.",
+            True,
+        ),
+        (
+            "CITY NIGHT archivada",
+            "Ambiente retirado.",
+            "Grabación que ya no está disponible.",
+            False,
+        ),
+    )
+    products = []
+    for number, (name, summary, description, is_active) in enumerate(
+        product_data,
+        start=1,
+    ):
+        product = Product.objects.create(
+            category=category,
+            name=name,
+            slug=f"producto-busqueda-{number}",
+            sku=f"SEARCH-{number}",
+            summary=summary,
+            description=description,
+            duration_ms=18_500,
+            audio_format="wav",
+            sample_rate_hz=48_000,
+            bit_depth=24,
+            is_active=is_active,
+        )
+        ProductLicenseOffer.objects.create(
+            product=product,
+            license_type=license_type,
+            price=Decimal("12.90"),
+        )
+        products.append(product)
+
+    response = client.get("/catalog/", {"q": "  city   night  "})
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    for product in products[:3]:
+        assert product.name in content
+    for product in products[3:]:
+        assert product.name not in content
+
+
+@pytest.mark.django_db
 def test_product_detail_displays_technical_metadata_and_active_license_offer(client):
     category = Category.objects.create(
         name="Ambientes",

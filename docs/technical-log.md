@@ -1323,3 +1323,43 @@ esa relación no formaba parte del queryset interno del `Prefetch`.
 El cambio solo completa la carga eficiente del selector compartido para RF-01
 y RF-02. No modifica la respuesta, el esquema de datos ni la validación HTTP y
 no implementa ningún criterio de RF-03. Commit: `f3991b7`.
+
+## 2026-09-01 — CA-RF03-01: búsqueda textual del catálogo
+
+### Objetivo y ciclo Red-Green
+
+Implementar únicamente la búsqueda pública aprobada por palabra o frase
+normalizada en `Product.name`, `Product.summary` y `Product.description`, sin
+distinguir mayúsculas de minúsculas y conservando la disponibilidad heredada
+de RF-01.
+
+- RED válido: la prueba
+  `test_catalog_searches_available_products_by_normalized_text_case_insensitively`
+  finalizó con `1 failed in 0.57s`; el producto disponible no coincidente
+  `Amanecer rural` apareció porque la vista todavía ignoraba `q`.
+- Implementación mínima: `product_list()` normaliza espacios de `q` y entrega
+  el valor al selector compartido; `get_available_products()` aplica una
+  condición `OR` con `icontains` sobre nombre, resumen y descripción.
+- GREEN específico: el mismo nodo finalizó primero con `1 passed in 0.46s` y
+  se repitió con `1 passed in 0.46s`.
+- Regresión completa: `.venv/bin/python -m pytest -q` finalizó con
+  `31 passed in 1.16s`.
+
+### Puerta de calidad y alcance
+
+- `.venv/bin/python manage.py check --database default`: sin incidencias.
+- `.venv/bin/python manage.py makemigrations --check --dry-run`: sin cambios.
+- `.venv/bin/python manage.py migrate --check`: sin migraciones pendientes.
+- `.venv/bin/ruff check .`: todas las comprobaciones superadas.
+- `.venv/bin/ruff format --check .`: `70 files already formatted`.
+- `.venv/bin/pip check`: ninguna dependencia rota.
+- `git diff --check`: sin errores de whitespace.
+- `git status --short`: modificados `apps/catalog/selectors.py`,
+  `apps/catalog/tests/test_views.py` y `apps/catalog/views.py` antes de esta
+  actualización documental.
+
+No se modificaron modelos, migraciones, configuración, URLs, templates,
+dependencias ni almacenamiento privado. La suite completa mantuvo en Green las
+pruebas existentes del almacenamiento privado. CA-RF03-02 a CA-RF03-06 siguen
+sin implementar. CA-RF03-01 queda implementado y comprobado localmente, con
+evidencia y commit pendientes.

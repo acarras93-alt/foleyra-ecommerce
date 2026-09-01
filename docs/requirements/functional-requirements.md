@@ -356,9 +356,9 @@ Los conflictos previos quedaron cerrados el 2026-09-01:
 - carga de `license_type` sin N+1 verificada en `f3991b7`;
 - trazabilidad previa consolidada en `9674d9b`.
 
-Este estado habilita comenzar CA-RF03-01, pero no implementa RF-03. El código
-todavía no procesa `q`, `category`, `license` ni `ordering`, y la plantilla no
-conserva esos controles.
+CA-RF03-01 está implementado y comprobado localmente, pendiente de evidencia y
+commit. El código todavía no procesa `category`, `license` ni `ordering`, y la
+plantilla no conserva esos controles.
 
 #### Objetivo
 
@@ -482,18 +482,18 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 
 | Elemento | Referencia |
 |---|---|
-| Pruebas | CA-RF03-01 a CA-RF03-06 pendientes; CA-RF03-07 reutiliza pruebas de RF-01 |
+| Pruebas | CA-RF03-01 implementado; CA-RF03-02 a CA-RF03-06 pendientes; CA-RF03-07 reutiliza pruebas de RF-01 |
 | Decisiones aplicables | `docs/requirements/rf03-decision-checkpoint.md`, commit `3e30a7c` |
 | Selector base disponible | `apps/catalog/selectors.py:get_available_products()`, commits `3c58ae7` y `f3991b7` |
-| Implementación web | Pendiente |
-| Consulta compartida | Pendiente; extensión de RF-01 |
+| Implementación web | `apps/catalog/views.py:product_list()` para búsqueda `q` |
+| Consulta compartida | `apps/catalog/selectors.py:get_available_products()` para búsqueda `q` |
 | Implementación API | RF-12 |
-| Evidencia | CA-RF03-07 en `docs/evidence/RF-03/CA-RF03-07.md`; resto pendiente |
+| Evidencia | CA-RF03-01 pendiente; CA-RF03-07 en `docs/evidence/RF-03/CA-RF03-07.md`; resto pendiente |
 | Commits de preparación | `3e30a7c`, `3c58ae7`, `f3991b7`, `9674d9b` |
 
 | Criterio | Prueba | Evidencia | Commit | Estado |
 |---|---|---|---|---|
-| CA-RF03-01 | Pendiente | Pendiente | Pendiente | No implementado |
+| CA-RF03-01 | `apps/catalog/tests/test_views.py::test_catalog_searches_available_products_by_normalized_text_case_insensitively` | Pendiente | Pendiente | Implementado y comprobado localmente |
 | CA-RF03-02 | Pendiente | Pendiente | Pendiente | No implementado |
 | CA-RF03-03 | Pendiente | Pendiente | Pendiente | No implementado |
 | CA-RF03-04 | Pendiente | Pendiente | Pendiente | No implementado |
@@ -503,8 +503,8 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 
 CA-RF03-07 reutiliza la paginación y las pruebas 404 implementadas por RF-01;
 no se revierte comportamiento correcto para fabricar un Red. RF-03 conservará
-el estado `Aprobado` hasta que los seis comportamientos pendientes recorran su
-ciclo test-first y la puerta de calidad correspondiente.
+el estado `Aprobado` hasta que los cinco comportamientos pendientes recorran su
+ciclo test-first y la trazabilidad de CA-RF03-01 incorpore evidencia y commit.
 
 ## RF-04: Registrarse, iniciar sesión y cerrar sesión
 

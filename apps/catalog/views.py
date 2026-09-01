@@ -6,7 +6,8 @@ from apps.catalog.selectors import get_available_products
 
 
 def product_list(request):
-    paginator = Paginator(get_available_products(), 12)
+    search_query = " ".join(request.GET.get("q", "").split())
+    paginator = Paginator(get_available_products(search_query=search_query), 12)
     try:
         products = paginator.page(request.GET.get("page", 1))
     except (EmptyPage, PageNotAnInteger) as error:
