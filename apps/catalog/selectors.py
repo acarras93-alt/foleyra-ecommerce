@@ -27,7 +27,7 @@ def get_available_products() -> QuerySet[Product]:
                 queryset=ProductLicenseOffer.objects.filter(
                     is_active=True,
                     license_type__is_active=True,
-                ),
+                ).select_related("license_type"),
             )
         )
         .distinct()

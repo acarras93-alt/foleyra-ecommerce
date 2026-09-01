@@ -34,7 +34,10 @@ def _load_available_products_and_relations():
         products = list(get_available_products())
         for product in products:
             assert product.category.is_active
-            assert all(offer.is_active for offer in product.license_offers.all())
+            assert all(
+                offer.is_active and offer.license_type.is_active
+                for offer in product.license_offers.all()
+            )
 
     return products, len(queries)
 

@@ -1297,3 +1297,29 @@ El selector exige `license_type__is_active=True` en disponibilidad, cálculo del
 precio mínimo y ofertas precargadas. No se modificaron modelos, migraciones,
 vistas, templates, URLs o dependencias. No se implementó ningún criterio de
 RF-03.
+
+## 2026-09-01 — Carga acotada de tipos de licencia
+
+### Objetivo
+
+Cerrar el N+1 heredado antes de RF-03. El selector precargaba ofertas, pero cada
+acceso posterior a `offer.license_type` ejecutaba una consulta adicional porque
+esa relación no formaba parte del queryset interno del `Prefetch`.
+
+### Ciclo Red-Green
+
+- RED válido: se amplió la prueba de consultas existente para materializar
+  `offer.license_type.is_active`. La prueba falló porque las consultas crecieron
+  de 3 para un producto a 14 para doce.
+- Implementación mínima: el queryset de ofertas añadió
+  `select_related("license_type")`.
+- GREEN: la prueba focalizada finalizó con `1 passed`.
+- Regresión de selector y vistas: `22 passed`.
+- Regresión completa: `30 passed`.
+- Ruff finalizó correctamente y confirmó el formato de ambos archivos.
+
+### Alcance
+
+El cambio solo completa la carga eficiente del selector compartido para RF-01
+y RF-02. No modifica la respuesta, el esquema de datos ni la validación HTTP y
+no implementa ningún criterio de RF-03.
