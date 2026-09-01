@@ -32,3 +32,5 @@ coherente en:
 - el conjunto disponible;
 - la anotación `minimum_price`;
 - la colección de ofertas públicas precargadas.
+
+Commit: `3c58ae7` (`fix: require active catalog license types`).

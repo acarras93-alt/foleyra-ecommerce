@@ -1296,7 +1296,7 @@ abarataba `minimum_price` y se precargaba como oferta pública.
 El selector exige `license_type__is_active=True` en disponibilidad, cálculo del
 precio mínimo y ofertas precargadas. No se modificaron modelos, migraciones,
 vistas, templates, URLs o dependencias. No se implementó ningún criterio de
-RF-03.
+RF-03. Commit: `3c58ae7`.
 
 ## 2026-09-01 — Carga acotada de tipos de licencia
 
@@ -1322,4 +1322,4 @@ esa relación no formaba parte del queryset interno del `Prefetch`.
 
 El cambio solo completa la carga eficiente del selector compartido para RF-01
 y RF-02. No modifica la respuesta, el esquema de datos ni la validación HTTP y
-no implementa ningún criterio de RF-03.
+no implementa ningún criterio de RF-03. Commit: `f3991b7`.

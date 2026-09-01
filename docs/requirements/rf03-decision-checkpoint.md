@@ -133,8 +133,8 @@ la plantilla. Cada criterio debe iniciar después su ciclo test-first propio.
 
 Antes de CA-RF03-01 se resolverán de forma independiente:
 
-1. [x] exclusión de ofertas asociadas a tipos de licencia inactivos;
-2. [x] carga acotada de `license_type` para evitar N+1;
+1. [x] exclusión de ofertas asociadas a tipos de licencia inactivos (`3c58ae7`);
+2. [x] carga acotada de `license_type` para evitar N+1 (`f3991b7`);
 3. [x] trazabilidad de los commits ya existentes de RF-02;
 4. [x] registro de CA-RF03-07 como Green preexistente.
 

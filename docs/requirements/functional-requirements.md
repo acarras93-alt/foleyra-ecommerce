@@ -192,7 +192,7 @@ almacenamiento y la entrega autorizada.
 | CA-RF01-04 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-04.md` | `c8e2a20` | Verificado |
 | CA-RF01-05 | Pendiente: requiere contrato de archivo maestro privado | No aplica hasta RF-11 | No aplica | Pendiente, diferido a RF-11 |
 | CA-RF01-06 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-06.md` | `8415d55` | Verificado |
-| CA-RF01-07 | `apps/catalog/tests/test_selectors.py` | `docs/evidence/RF-01/CA-RF01-07.md` | `b2d6eab` | Verificado |
+| CA-RF01-07 | `apps/catalog/tests/test_selectors.py` | `docs/evidence/RF-01/CA-RF01-07.md` | `b2d6eab`, `f3991b7` | Verificado |
 
 ### RF-02 — Consultar detalle y escuchar una preview pública
 
