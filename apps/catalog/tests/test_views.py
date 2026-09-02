@@ -356,6 +356,16 @@ def test_catalog_searches_available_products_by_normalized_text_case_insensitive
 
 
 @pytest.mark.django_db
+def test_catalog_returns_400_for_a_normalized_search_query_longer_than_100_characters(
+    client,
+):
+    response = client.get("/catalog/", {"q": "a" * 101})
+
+    assert response.status_code == 400
+    assert "q" in response.content.decode()
+
+
+@pytest.mark.django_db
 def test_catalog_filters_available_products_by_category_and_license_slug(client):
     matching_category = Category.objects.create(name="Ambientes", slug="ambientes")
     other_category = Category.objects.create(name="Efectos", slug="efectos")

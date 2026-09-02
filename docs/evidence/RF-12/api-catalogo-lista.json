@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/catalog/products/"
+  },
+  "response": {
+    "status": 200,
+    "content_type": "application/json",
+    "count": 17,
+    "next": "/api/v1/catalog/products/?page=2",
+    "previous": null,
+    "results_on_page": 12,
+    "first_result": {
+      "slug": "rf03-ambiente-01",
+      "detail_url": "/api/v1/catalog/products/rf03-ambiente-01/",
+      "minimum_price": "5.90",
+      "currency": "EUR"
+    }
+  },
+  "observed_on": "2026-09-02"
+}

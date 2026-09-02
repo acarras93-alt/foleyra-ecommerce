@@ -1,0 +1,23 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/catalog/products/rf03-ambiente-01/"
+  },
+  "response": {
+    "status": 200,
+    "content_type": "application/json",
+    "slug": "rf03-ambiente-01",
+    "minimum_price": "5.90",
+    "currency": "EUR",
+    "preview_url": null,
+    "license_offers": [
+      {
+        "license_slug": "rf03-redes-sociales",
+        "price": "5.90",
+        "currency": "EUR"
+      }
+    ],
+    "detail_url": "/api/v1/catalog/products/rf03-ambiente-01/"
+  },
+  "observed_on": "2026-09-02"
+}

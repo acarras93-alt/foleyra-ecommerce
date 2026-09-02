@@ -1600,3 +1600,392 @@ Git" no puede cerrarse todavía.
 
 Este incremento es documental: no se modificó producción, pruebas,
 configuración ni migraciones, y no se realizó ningún commit.
+
+## 2026-09-02 — Límite de longitud de `q` en RF-03
+
+### Objetivo y decisión aplicada
+
+Corregir la divergencia con el contrato aprobado de RF-03: `q` debe
+normalizarse antes de comprobar su límite de 100 caracteres y un valor mayor
+debe responder 400. La validación se mantiene en `product_list()`, la capa
+HTTP que normaliza la entrada, para que `get_available_products()` conserve su
+contrato de consulta reutilizable con datos ya validados.
+
+### Ciclo Red-Green y comprobaciones
+
+- RED válido: la prueba
+  `test_catalog_returns_400_for_a_normalized_search_query_longer_than_100_characters`
+  falló con `assert 200 == 400`; la vista normalizaba `q` pero no comprobaba
+  su longitud.
+- Implementación mínima: `product_list()` devuelve `HttpResponseBadRequest`
+  cuando la consulta normalizada supera 100 caracteres, antes de construir el
+  queryset o el paginador.
+- GREEN específico: la misma prueba finalizó con `1 passed in 0.40s`.
+- Regresión de vistas: `.venv/bin/python -m pytest -q
+  apps/catalog/tests/test_views.py` finalizó con `32 passed in 0.88s`.
+- Regresión completa: `.venv/bin/python -m pytest -q` finalizó con `42 passed
+  in 1.30s`.
+- Ruff sobre los archivos modificados finalizó correctamente y confirmó que
+  ambos ya estaban formateados; los diagnósticos de VS Code no informaron
+  errores.
+
+### Alcance y riesgos
+
+No se modificaron modelos, migraciones, selectores, dependencias, API ni
+administración. Esta corrección hace que la futura validación HTTP de RF-12
+pueda aplicar el mismo contrato público sin divergir de la web. Sigue pendiente
+definir la representación JSON exacta de los errores de RF-12 y completar su
+propio ciclo test-first. No se creó ningún commit.
+
+## 2026-09-02 — Cierre del contrato HTTP de RF-12
+
+### Decisión y alcance
+
+Se sustituyó la denominación contradictoria de contrato HTTP "propuesto" por
+un contrato aprobado, coherente con el estado `Aprobado` de RF-12 y con
+D-CAT-07. El requisito define ahora nombres, tipos y anidamiento de los campos
+públicos de lista y detalle; rutas relativas para detalle, paginación y
+preview; importes decimales como cadenas de dos posiciones; y `null` para una
+preview o página adyacente inexistente.
+
+Los errores JSON usan el sobre `error` con los códigos cerrados
+`invalid_query_parameter`, `page_not_found`, `product_not_found` y
+`method_not_allowed`. La validación de parámetro identifica solo `q`,
+`category`, `license` u `ordering`; los textos humanos quedan fuera del
+contrato. Esta decisión permite que la futura API DRF tenga pruebas
+deterministas sin publicar los campos privados del catálogo.
+
+### Comprobación y alcance excluido
+
+Se revisaron RF-03, D-CAT-07 y el modelo actual para alinear búsqueda,
+disponibilidad, precio mínimo, orden y almacenamiento de previews. No se
+modificaron código, modelos, migraciones, dependencias, rutas, API, pruebas ni
+administración; por tanto, no se ejecutaron pruebas. La implementación
+test-first, la evidencia real y el commit de RF-12 permanecen pendientes.
+
+## 2026-09-02 — Decisión de paginación canonizada para RF-12
+
+### Decisión
+
+Para cumplir D-CAT-07 y D-RF03-06, RF-12 implementará una subclase local de
+`PageNumberPagination` en `apps.catalog`. No usará directamente los enlaces
+del paginador estándar de DRF: estos parten de la URL de entrada y podrían
+propagar parámetros desconocidos. La subclase formará rutas relativas con
+`q`, `category`, `license` y `ordering` únicamente cuando estén presentes y
+reconocidos, en ese orden, y añadirá o sustituirá `page` al final.
+
+La vista API seguirá siendo responsable de normalizar y validar parámetros; el
+paginador recibe valores ya validados y solo representa los enlaces. Esta
+separación conserva el selector compartido y evita duplicar validación de
+negocio en una utilidad de presentación.
+
+### Prueba y alcance
+
+El ciclo test-first de RF-12 deberá solicitar una página con todos los
+parámetros reconocidos y `utm_source`, y comprobar que `next` o `previous`
+preserva solo los cuatro parámetros aprobados, sustituye `page` y es una ruta
+relativa. No se modificaron código, modelos, migraciones, dependencias ni
+pruebas; no se ejecutaron pruebas. La implementación y evidencia de RF-12
+siguen pendientes y no se creó ningún commit.
+
+## 2026-09-02 — Política global de DRF para RF-12
+
+### Decisión e implementación
+
+Se añadió `REST_FRAMEWORK` a `config/settings.py` con `JSONRenderer` como único
+renderer y una lista vacía de autenticadores predeterminados. La decisión evita
+la interfaz navegable y elimina la autenticación de sesión como fuente de una
+comprobación CSRF anterior al despacho del método. RF-12 deberá declarar en sus
+vistas `AllowAny` y `authentication_classes = []` para preservar explícitamente
+la garantía de que las escrituras no admitidas alcanzan la vista de solo lectura
+y responden 405.
+
+Las API privadas futuras no heredan una autenticación implícita: deberán
+declarar autenticadores y permisos específicos en su propia interfaz, conforme
+a RNF-10.
+
+### Ciclo Red-Green y alcance
+
+- RED válido: `test_project_uses_json_only_drf_defaults_without_authentication`
+  falló con `AttributeError` porque `REST_FRAMEWORK` no estaba configurado.
+- GREEN específico: la misma prueba finalizó con `1 passed in 0.03s` tras
+  declarar ambos valores en configuración.
+
+No se modificaron modelos, migraciones, rutas ni endpoints; por ello el 405 de
+RF-12 permanece como prueba pendiente hasta implementar la vista. No se
+añadieron dependencias ni se creó ningún commit.
+
+## 2026-09-02 — Corrección de trazabilidad de CA-RF03-06
+
+Las entradas del 2026-09-01 que indicaban pendiente la numeración formal de
+RN-RF03-08 quedan sustituidas por D-RF03-10 y la trazabilidad vigente de
+RF-03. La validación de `category` y `license` inexistentes o inactivos, junto
+con la precedencia del error 400 sobre una página inválida 404, forma parte de
+la ampliación aprobada de CA-RF03-06; no constituye un criterio adicional ni
+requiere renumeración.
+
+Las pruebas
+`test_catalog_returns_400_for_an_unrecognized_category_slug`,
+`test_catalog_returns_400_for_an_unrecognized_license_slug` y
+`test_catalog_returns_400_instead_of_404_when_an_invalid_category_and_an_invalid_page_are_combined`
+son la trazabilidad de esta ampliación. No se modificaron código, pruebas,
+modelos, migraciones ni dependencias, y no se ejecutaron pruebas por tratarse
+de una corrección documental. No se creó ningún commit.
+
+## 2026-09-02 — Orden de implementación de criterios de RF-12
+
+Se añadió un orden recomendado sin alterar los identificadores estables de los
+criterios. El recorrido comienza con la lista y su lista explícita de campos
+públicos, cierra el modo de solo lectura, implementa paginación antes de la
+equivalencia de filtros, y deja el detalle y sus 404 para después. La prueba de
+privacidad CA-RF12-05 se realiza sobre lista y detalle, y la medición de N+1 se
+mantiene como comprobación transversal final de RN-RF12-06.
+
+No se modificaron código, pruebas, modelos, migraciones ni dependencias; no se
+ejecutaron pruebas por tratarse de un cambio documental. No se creó ningún
+commit.
+
+## 2026-09-02 — CA-RF12-05: privacidad del maestro en lista API
+
+Se añadió
+`test_public_product_page_never_exposes_an_identifiable_private_master` en
+`apps/catalog/tests/test_api.py`. La prueba crea un producto disponible con un
+`master_file` identificable y comprueba que la respuesta JSON de lista no
+contiene el campo, su nombre, su componente final ni la ubicación del
+almacenamiento privado.
+
+No se fabricó un Red: la lista explícita de campos del serializer de
+CA-RF12-01 ya excluía el maestro antes de incorporar esta prueba. La prueba
+específica finalizó con `1 passed in 0.46s`; la regresión del archivo API con
+`2 passed in 0.42s`; y la suite completa con `45 passed in 1.44s`. Ruff y los
+diagnósticos de VS Code no detectaron incidencias.
+
+La cobertura corresponde solo a la lista pública. La comprobación equivalente
+del detalle queda pendiente de CA-RF12-03. No se modificaron modelos,
+migraciones, dependencias ni rutas y no se creó ningún commit.
+
+## 2026-09-02 — API pública RF-12: consulta, detalle y errores JSON
+
+### Objetivo y alcance
+
+Resolver los criterios pendientes CA-RF12-02, CA-RF12-03 y CA-RF12-06, junto
+con los sobres JSON de error necesarios para parámetros inválidos, páginas
+inexistentes y productos inexistentes. También se completó la parte de detalle
+de CA-RF12-05 mediante una representación con lista blanca.
+
+### Ciclo Red-Green
+
+- CA-RF12-06: una sesión autenticada recibió inicialmente el `405` estándar de
+  DRF con `detail`; la prueba esperaba el sobre `error.method_not_allowed`.
+  `PublicCatalogAPIView` normaliza ahora la respuesta para lista y detalle;
+  la prueba focalizada finalizó con `8 passed in 1.82s`.
+- CA-RF12-02: la API devolvía tres productos porque ignoraba `q`, `category`,
+  `license` y `ordering`, mientras la web devolvía uno. La vista normaliza `q`
+  y delega los cuatro parámetros en `get_available_products()`; la equivalencia
+  API-web finalizó con `1 passed in 0.44s`.
+- CA-RF12-03: el detalle reutilizaba el serializer de lista y exponía
+  `licenses` sin los campos de detalle. Se añadió un serializer explícito de
+  detalle con descripción, preview pública opcional y ofertas activas; su
+  prueba focalizada finalizó con `1 passed in 0.41s`. El borde sin preview y
+  con una oferta inactiva finalizó con `1 passed in 0.42s`.
+- Errores JSON: los parámetros inválidos respondían `200` y los `404` de DRF
+  usaban `detail`. La capa HTTP valida los parámetros aprobados antes de
+  consultar, distingue la página inexistente y convierte el detalle no
+  encontrado al contrato aprobado. Las seis comprobaciones focalizadas
+  finalizaron con `6 passed in 0.48s`.
+
+### Comprobaciones ejecutadas
+
+- `.venv/bin/python -m pytest -q apps/catalog/tests/test_api.py`: `20 passed
+  in 2.01s`.
+- `.venv/bin/python manage.py check --database default`: sin incidencias.
+- `.venv/bin/python manage.py makemigrations --check --dry-run`: `No changes
+  detected`.
+- `.venv/bin/python manage.py migrate --check`: sin salida, sin migraciones
+  pendientes.
+- `.venv/bin/python -m pytest -q`: `63 passed in 2.95s`.
+- `.venv/bin/ruff check .`: correcto; `.venv/bin/ruff format --check .`:
+  `75 files already formatted`.
+- `.venv/bin/pip check`: sin dependencias incompatibles; `git diff --check`:
+  sin errores de whitespace.
+
+### Resultado y alcance excluido
+
+La API pública reutiliza el selector de disponibilidad de web, declara acceso
+anónimo sin autenticadores, filtra y ordena con los parámetros aprobados y
+ofrece un detalle que no contiene maestro, SKU, estados, marcas temporales ni
+versión de términos. No se modificaron modelos, migraciones, dependencias ni
+configuración. CA-RF12-07 (paginación canonizada y lista vacía) y la medición
+de RN-RF12-06 continúan pendientes. No se creó ningún commit.
+
+## 2026-09-02 — RN-RF12-06: consultas acotadas en la serialización API
+
+### Objetivo y resultado
+
+Se añadió una prueba de integración PostgreSQL que consulta la página pública
+de API con uno y doce productos, materializando en el JSON categoría, licencia
+y precio mínimo. La prueba compara ambos recuentos y exige como máximo tres
+consultas, por lo que detectaría una consulta adicional por producto durante
+la serialización.
+
+La primera ejecución falló por una preparación inválida de la prueba: el
+segundo lote intentaba recrear categoría y licencia únicas. Se corrigió para
+reutilizar esas entidades; no era un fallo de producción ni un RED del
+requisito. La medición resultó Green preexistente gracias a la carga
+relacionada ya definida por `get_available_products()`.
+
+### Comprobaciones ejecutadas
+
+- Prueba focalizada: `1 passed in 0.45s`.
+- `.venv/bin/python -m pytest -q apps/catalog/tests/test_api.py`: `21 passed
+  in 2.03s`.
+- `.venv/bin/python -m pytest -q`: `64 passed in 3.00s`.
+- Ruff y formato sobre `apps/catalog/tests/test_api.py`: correctos.
+- Diagnósticos de VS Code: sin errores.
+
+### Alcance excluido
+
+No se modificaron producción, modelos, migraciones, dependencias ni
+configuración. CA-RF12-07, incluida la paginación canonizada y el estado
+vacío, continúa pendiente. No se creó ningún commit.
+
+## 2026-09-02 — Declaración explícita de acceso en vistas RF-12
+
+Se corrigió la desviación con el contrato aprobado: `PublicProductListView` y
+`PublicProductDetailView` declaran ahora directamente `AllowAny` y una
+colección vacía de autenticadores. El mixin compartido conserva únicamente la
+adaptación de errores JSON, sin heredar una política de acceso implícita.
+
+La regresión focalizada de escritura con sesión activa finalizó con `8 passed
+in 1.89s`; la batería de API con `21 passed in 2.05s`; y la suite completa con
+`64 passed in 2.96s`. Ruff y los diagnósticos de VS Code no informaron errores.
+No se modificaron modelos, migraciones, dependencias ni configuración y no se
+creó ningún commit.
+
+## 2026-09-02 — CA-RF12-07: paginación pública y estado vacío
+
+### Objetivo y ciclo Red-Green
+
+Se implementó la paginación pública conforme a D-CAT-07: una consulta válida
+sin resultados responde `200` con página vacía, y los enlaces adyacentes son
+rutas relativas con parámetros canonizados. La prueba creada con trece
+productos, filtros válidos y `utm_source` resultó RED porque el paginador
+estándar de DRF devolvía una URL absoluta, conservaba el parámetro desconocido
+y no normalizaba `q`.
+
+La implementación mínima en `PublicProductPagination` construye `next` y
+`previous` a partir de `q`, `category`, `license` y `ordering` ya validados por
+la vista, en el orden aprobado, y sustituye `page`. La prueba conjunta de
+estado vacío y enlaces finalizó con `2 passed in 0.49s`. La prueba de página no
+encontrada se amplió a página posterior, no numérica y menor que uno, y finalizó
+con `3 passed in 0.43s`.
+
+### Comprobaciones ejecutadas
+
+- `.venv/bin/python -m pytest -q apps/catalog/tests/test_api.py`: `25 passed
+  in 2.11s`.
+- `.venv/bin/python -m pytest -q`: `68 passed in 3.07s`.
+- `.venv/bin/python manage.py check --database default`: sin incidencias.
+- `.venv/bin/python manage.py makemigrations --check --dry-run`: `No changes
+  detected`; `.venv/bin/python manage.py migrate --check`: sin migraciones
+  pendientes.
+- Ruff, formato y `pip check`: correctos.
+
+### Alcance excluido
+
+No se modificaron selector, modelos, migraciones, autenticación, permisos,
+serializers ni dependencias. La paginación no valida ni normaliza parámetros y
+no incluye parámetros desconocidos en los enlaces. No se creó ningún commit.
+
+## 2026-09-02 — Cobertura completa de CA-RF12-02
+
+Se reforzó la prueba de equivalencia API-web para que cada parámetro válido
+sea discriminante: dos productos coinciden con `q`, categoría y licencia, pero
+solo uno coincide además con el orden descendente esperado; otros productos
+aislados descartan búsqueda, categoría y licencia. La prueba compara la
+secuencia de `slug` observable de ambas interfaces.
+
+La prueba focalizada finalizó con `1 passed in 0.50s`; la regresión de API con
+`25 passed in 2.12s`; y la suite completa con `68 passed in 3.14s`. Ruff y
+formato sobre el archivo de prueba finalizaron correctamente, y los diagnósticos
+de VS Code no informaron errores. No se modificaron producción, modelos,
+migraciones, configuración ni dependencias; no se creó ningún commit.
+
+## 2026-09-02 — Cobertura de órdenes y campos de búsqueda en CA-RF12-02
+
+La prueba de equivalencia API-web se amplió para parametrizar los cuatro
+valores válidos de `ordering`: `name`, `-name`, `price` y `-price`. Sus datos
+incluyen coincidencias de `q` exclusivamente en nombre, resumen y descripción,
+con precios distintos; conserva productos que deben excluirse por búsqueda,
+categoría o licencia. Cada caso compara la secuencia observable de `slug` de
+web y API.
+
+La prueba focalizada finalizó con `4 passed in 0.61s`; la regresión de API con
+`28 passed in 2.23s`; y la suite completa con `71 passed in 3.23s`. Ruff,
+formato y diagnósticos de VS Code finalizaron sin incidencias. No se modificaron
+producción, modelos, migraciones, configuración ni dependencias; no se creó
+ningún commit.
+
+## 2026-09-02 — Corrección de trazabilidad de RN-RF12-06
+
+La medición de consultas de la API validó que la serialización de una y doce
+filas no introduce N+1, pero su resultado fue Green preexistente: el selector
+ya aplicaba la carga relacionada necesaria. El único fallo inicial fue una
+preparación de datos de prueba inválida, por lo que no constituye un RED
+atribuible a la ausencia del comportamiento de producción.
+
+En consecuencia, la prueba se conserva como regresión de rendimiento y no se
+presenta como un incremento funcional con ciclo RED-GREEN propio. No se
+modificaron producción, pruebas, modelos, migraciones, dependencias ni
+configuración; no se ejecutaron comprobaciones en esta corrección documental
+y no se creó ningún commit.
+
+## 2026-09-02 — Cobertura de orden de ofertas en el detalle RF-12
+
+Se amplió el caso de detalle sin preview para crear dos ofertas activas con
+precios distintos y una oferta inactiva de precio inferior. La respuesta HTTP
+exige la secuencia de ofertas activas por precio ascendente y la ausencia de la
+oferta inactiva, cerrando el riesgo identificado para CA-RF12-03 y el detalle
+de CA-RF12-05.
+
+La prueba focalizada finalizó con `1 passed in 0.43s`; la regresión de API con
+`28 passed in 2.21s`; y la suite completa con `71 passed in 3.22s`. La
+comprobación Django, migraciones, Ruff, formato, `pip check` y `git diff
+--check` finalizaron sin incidencias. No se modificaron producción, modelos,
+migraciones, configuración ni dependencias; no se creó ningún commit.
+
+## 2026-09-02 — Consolidación documental de RF-12
+
+RF-12 queda documentado como `Implementado`: sus siete criterios de aceptación
+cuentan con pruebas en `apps/catalog/tests/test_api.py`, y la API reutiliza el
+selector público de catálogo para conservar la misma disponibilidad, filtros y
+orden que la web. La representación limita los datos a campos públicos y el
+almacenamiento privado del maestro no proporciona URL.
+
+No se generaron migraciones porque este requisito no altera el esquema. La
+medición de RN-RF12-06 se conserva como regresión Green preexistente. RF-12 no
+se declara `Verificado`: las evidencias `api-catalogo-lista.json` y
+`api-catalogo-detalle.json` continúan pendientes bajo `docs/evidence/RF-12/`,
+junto con la puerta de calidad. Las API privadas y RF-04 a RF-11, incluida la
+descarga autorizada del maestro, permanecen fuera de alcance. No se ejecutaron
+comandos ni comprobaciones para esta consolidación documental y no se creó
+ningún commit.
+
+## 2026-09-02 — Puerta de calidad y verificación de RF-12
+
+La puerta de calidad acreditó CA-RF12-01 a CA-RF12-07 con la regresión
+focalizada `apps/catalog/tests/test_api.py` (`43 passed in 2.49s`) y la suite
+completa (`86 passed in 3.35s`). Django no informó incidencias; no hubo cambios
+de modelo ni migraciones pendientes; Ruff, formato, `pip check` y
+`git diff --check` finalizaron correctamente.
+
+La comprobación manual sobre PostgreSQL saludable confirmó `200 application/json`
+para la lista pública, con 17 resultados, 12 elementos en la primera página y
+enlace relativo a la segunda; también confirmó `200 application/json` para el
+detalle publicado `rf03-ambiente-01`, con metadatos, una oferta pública y
+`preview_url` nulo. Las respuestas observadas y el resumen de controles se
+conservan en `docs/evidence/RF-12/`.
+
+RF-12 pasa a `Verificado`. No se incluyeron migraciones. Permanecen fuera de
+alcance las API privadas y RF-04 a RF-11, incluida la descarga autorizada del
+maestro. La referencia de commit queda pendiente; no se creó ningún commit.

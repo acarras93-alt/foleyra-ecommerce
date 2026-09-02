@@ -213,13 +213,26 @@ probado:
 
 1. serializers con lista explícita de campos públicos;
 2. vistas DRF de solo lectura;
-3. `AllowAny` declarado explícitamente;
+3. `AllowAny` y `authentication_classes = []` declarados explícitamente;
 4. paginación por página de 12;
 5. mismos filtros y productos que la web;
 6. pruebas de métodos 405 y ausencia del maestro.
 
 La prueba de equivalencia debe comparar identificadores o `slug` de resultados,
 no HTML y JSON completos.
+
+La política global de DRF admite solo `JSONRenderer` y no establece
+autenticadores por defecto. Las pruebas de métodos de RF-12 incluirán una
+sesión activa para comprobar que CSRF o autenticación no cambian el 405
+contractual. Las API privadas futuras declararán su autenticación y permisos
+de forma explícita en cada interfaz.
+
+El paginador de RF-12 será una subclase local de `PageNumberPagination`. Debe
+construir `next` y `previous` como rutas relativas canonizadas, conservando
+solo `q`, `category`, `license` y `ordering` con valor reconocido y
+sustituyendo `page`. No se usará el enlace estándar de DRF, porque parte de la
+URL de entrada y podría propagar parámetros desconocidos. Una prueba deberá
+incluir un parámetro como `utm_source` y comprobar que no llega a los enlaces.
 
 ### WP-07 — Administración del catálogo en v0.9.0
 

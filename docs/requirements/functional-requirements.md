@@ -33,7 +33,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Propuesto |
 | RF-10 | Consultar las licencias propias | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-11 | Descargar un archivo autorizado | Cliente autenticado | Must | v0.6.0 | Propuesto |
-| RF-12 | Consultar el catálogo mediante una API pública | Consumidor de la API | Must | v0.2.0 | Aprobado |
+| RF-12 | Consultar el catálogo mediante una API pública | Consumidor de la API | Must | v0.2.0 | Verificado |
 | RF-13 | Gestionar el carrito mediante una API autenticada | Cliente de la API autenticado | Must | v0.3.0 | Propuesto |
 | RF-14 | Ejecutar checkout, pago y consultas privadas mediante API | Cliente de la API autenticado | Must | v0.7.0 | Propuesto |
 | RF-15 | Administrar el sistema mediante Django Admin | Administrador | Must | v0.9.0 | Aprobado |
@@ -532,9 +532,10 @@ con `41 passed`, `ruff check`, `ruff format --check`, `pip check`, `git diff
 --check` y `git status --short`), registrado en
 `docs/evidence/RF-03/quality-gate-2026-09-01.md`. RF-03 permanece en estado
 `Implementado`; no se declara `Verificado` porque falta evidencia individual
-por criterio para CA-RF03-01 a CA-RF03-06, la nota anterior sobre RN-RF03-08
-sigue sin resolver, y ningún cambio de este cierre tiene todavía un commit
-asociado.
+por criterio para CA-RF03-01 a CA-RF03-06 y ningún cambio de este cierre tiene
+todavía un commit asociado. La validación de `category` y `license` inválidos,
+así como la precedencia 400 sobre 404, están resueltas como ampliación de
+CA-RF03-06 por D-RF03-10.
 
 ## RF-04: Registrarse, iniciar sesión y cerrar sesión
 
@@ -561,7 +562,7 @@ asociado.
 | Actor principal | Consumidor de la API |
 | Prioridad | Must |
 | Versión objetivo | v0.2.0 |
-| Estado | Aprobado |
+| Estado | Verificado |
 | Dependencias | RF-01, RF-02, RF-03, RNF-01, RNF-03 a RNF-07 y RNF-09 a RNF-11 |
 
 #### Objetivo
@@ -569,7 +570,7 @@ asociado.
 Exponer una interfaz REST pública, de solo lectura y versionada para consultar
 la misma selección de productos disponible en la web.
 
-#### Contrato HTTP propuesto
+#### Contrato HTTP aprobado
 
 | Operación | Ruta | Resultado |
 |---|---|---|
@@ -577,8 +578,101 @@ la misma selección de productos disponible en la web.
 | Consultar detalle | `GET /api/v1/catalog/products/{slug}/` | Producto, preview y licencias |
 | Metadatos HTTP | `HEAD` u `OPTIONS` sobre las rutas anteriores | Respuesta estándar DRF |
 
-La lista acepta los parámetros válidos de RF-03. La página tiene 12 elementos
-y usa la estructura `count`, `next`, `previous` y `results`.
+La lista acepta los parámetros válidos de RF-03: `q`, `category`, `license`,
+`ordering` y `page`. La página tiene 12 elementos y usa la estructura `count`,
+`next`, `previous` y `results`. `next` y `previous` son rutas relativas de la
+API con los parámetros reconocidos de la consulta y el `page` correspondiente,
+o `null` cuando no existe una página adyacente. Los parámetros desconocidos se
+ignoran y no se incluyen en esos enlaces.
+
+La implementación usará un `PageNumberPagination` local de `apps.catalog`.
+No reutilizará directamente los enlaces construidos por el paginador estándar:
+al generar `next` y `previous`, creará una consulta canónica con solo `q`,
+`category`, `license` y `ordering` cuando tengan valor reconocido, en ese
+orden, y añadirá o sustituirá `page` al final. El paginador no valida ni
+normaliza parámetros; recibe de la vista únicamente valores ya validados. Así,
+un parámetro ajeno como `utm_source` nunca aparece en una URL de respuesta.
+
+Los campos de una tarjeta de lista son:
+
+```json
+{
+  "name": "Nocturnos urbanos",
+  "slug": "nocturnos-urbanos",
+  "summary": "Ambiente ficticio de ciudad durante la noche.",
+  "category": {"name": "Ambientes", "slug": "ambientes"},
+  "duration_ms": 18500,
+  "audio_format": "wav",
+  "sample_rate_hz": 48000,
+  "bit_depth": 24,
+  "minimum_price": "12.90",
+  "currency": "EUR",
+  "licenses": [
+    {
+      "name": "YouTube y redes sociales",
+      "slug": "youtube-redes-sociales",
+      "usage_scope": "Un canal por plataforma",
+      "summary": "Uso en contenido propio para redes sociales."
+    }
+  ],
+  "detail_url": "/api/v1/catalog/products/nocturnos-urbanos/"
+}
+```
+
+`audio_format` usa el valor técnico estable almacenado (`wav`, `flac` o
+`aiff`), no una etiqueta localizada. Los importes `Decimal` se representan
+como cadenas de dos decimales; la moneda es siempre `EUR` durante el MVP.
+`licenses` contiene únicamente tipos de licencia con ofertas públicas y se
+ordena como las ofertas públicas del producto: por precio y, ante empate, por
+identificador.
+
+El detalle contiene los mismos campos de la lista excepto `licenses`, añade
+`description` y usa `license_offers` para representar cada oferta pública con
+su precio:
+
+```json
+{
+  "description": "Grabación preparada para una producción audiovisual.",
+  "preview_url": "/media/previews/nocturnos-urbanos.mp3",
+  "license_offers": [
+    {
+      "license": {
+        "name": "YouTube y redes sociales",
+        "slug": "youtube-redes-sociales",
+        "usage_scope": "Un canal por plataforma",
+        "summary": "Uso en contenido propio para redes sociales."
+      },
+      "price": "12.90",
+      "currency": "EUR"
+    }
+  ]
+}
+```
+
+`preview_url` es `null` cuando la preview no está disponible; nunca contiene
+una URL, nombre o ruta del archivo maestro. `detail_url`, `next`, `previous` y
+`preview_url` son rutas relativas; la preview solo puede pertenecer al
+almacenamiento público configurado.
+
+Los errores de API siempre devuelven JSON con este sobre:
+
+```json
+{"error": {"code": "invalid_query_parameter", "parameter": "ordering"}}
+```
+
+Los únicos códigos son `invalid_query_parameter` (400, con `parameter` igual a
+`q`, `category`, `license` u `ordering`), `page_not_found` (404),
+`product_not_found` (404) y `method_not_allowed` (405). Solo
+`invalid_query_parameter` incluye `parameter`; los textos humanos no forman
+parte del contrato.
+
+La configuración global de DRF usa exclusivamente `JSONRenderer` y no define
+autenticadores por defecto. Las vistas de RF-12 declararán explícitamente
+`AllowAny` y `authentication_classes = []`; por tanto, una sesión existente o
+la protección CSRF no pueden interceptar un método de escritura antes de que la
+vista de solo lectura responda `method_not_allowed` con 405. Las futuras API
+privadas deben declarar sus autenticadores y permisos en cada vista; no heredan
+una política de acceso implícita.
 
 #### Precondiciones
 
@@ -620,19 +714,8 @@ y usa la estructura `count`, `next`, `previous` y `results`.
 
 #### Representación pública mínima
 
-La lista contiene:
-
-- `name`, `slug`, `summary` y categoría pública;
-- duración y características técnicas;
-- precio mínimo y moneda;
-- resumen de las licencias disponibles;
-- URL pública del detalle de API.
-
-El detalle añade:
-
-- descripción completa;
-- URL de preview pública, si está disponible;
-- ofertas de licencia activas con destino, resumen, precio y moneda.
+La representación se limita a los campos definidos en el contrato HTTP
+aprobado. No incorpora campos adicionales por comodidad del serializer.
 
 #### Criterios de aceptación
 
@@ -649,14 +732,67 @@ El detalle añade:
 - CA-RF12-07: una página inexistente responde 404 y una consulta válida sin
   coincidencias responde 200 con una lista vacía.
 
+#### Orden recomendado de implementación
+
+Los identificadores anteriores permanecen estables; el orden siguiente evita
+introducir una representación o una paginación antes de cerrar su frontera de
+seguridad y su consulta compartida:
+
+1. CA-RF12-01 y la parte de lista de CA-RF12-05: ruta, vista pública y
+  serializer explícito de lista, con solo campos públicos.
+2. CA-RF12-06: permitir exclusivamente lectura y comprobar 405 también con
+  una sesión activa.
+3. CA-RF12-07: paginación de 12, lista vacía y error JSON de página, incluidos
+  enlaces canonizados que no reflejen parámetros desconocidos.
+4. CA-RF12-02: validación HTTP de `q`, `category`, `license` y `ordering`, y
+  equivalencia de `slug` con la web sobre el selector compartido.
+5. CA-RF12-03 y la parte de detalle de CA-RF12-05: serializer y vista de
+  detalle, preview pública opcional, ofertas activas y exclusión completa de
+  datos privados.
+6. CA-RF12-04: 404 JSON para `slug` inexistente y todas las combinaciones de
+  indisponibilidad heredadas de RF-01 y RF-02.
+7. Medición de RN-RF12-06: serializar una y doce filas, materializando
+  categoría, licencias y ofertas para demostrar que no hay N+1.
+
 #### Pruebas previstas
 
 - Acceso anónimo explícitamente permitido.
 - Lista, detalle, filtros, orden y paginación equivalentes a la web.
-- Esquema de paginación y códigos 200, 400, 404 y 405.
+- Esquema exacto de tarjeta, detalle, paginación, enlaces relativos y códigos
+  200, 400, 404 y 405, incluidos los sobres JSON de error.
+- La configuración de DRF admite solo JSON y no tiene autenticadores por
+  defecto; con una sesión activa, cada método de escritura de RF-12 sigue
+  respondiendo 405 y el sobre `method_not_allowed`.
+- Solicitud con `q`, `category`, `license`, `ordering`, `page` y un parámetro
+  desconocido: los enlaces de página conservan solo los cuatro primeros con
+  valores reconocidos, usan el número de página adyacente y permanecen rutas
+  relativas.
 - Exclusión de productos y ofertas no disponibles.
 - Ausencia de campos y URLs privadas en toda respuesta.
 - Número acotado de consultas durante la serialización.
+
+#### Estado de verificación
+
+RF-12 está `Verificado`. La API pública versionada expone exclusivamente
+lectura en `/api/v1/catalog/products/` y
+`/api/v1/catalog/products/{slug}/`, reutiliza el selector público de catálogo
+y representa solo los campos definidos en este contrato.
+
+Los criterios CA-RF12-01 a CA-RF12-07 están cubiertos por
+`apps/catalog/tests/test_api.py`: lista anónima, equivalencia con la web para
+los filtros y órdenes válidos, detalle y ofertas públicas, indisponibilidad,
+privacidad del maestro, rechazo de escrituras y paginación. La medición de
+RN-RF12-06 comprueba que serializar una y doce filas mantiene un número de
+consultas constante y acotado; es una regresión Green preexistente, no un ciclo
+RED-GREEN propio.
+
+No se requirieron migraciones porque RF-12 no modifica modelos ni el esquema
+de PostgreSQL. Permanecen fuera de alcance las API privadas y los requisitos
+RF-04 a RF-11, incluida la descarga autorizada del archivo maestro.
+
+La evidencia de la puerta de calidad, incluidas las respuestas manuales de
+lista y detalle, se conserva en `docs/evidence/RF-12/`. La referencia de
+commit permanece pendiente hasta confirmar los cambios documentales.
 
 #### Evidencias previstas
 
@@ -675,10 +811,10 @@ El detalle añade:
 
 | Elemento | Referencia |
 |---|---|
-| Pruebas | Pendiente hasta v0.2.0 |
-| Selectores | RF-01 y RF-03; pendiente |
-| Serializers y vistas | Pendiente |
-| Evidencia | Pendiente |
+| Pruebas | `apps/catalog/tests/test_api.py` |
+| Selectores | `apps/catalog/selectors.py:get_available_products` |
+| Serializers y vistas | `apps/catalog/serializers.py` y `apps/catalog/api_views.py` |
+| Evidencia | `docs/evidence/RF-12/quality-gate-2026-09-02.md` |
 | Commit | Pendiente |
 
 ## RF-13: Gestionar el carrito mediante una API autenticada

@@ -17,6 +17,8 @@ def product_list(request):
     category_slug = request.GET.get("category", "")
     license_slug = request.GET.get("license", "")
     ordering = request.GET.get("ordering", "")
+    if len(search_query) > 100:
+        return HttpResponseBadRequest("Parámetro q demasiado largo.")
     if (
         category_slug
         and not get_active_categories().filter(slug=category_slug).exists()
