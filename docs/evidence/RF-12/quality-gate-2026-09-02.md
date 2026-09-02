@@ -52,8 +52,9 @@ Ninguna. RF-12 no modifica modelos ni el esquema de PostgreSQL.
 - Requisito: RF-12 en `docs/requirements/functional-requirements.md`.
 - Pruebas: `apps/catalog/tests/test_api.py`.
 - Evidencia: este documento y los snapshots JSON asociados.
-- Commit: pendiente; no se creó ningún commit en este cierre.
+- Commit: `355cc2d` (`feat(catalog): verify public catalog API`).
 
 ## Estado resultante
 
-RF-12 queda `Verificado` con las comprobaciones registradas en esta evidencia.
+RF-12 queda `Verificado` con las comprobaciones registradas en esta evidencia
+y el commit de trazabilidad indicado.

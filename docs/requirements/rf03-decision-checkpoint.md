@@ -3,12 +3,12 @@
 ## Estado y alcance
 
 - Fecha de aprobación: 2026-09-01.
-- Estado: los siete criterios (CA-RF03-01 a CA-RF03-07) están implementados y
-  comprobados localmente. La puerta de calidad completa se ejecutó el
-  2026-09-01 con resultado favorable (`docs/evidence/RF-03/quality-gate-2026-09-01.md`).
-  El requisito permanece en `Implementado`, no `Verificado`: falta evidencia
-  individual por criterio para CA-RF03-01 a CA-RF03-06 y ningún cambio tiene
-  todavía un commit propio.
+- Estado: los siete criterios (CA-RF03-01 a CA-RF03-07) están verificados. La
+  puerta de calidad inicial se ejecutó el 2026-09-01 con resultado favorable
+  (`docs/evidence/RF-03/quality-gate-2026-09-01.md`) y el 2026-09-02 se
+  registró evidencia individual para CA-RF03-01 a CA-RF03-06 tras ejecutar sus
+  pruebas objetivo. Los commits de comportamiento son `3e52b90` para
+  CA-RF03-01 y `df1f52e` para CA-RF03-02 a CA-RF03-06.
 - Requisito afectado: RF-03.
 - Responsable de aprobación: propietario del repositorio, mediante solicitud
   explícita de resolver los conflictos antes de iniciar los criterios.

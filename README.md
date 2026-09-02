@@ -13,7 +13,7 @@ Python, Django, Django REST Framework y PostgreSQL.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
 - La API pública de solo lectura `/api/v1/catalog/products/` y `/api/v1/catalog/products/{slug}/` ofrece la misma selección disponible en web, filtros y ordenación aprobados, paginación de 12 elementos, detalle con previews y ofertas públicas, y errores JSON contractuales. No expone archivos maestros ni campos administrativos.
 - Las previews usan una raíz pública independiente y pueden obtenerse mediante `/media/` en desarrollo con `DEBUG=True`. Los archivos maestros permanecen en almacenamiento privado sin URL pública, y su nombre, ruta y contenido no se incluyen en el HTML ni en el contexto público. La entrega autorizada del maestro corresponde a RF-11 y continúa fuera del alcance implementado.
-- RF-01, RF-02 y RF-15 están `Aprobado`; RF-03 está `Implementado` y RF-12 está `Verificado`. La evidencia de la puerta de calidad de RF-12 está disponible en `docs/evidence/RF-12/`. Los requisitos de compra y las funciones privadas continúan en estado `Propuesto`.
+- RF-01, RF-02 y RF-15 están `Aprobado`; RF-03 y RF-12 están `Verificado`. Sus evidencias de pruebas y puertas de calidad están disponibles en `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. Los requisitos de compra y las funciones privadas continúan en estado `Propuesto`.
 
 ## Requisitos locales
 

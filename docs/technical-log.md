@@ -1989,3 +1989,46 @@ conservan en `docs/evidence/RF-12/`.
 RF-12 pasa a `Verificado`. No se incluyeron migraciones. Permanecen fuera de
 alcance las API privadas y RF-04 a RF-11, incluida la descarga autorizada del
 maestro. La referencia de commit queda pendiente; no se creó ningún commit.
+
+## 2026-09-02 — Cierre verificable de RF-03 y confirmación de RF-12
+
+### Objetivo y alcance
+
+Completar la evidencia individual pendiente de CA-RF03-01 a CA-RF03-06 y
+corregir la trazabilidad Git de RF-03 y RF-12. No se modificaron modelos,
+migraciones, código de producción, pruebas, dependencias ni contratos HTTP.
+
+### Comprobaciones ejecutadas
+
+- CA-RF03-01: `1 passed in 0.51s`.
+- CA-RF03-02 a CA-RF03-04: regresión focalizada con `4 passed in 0.56s`.
+- CA-RF03-05 y CA-RF03-06: regresión focalizada con `7 passed in 0.49s`.
+- Vistas y selector de RF-03: `34 passed in 0.97s`.
+- API de RF-12: `43 passed in 2.38s`.
+- Suite completa: `86 passed in 3.38s`.
+- `manage.py check --database default`: sin incidencias.
+- `makemigrations --check --dry-run`: `No changes detected`.
+- `migrate --check`: sin salida, sin migraciones pendientes.
+- `ruff check .`: `All checks passed!`.
+- `ruff format --check .`: `82 files already formatted`.
+- `pip check`: `No broken requirements found.`
+
+### Trazabilidad y resultado
+
+CA-RF03-01 se vincula al commit `3e52b90`; CA-RF03-02 a CA-RF03-06 se vinculan
+a `df1f52e`; y CA-RF03-07 conserva el Green preexistente de `c8e2a20`. Las
+seis nuevas evidencias individuales se guardan en `docs/evidence/RF-03/`.
+RF-03 pasa a `Verificado`, manteniendo las limitaciones de cobertura declaradas
+en el requisito.
+
+RF-12 conserva el estado `Verificado`; su evidencia, pruebas, snapshots JSON y
+trazabilidad documental pertenecen al commit `355cc2d`. Continúan fuera de
+alcance las API privadas y RF-04 a RF-11, incluida la descarga autorizada del
+archivo maestro.
+
+### Revisión final del árbol
+
+- `git diff --check`: sin salida, sin errores de espacios.
+- `git status --short`: cinco documentos modificados y seis evidencias nuevas,
+  todos dentro del alcance documental de RF-03 y RF-12; sin código,
+  migraciones ni dependencias modificadas.
