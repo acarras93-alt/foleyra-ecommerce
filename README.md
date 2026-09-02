@@ -8,6 +8,10 @@ Python, Django, Django REST Framework y PostgreSQL.
 - El proyecto es un monolito modular de Django con las aplicaciones de negocio agrupadas bajo `apps`.
 - PostgreSQL 18.6 es la única base de datos admitida y se ejecuta localmente mediante Docker Compose.
 - El modelo de usuario activo es `users.User`, definido antes de la primera migración.
+- RF-04 está `Implementado`: la web ofrece registro, inicio de sesión mediante
+	`username` y cierre de sesión por formulario `POST` con CSRF en
+	`/accounts/register/`, `/accounts/login/` y `/accounts/logout/`. La
+	autenticación de API continúa fuera de alcance hasta RF-13.
 - `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.

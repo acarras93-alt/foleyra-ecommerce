@@ -2032,3 +2032,157 @@ archivo maestro.
 - `git status --short`: cinco documentos modificados y seis evidencias nuevas,
   todos dentro del alcance documental de RF-03 y RF-12; sin código,
   migraciones ni dependencias modificadas.
+
+## 2026-09-02 — Decisión sobre logout anónimo de RF-04
+
+### Objetivo y alcance
+
+Resolver el contrato observable pendiente para un `POST` con CSRF válido de un
+visitante anónimo a `/accounts/logout/`. El asistente utilizado fue GitHub
+Copilot. El requisito afectado es RF-04, en particular CA-RF04-08.
+
+### Decisión
+
+La solicitud anónima recibe `403` y no crea, vacía, rota ni invalida una sesión
+existente. El token CSRF acredita el origen de la petición, pero no sustituye la
+identidad requerida para cerrar una sesión autenticada. El `POST` autenticado
+conserva su resultado aprobado de fin de sesión y redirección al catálogo; el
+`GET` sigue respondiendo 405 sin modificar la sesión.
+
+Esta precisión amplía CA-RF04-08 y RN-RF04-09, sin añadir un criterio, una ruta
+ni una capacidad nueva. Durante la implementación, la identidad deberá
+comprobarse antes de ejecutar el cierre de sesión para preservar este contrato.
+
+### Archivos, riesgos y comprobaciones
+
+- Archivo afectado: `docs/requirements/functional-requirements.md`.
+- Riesgo controlado: invalidar una sesión anónima o aceptar que CSRF equivalga
+  a autenticación.
+- Se revisaron el requisito RF-04, RNF-10, la configuración actual de Django y
+  las decisiones aceptadas.
+- `git diff --check`: sin salida, sin errores de espacios.
+- No se ejecutaron pruebas, ni se modificaron código, modelos, migraciones,
+  configuración, API, administración o dependencias.
+
+### Resultado y alcance excluido
+
+El bloqueo de contrato queda resuelto y RF-04 mantiene el estado `Aprobado`.
+La implementación test-first, la evidencia y la verificación del requisito
+siguen pendientes. Permanecen fuera de alcance la autenticación de API, correo,
+recuperación de contraseña, MFA, autenticación social y perfiles.
+
+## 2026-09-02 — Regresión de hash de contraseña de CA-RF04-03
+
+Se añadió una prueba de integración en `apps/users/tests/test_views.py` que
+registra un usuario mediante `POST`, recupera el usuario persistido y comprueba
+que la contraseña no se almacena en texto plano y que `check_password()` la
+valida. El resultado fue Green preexistente porque `RegistrationForm` hereda de
+`UserCreationForm`, que ya utiliza las utilidades de autenticación de Django.
+
+La comprobación `.venv/bin/python -m pytest apps/users/tests/test_views.py -q`
+finalizó con `4 passed in 1.01s`. No se modificaron producción, modelos,
+migraciones, configuración, API, administración ni dependencias. CA-RF04-03
+queda cubierto como regresión; la verificación completa de RF-04 permanece
+pendiente.
+
+## 2026-09-02 — Regresión de registros inválidos de CA-RF04-04
+
+Se añadieron tres casos parametrizados en `apps/users/tests/test_views.py` para
+un nombre de usuario duplicado, contraseñas distintas y una contraseña rechazada
+por los validadores de Django. Cada caso realiza un `POST` independiente y
+comprueba respuesta 200, formulario con errores, ausencia de una nueva escritura
+y permanencia del visitante como anónimo.
+
+El resultado fue Green preexistente porque `RegistrationForm` hereda de
+`UserCreationForm` y la plantilla ya representa los errores del formulario. La
+comprobación `.venv/bin/python -m pytest apps/users/tests/test_views.py -q`
+finalizó con `7 passed in 1.23s`. No se modificaron producción, modelos,
+migraciones, configuración, API, administración ni dependencias. CA-RF04-04
+queda cubierto como regresión; la verificación completa de RF-04 permanece
+pendiente.
+
+## 2026-09-02 — Regresión de credenciales inválidas de CA-RF04-06
+
+Se añadió una prueba de integración en `apps/users/tests/test_views.py` que
+envía credenciales con un usuario inexistente y con una contraseña incorrecta
+para un usuario existente. La prueba comprueba respuesta 200, permanencia como
+visitante anónimo y el mismo mensaje visible no asociado a campo en ambos
+casos, sin comparar el valor que Django conserva en el campo `username`.
+
+El primer fallo de la prueba exigía erróneamente que el valor de `username` no
+apareciera en el HTML; Django lo conserva en el campo del formulario sin
+revelar si existe una cuenta. Ese fallo no acredita la ausencia del
+comportamiento de CA-RF04-06 y no constituye un RED válido.
+
+La comprobación `.venv/bin/python -m pytest apps/users/tests/test_views.py -q`
+finalizó con `10 passed in 2.31s`. El resultado es Green preexistente porque
+`AuthenticationForm` ya proporciona un error genérico y la plantilla ya lo
+representa. No se modificaron producción, modelos, migraciones, configuración,
+API, administración ni dependencias. CA-RF04-06 queda cubierto como regresión
+Green preexistente; la verificación completa de RF-04 permanece pendiente.
+
+## 2026-09-02 — Regresión de next inseguro de CA-RF04-07
+
+La comprobación manual confirmó que, después de credenciales válidas,
+`next=https://external.example/` y `next=//external.example/` no redirigen
+fuera de Foleyra y terminan en el catálogo. Se añadió la misma cobertura
+automatizada en `apps/users/tests/test_views.py`: ambos casos autentican al
+usuario y exigen una redirección a `catalog:product-list`.
+
+La comprobación `.venv/bin/python -m pytest apps/users/tests/test_views.py -q`
+finalizó con `12 passed in 3.05s`. No se modificaron producción, modelos,
+migraciones, configuración, API, administración ni dependencias. CA-RF04-07
+queda cubierto como regresión Green preexistente porque la vista ya utiliza
+`url_has_allowed_host_and_scheme()`. Por tanto, no existe un RED válido
+atribuible a CA-RF04-07: fabricar uno requeriría retirar o alterar una
+protección ya correcta. La verificación completa de RF-04 permanece pendiente.
+
+## 2026-09-02 — Implementación consolidada de RF-04
+
+Se implementaron las rutas web `/accounts/register/`, `/accounts/login/` y
+`/accounts/logout/` en `apps.users`, usando `RegistrationForm` basado en
+`UserCreationForm` y `LoginForm` basado en `AuthenticationForm`. Las vistas
+usan sesiones de Django; el registro inicia sesión con un usuario ordinario, el
+login valida únicamente destinos `next` internos y seguros, y logout requiere
+un `POST` con CSRF de un cliente autenticado.
+
+La navegación base muestra enlaces de registro e inicio de sesión para
+visitantes y un formulario `POST` protegido por CSRF para cerrar sesión cuando
+el usuario está autenticado. Las vistas redirigen a un cliente ya autenticado
+desde registro y login antes de procesar los formularios, preservando su
+identidad.
+
+`apps/users/tests/test_views.py` cubre CA-RF04-01 a CA-RF04-09. La ejecución
+focalizada más reciente `.venv/bin/python -m pytest apps/users/tests/test_views.py -q`
+finalizó con `21 passed in 4.35s`. No se crearon migraciones porque RF-04 no
+modifica el esquema y reutiliza el modelo `users.User` de la migración inicial.
+No se modificó la API: la autenticación para interfaces privadas continúa fuera
+del alcance de RF-04 y se definirá en RF-13.
+
+El requisito queda en estado `Implementado`. Permanecen fuera de alcance el
+correo de activación o recuperación, MFA, autenticación social o sin contraseña,
+autenticación por token para la API y perfiles públicos.
+
+## 2026-09-02 — Evidencias y puerta de calidad de RF-04
+
+Se incorporaron `docs/evidence/RF-04/registro-valido.png` y
+`docs/evidence/RF-04/login-y-logout.png`. La primera captura muestra el
+catálogo con navegación autenticada tras un registro válido; la segunda muestra
+el catálogo anónimo, con enlaces de acceso y sin control de logout, después de
+completar un login y un cierre de sesión por formulario `POST` con CSRF.
+
+Después de eliminar la importación no usada detectada inicialmente por Ruff, la
+puerta de calidad completa finalizó correctamente: Django no informó problemas,
+no había migraciones por generar ni aplicar, pytest finalizó con `107 passed in
+7.31s`, Ruff y el formato fueron correctos, `pip check` no detectó dependencias
+rotas y `git diff --check` no informó errores. El detalle se conserva en
+`docs/evidence/RF-04/quality-gate-2026-09-02.md`.
+
+Durante la captura, el servidor de desarrollo respondió 404 para
+`/static/css/site.css`. Las capturas acreditan los flujos funcionales, pero se
+generaron sin estilos; la configuración de estáticos queda fuera del alcance de
+RF-04 y se registra como limitación conocida.
+
+Con los nueve criterios cubiertos, las evidencias visuales incorporadas y la
+puerta completa superada, RF-04 queda `Verificado`. La referencia de commit se
+añadirá cuando se cree. No se modificaron migraciones ni la API.
