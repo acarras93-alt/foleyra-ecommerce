@@ -2184,5 +2184,6 @@ generaron sin estilos; la configuración de estáticos queda fuera del alcance d
 RF-04 y se registra como limitación conocida.
 
 Con los nueve criterios cubiertos, las evidencias visuales incorporadas y la
-puerta completa superada, RF-04 queda `Verificado`. La referencia de commit se
-añadirá cuando se cree. No se modificaron migraciones ni la API.
+puerta completa superada, RF-04 queda `Verificado`. El commit de trazabilidad
+es `9a30310` (`feat(users): add web authentication flows`). No se modificaron
+migraciones ni la API.

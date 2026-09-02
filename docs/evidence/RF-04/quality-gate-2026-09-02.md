@@ -42,7 +42,7 @@ Ninguna. RF-04 no modifica el esquema y reutiliza `users.User` de
 - Pruebas: `apps/users/tests/test_views.py` y
   `apps/users/tests/test_user_model.py`.
 - Evidencia: este documento, `registro-valido.png` y `login-y-logout.png`.
-- Commit: pendiente de crear; se asociará al incremento RF-04.
+- Commit: `9a30310` (`feat(users): add web authentication flows`).
 
 ## Limitaciones conocidas
 
@@ -57,5 +57,4 @@ Ninguna. RF-04 no modifica el esquema y reutiliza `users.User` de
 ## Estado resultante
 
 La puerta de calidad está registrada y todos los criterios aprobados disponen
-de cobertura acreditada. RF-04 queda `Verificado`; la referencia de commit se
-completará cuando se cree.
+de cobertura acreditada. RF-04 queda `Verificado`.

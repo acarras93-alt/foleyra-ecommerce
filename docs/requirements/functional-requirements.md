@@ -719,8 +719,8 @@ RF-04 está `Verificado`: las rutas web se registran en `config/urls.py`, las
 vistas y formularios residen en `apps/users/`, y la cobertura de integración se
 concentra en `apps/users/tests/test_views.py`. La autenticación para API
 privada permanece diferida a RF-13. Las evidencias y la puerta de calidad están
-registradas en `docs/evidence/RF-04/quality-gate-2026-09-02.md`. La referencia
-de commit se incorporará cuando se cree.
+registradas en `docs/evidence/RF-04/quality-gate-2026-09-02.md`. El commit de
+trazabilidad es `9a30310` (`feat(users): add web authentication flows`).
 
 El `POST` anónimo con CSRF válido al cierre de sesión queda definido como una
 ampliación de CA-RF04-08: responde 403 y no modifica la sesión. No constituye
