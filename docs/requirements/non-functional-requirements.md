@@ -385,7 +385,22 @@ responsabilidad técnica.
 
 RNF-02, RNF-12 y RNF-13 se aplican transversalmente a todos los incrementos.
 
-## 5. Criterio de verificación de versión
+## 5. Aplicación a autenticación y carrito v0.3.0
+
+| Requisito funcional | RNF obligatorios |
+|---|---|
+| RF-04 | RNF-01, RNF-03, RNF-04, RNF-10 y RNF-11 |
+| RF-05 | RNF-01, RNF-03, RNF-04, RNF-05, RNF-06, RNF-08, RNF-10 y RNF-11 |
+
+Para RF-04, RNF-10 exige que las sesiones no otorguen privilegios y que las
+funciones privadas requieran identidad. Para RF-05, RNF-05 obliga a concentrar
+las transiciones del carrito en servicios reutilizables por RF-13, RNF-08
+protege la pertenencia y la unicidad persistentes, y RNF-10 exige aislamiento
+entre propietarios.
+
+RNF-02, RNF-12 y RNF-13 continúan aplicándose transversalmente a RF-04 y RF-05.
+
+## 6. Criterio de verificación de versión
 
 Un RNF pasa a `Verificado` únicamente cuando su evidencia corresponde a una
 versión o commit existente. Si una comprobación no puede ejecutarse, se registra

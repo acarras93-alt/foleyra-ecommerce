@@ -25,8 +25,8 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-01 | Consultar el catálogo | Visitante o cliente | Must | v0.2.0 | Aprobado |
 | RF-02 | Consultar el detalle y escuchar una preview pública | Visitante o cliente | Must | v0.2.0 | Aprobado |
 | RF-03 | Buscar, filtrar, ordenar y paginar el catálogo | Visitante o cliente | Should | v0.2.0 | Verificado |
-| RF-04 | Registrarse, iniciar sesión y cerrar sesión | Visitante o cliente | Must | v0.3.0 | Propuesto |
-| RF-05 | Gestionar los productos del carrito privado | Cliente autenticado | Must | v0.3.0 | Propuesto |
+| RF-04 | Registrarse, iniciar sesión y cerrar sesión | Visitante o cliente | Must | v0.3.0 | Verificado |
+| RF-05 | Gestionar los productos del carrito privado | Cliente autenticado | Must | v0.3.0 | Aprobado |
 | RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Propuesto |
 | RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Propuesto |
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Propuesto |
@@ -53,7 +53,7 @@ encuentran en el
 | Actor principal | Visitante o cliente |
 | Prioridad | Must |
 | Versión objetivo | v0.2.0 |
-| Estado | Aprobado |
+| Estado | Verificado |
 | Dependencias | RNF-01, RNF-03 a RNF-09 y RNF-11 |
 
 #### Objetivo
@@ -532,9 +532,401 @@ comportamiento, por lo que RF-03 pasa a `Verificado`. La validación de
 resueltas como ampliación de CA-RF03-06 por D-RF03-10. Se mantienen las dos
 limitaciones de cobertura declaradas arriba.
 
-## RF-04: Registrarse, iniciar sesión y cerrar sesión
+### RF-04 — Registrarse, iniciar sesión y cerrar sesión
 
-## RF-05: Gestionar productos del carrito privado
+#### Metadatos
+
+| Campo | Valor |
+|---|---|
+| Actor principal | Visitante o cliente |
+| Prioridad | Must |
+| Versión objetivo | v0.3.0 |
+| Estado | Verificado |
+| Dependencias | RNF-01, RNF-03, RNF-04, RNF-10 y RNF-11 |
+
+#### Objetivo
+
+Permitir que un visitante cree una cuenta y que un cliente inicie y cierre una
+sesión web segura mediante la autenticación de Django.
+
+#### Contrato web implementado
+
+| Operación | Ruta | Métodos | Resultado |
+|---|---|---|---|
+| Registro | `/accounts/register/` | `GET`, `POST` | Formulario o creación de cuenta |
+| Inicio de sesión | `/accounts/login/` | `GET`, `POST` | Formulario o sesión autenticada |
+| Cierre de sesión | `/accounts/logout/` | `POST` | Fin de sesión y redirección para un cliente autenticado; `403` sin modificar la sesión para un visitante anónimo |
+
+El identificador de acceso es `username`. El registro solicita `username`,
+`password1` y `password2`; el correo electrónico no es obligatorio para el MVP.
+Tras un registro válido, el usuario queda autenticado y se redirige al catálogo.
+El destino predeterminado después de iniciar o cerrar sesión también es el
+catálogo.
+
+#### Precondiciones
+
+- La aplicación y PostgreSQL están disponibles.
+- El modelo personalizado `users.User` está configurado como `AUTH_USER_MODEL`.
+- Las sesiones, CSRF y el middleware de autenticación de Django están activos.
+
+#### Disparador
+
+Un visitante abre el formulario de registro o inicio de sesión, o un cliente
+autenticado solicita cerrar su sesión.
+
+#### Flujo principal
+
+1. El visitante abre el formulario de registro.
+2. El sistema valida el nombre de usuario y las dos contraseñas con las reglas
+   de Django.
+3. El sistema crea un usuario ordinario con la contraseña cifrada mediante el
+   hasher configurado.
+4. El sistema inicia la sesión y redirige al catálogo.
+5. En accesos posteriores, el cliente puede iniciar sesión con `username` y
+   contraseña.
+6. El cliente puede cerrar la sesión mediante un formulario `POST` protegido
+   por CSRF.
+
+#### Flujos alternativos y errores
+
+- FA-01: un usuario ya autenticado que solicita registro o login es redirigido
+  al catálogo sin modificar su identidad ni su sesión.
+- FA-02: después de un login válido, un parámetro `next` interno y seguro tiene
+  prioridad sobre el destino predeterminado.
+- FE-01: un nombre de usuario duplicado, contraseñas distintas o una contraseña
+  inválida vuelven a mostrar el formulario sin crear usuario ni sesión.
+- FE-02: unas credenciales incorrectas muestran un error genérico y no revelan
+  si el nombre de usuario existe.
+- FE-03: un `next` externo o inseguro se ignora y se usa el catálogo.
+- FE-04: una solicitud `GET` sobre el cierre de sesión no modifica la sesión y
+  responde 405.
+- FE-05: un visitante anónimo que envía un `POST` con CSRF válido al cierre de
+  sesión recibe 403 y su sesión no se crea, vacía, rota ni invalida.
+
+#### Reglas de negocio
+
+- RN-RF04-01: la autenticación web usa sesiones de Django; la autenticación de
+  la API privada se definirá en RF-13.
+- RN-RF04-02: el nombre de usuario es el identificador único de acceso durante
+  el MVP.
+- RN-RF04-03: las contraseñas se validan y almacenan exclusivamente mediante
+  las utilidades de autenticación de Django.
+- RN-RF04-04: el registro nunca concede `is_staff`, `is_superuser` ni permisos
+  de modelo.
+- RN-RF04-05: solo se aceptan redirecciones `next` internas y seguras.
+- RN-RF04-06: cerrar sesión requiere `POST` y protección CSRF.
+- RN-RF04-07: los errores de login no permiten enumerar usuarios.
+- RN-RF04-08: registro y login no sustituyen la identidad de una sesión que ya
+  está autenticada.
+- RN-RF04-09: un `POST` con CSRF válido al cierre de sesión requiere un cliente
+  autenticado; si procede de un visitante anónimo, responde 403 sin modificar
+  su sesión.
+
+#### Criterios de aceptación
+
+- CA-RF04-01: dado un visitante anónimo, cuando abre registro o login, entonces
+  recibe 200 y un formulario protegido por CSRF.
+- CA-RF04-02: dados un `username` disponible y contraseñas válidas coincidentes,
+  cuando el visitante se registra, entonces se crea un usuario activo, no
+  privilegiado, se inicia su sesión y se le redirige al catálogo.
+- CA-RF04-03: dado un registro válido, cuando se consulta el usuario persistido,
+  entonces la contraseña no está en texto plano y `check_password()` la valida.
+- CA-RF04-04: dado un nombre duplicado, contraseñas distintas o una contraseña
+  rechazada por los validadores, cuando se envía el registro, entonces no se
+  crea usuario ni sesión y se muestran errores comprensibles.
+- CA-RF04-05: dadas credenciales correctas, cuando el visitante inicia sesión,
+  entonces se crea la sesión y se le redirige a un `next` interno válido o al
+  catálogo si no existe.
+- CA-RF04-06: dadas credenciales incorrectas, cuando se intenta iniciar sesión,
+  entonces el usuario permanece anónimo y recibe un error genérico.
+- CA-RF04-07: dado un `next` externo o inseguro, cuando el login es correcto,
+  entonces el sistema no abandona Foleyra y redirige al catálogo.
+- CA-RF04-08: dado un cliente autenticado, cuando envía un `POST` válido al
+  cierre de sesión, entonces la sesión termina; dado un visitante anónimo que
+  envía ese `POST` con CSRF válido, entonces recibe 403 sin modificar su
+  sesión; un `GET` no la modifica y responde 405.
+- CA-RF04-09: dado un cliente autenticado, cuando abre registro o login,
+  entonces se le redirige al catálogo sin crear otra identidad ni sustituir su
+  sesión.
+
+#### Datos y permisos
+
+Datos de entrada:
+
+- nombre de usuario;
+- contraseña y confirmación durante el registro;
+- contraseña durante el login;
+- destino interno opcional `next`.
+
+Datos privados:
+
+- hash de contraseña;
+- identificador y contenido de la sesión;
+- credenciales introducidas en los formularios.
+
+Registro y login son accesibles únicamente para visitantes anónimos. El cierre
+de sesión solo produce efecto para un cliente autenticado y requiere `POST`.
+Un visitante anónimo con un `POST` y CSRF válidos recibe 403 sin modificar su
+sesión.
+
+#### Matriz de implementación
+
+| Criterio | Comportamiento | Prueba | Componentes afectados | Estado |
+|---|---|---|---|---|
+| CA-RF04-01 | Formularios públicos con CSRF | `test_anonymous_visitor_receives_a_csrf_protected_authentication_form` | URLs, vistas, formularios y plantillas de usuarios | Verificado |
+| CA-RF04-02 | Alta ordinaria e inicio automático de sesión | `test_anonymous_visitor_can_register_as_an_active_unprivileged_user` | Modelo `User`, formulario y vista de registro | Verificado |
+| CA-RF04-03 | Contraseña almacenada mediante hash | `test_registered_user_password_is_hashed` | Formulario de registro y modelo `User` | Verificado |
+| CA-RF04-04 | Rechazo de registros inválidos sin efectos parciales | `test_invalid_registration_does_not_create_a_user_or_session` | Formulario y vista de registro | Verificado |
+| CA-RF04-05 | Login válido y redirección interna | `test_anonymous_visitor_can_log_in_with_a_safe_internal_destination` | Vista de login y configuración de autenticación | Verificado |
+| CA-RF04-06 | Error genérico sin sesión | `test_invalid_credentials_show_a_generic_error_without_a_session` | Formulario y plantilla de login | Verificado |
+| CA-RF04-07 | Rechazo de redirecciones externas | `test_login_ignores_an_external_or_unsafe_next_url` | Vista de login | Verificado |
+| CA-RF04-08 | Logout exclusivamente por POST | Pruebas de logout en `apps/users/tests/test_views.py` | Vista, URL y navegación base | Verificado |
+| CA-RF04-09 | Sesión existente preservada | `test_authenticated_user_is_redirected_from_authentication_forms` | Vistas de autenticación | Verificado |
+
+#### Pruebas implementadas
+
+- `apps/users/tests/test_views.py` cubre CA-RF04-01 a CA-RF04-09, incluido el
+  formulario CSRF de logout en la navegación para sesiones autenticadas.
+- `apps/users/tests/test_user_model.py` comprueba la persistencia de
+  `users.User` y la validación de su hash de contraseña.
+- La ejecución focalizada más reciente de `apps/users/tests/test_views.py`
+  finalizó con 21 pruebas superadas.
+
+#### Migraciones
+
+RF-04 no requiere una migración nueva: reutiliza `users.User`, definido en
+`apps/users/migrations/0001_initial.py`, sin cambios de esquema.
+
+#### Evidencias
+
+Las capturas `docs/evidence/RF-04/registro-valido.png` y
+`docs/evidence/RF-04/login-y-logout.png` registran los flujos web de registro
+válido y de login seguido de logout. La puerta de calidad posterior a la
+corrección de Ruff está consolidada en
+`docs/evidence/RF-04/quality-gate-2026-09-02.md`.
+
+#### Fuera de alcance
+
+- Verificación y activación por correo electrónico.
+- Recuperación o cambio de contraseña mediante correo.
+- Autenticación multifactor, social o sin contraseña.
+- Autenticación por token para la API.
+- Perfiles públicos y edición de datos personales.
+
+#### Trazabilidad
+
+RF-04 está `Verificado`: las rutas web se registran en `config/urls.py`, las
+vistas y formularios residen en `apps/users/`, y la cobertura de integración se
+concentra en `apps/users/tests/test_views.py`. La autenticación para API
+privada permanece diferida a RF-13. Las evidencias y la puerta de calidad están
+registradas en `docs/evidence/RF-04/quality-gate-2026-09-02.md`. La referencia
+de commit se incorporará cuando se cree.
+
+El `POST` anónimo con CSRF válido al cierre de sesión queda definido como una
+ampliación de CA-RF04-08: responde 403 y no modifica la sesión. No constituye
+un criterio adicional ni altera las rutas, actores o alcance aprobados.
+
+### RF-05 — Gestionar productos del carrito privado
+
+#### Metadatos
+
+| Campo | Valor |
+|---|---|
+| Actor principal | Cliente autenticado |
+| Prioridad | Must |
+| Versión objetivo | v0.3.0 |
+| Estado | Aprobado |
+| Dependencias | RF-01, RF-02, RF-04, RNF-01, RNF-03 a RNF-06, RNF-08, RNF-10 y RNF-11 |
+
+#### Objetivo
+
+Permitir que un cliente autenticado mantenga una selección privada de ofertas
+concretas de producto y licencia antes de convertirla en pedido mediante RF-06.
+
+#### Contrato web aprobado
+
+| Operación | Ruta | Métodos | Resultado |
+|---|---|---|---|
+| Consultar carrito propio | `/cart/` | `GET` | Carrito actual o estado vacío |
+| Añadir oferta | `/cart/items/add/` | `POST` | Línea añadida o conservada sin duplicar |
+| Eliminar línea | `/cart/items/{line_id}/remove/` | `POST` | Línea eliminada y total recalculado |
+
+La operación de alta recibe el identificador de una `ProductLicenseOffer`, no
+el identificador aislado de un producto. Cada línea representa una licencia
+concreta para un producto y tiene cantidad implícita igual a uno.
+
+#### Precondiciones
+
+- El cliente está autenticado mediante RF-04.
+- El catálogo y sus reglas de disponibilidad están operativos.
+- La oferta que se añade identifica un producto y un tipo de licencia concretos.
+
+#### Disparador
+
+El cliente consulta su carrito, añade una oferta desde el detalle del producto
+o elimina una línea existente.
+
+#### Flujo principal
+
+1. El cliente selecciona una oferta de licencia en el detalle de un producto.
+2. El sistema comprueba la identidad del cliente y la disponibilidad actual de
+   producto, categoría, oferta y tipo de licencia.
+3. El servicio obtiene o crea el único carrito abierto del cliente.
+4. El servicio añade una única línea para la oferta seleccionada.
+5. El carrito muestra producto, licencia, alcance, precio actual, moneda y total.
+6. El cliente puede eliminar una línea propia mediante `POST`.
+
+#### Flujos alternativos y errores
+
+- FA-01: un cliente sin carrito o sin líneas ve un estado vacío y la consulta
+  `GET` no crea datos innecesarios.
+- FA-02: si la oferta ya está incluida, la operación conserva una única línea e
+  informa de que ya estaba en el carrito.
+- FA-03: dos licencias distintas para el mismo producto se conservan como líneas
+  diferentes.
+- FA-04: si cambia el precio de una oferta, la siguiente consulta muestra el
+  precio y el total actuales.
+- FA-05: si una oferta añadida deja de estar disponible, la línea permanece
+  visible como no disponible, se excluye del total comprable y puede eliminarse.
+- FE-01: un visitante anónimo es redirigido al login con un `next` interno y no
+  se modifica ningún dato.
+- FE-02: una oferta inexistente o no disponible no se añade y responde 404.
+- FE-03: una línea inexistente o perteneciente a otro usuario responde 404 y no
+  revela su existencia.
+- FE-04: una solicitud `GET` sobre una operación de escritura responde 405 y no
+  modifica el carrito.
+
+#### Reglas de negocio
+
+- RN-RF05-01: cada cliente puede tener como máximo un carrito abierto.
+- RN-RF05-02: una línea referencia una `ProductLicenseOffer`; no referencia solo
+  un producto ni copia todavía datos históricos.
+- RN-RF05-03: una oferta aparece como máximo una vez en el mismo carrito y su
+  cantidad implícita es uno.
+- RN-RF05-04: el mismo producto puede aparecer con tipos de licencia distintos.
+- RN-RF05-05: solo se pueden añadir ofertas cuyo producto, categoría, oferta y
+  tipo de licencia estén activos.
+- RN-RF05-06: los precios y totales del carrito son valores actuales calculados
+  con `Decimal`; RF-06 creará la instantánea histórica al generar el pedido.
+- RN-RF05-07: una oferta sobrevenida como no disponible no se elimina en
+  silencio ni forma parte del total comprable.
+- RN-RF05-08: todas las consultas y mutaciones se limitan al carrito del usuario
+  autenticado; una referencia ajena se trata como inexistente.
+- RN-RF05-09: las escrituras usan `POST`, protección CSRF y un servicio de
+  negocio compartible con RF-13.
+- RN-RF05-10: el carrito no maneja stock, suscripciones, cantidades editables,
+  impuestos, envío, cupones ni múltiples monedas.
+
+#### Criterios de aceptación
+
+- CA-RF05-01: dado un visitante anónimo, cuando intenta consultar o modificar el
+  carrito, entonces es redirigido al login con un `next` interno y ningún dato
+  cambia.
+- CA-RF05-02: dado un cliente autenticado sin carrito ni líneas, cuando consulta
+  el carrito, entonces recibe 200 y ve un estado vacío sin crear datos mediante
+  la petición `GET`.
+- CA-RF05-03: dada una oferta cuyo producto, categoría, licencia y propia oferta
+  están activos, cuando el cliente la añade mediante `POST`, entonces aparece
+  una línea asociada a esa oferta en su único carrito abierto.
+- CA-RF05-04: dada una oferta ya incluida, cuando el cliente vuelve a añadirla,
+  entonces el carrito conserva una sola línea con cantidad implícita uno.
+- CA-RF05-05: dado un producto con dos ofertas de licencia distintas, cuando el
+  cliente añade ambas, entonces aparecen como dos líneas diferenciadas.
+- CA-RF05-06: dada una oferta inexistente o no disponible, cuando se intenta
+  añadir, entonces la respuesta es 404 y el carrito no cambia.
+- CA-RF05-07: dado un carrito con líneas disponibles, cuando se consulta,
+  entonces muestra producto, licencia, alcance, precio actual, moneda y un total
+  calculado con importes decimales.
+- CA-RF05-08: dado un cambio de precio anterior al checkout, cuando se vuelve a
+  consultar el carrito, entonces se muestran el precio y el total actuales sin
+  crear todavía una instantánea histórica.
+- CA-RF05-09: dada una oferta que deja de estar disponible después de añadirse,
+  cuando se consulta el carrito, entonces su línea aparece como no disponible,
+  queda excluida del total comprable y puede eliminarse.
+- CA-RF05-10: dada una línea propia, cuando el cliente la elimina mediante
+  `POST`, entonces desaparece y el total se recalcula; un `GET` no modifica el
+  carrito.
+- CA-RF05-11: dados dos clientes, cuando uno intenta consultar, eliminar o
+  modificar una línea del otro, entonces recibe 404 y los datos ajenos no
+  cambian.
+- CA-RF05-12: dadas las mismas condiciones de dominio, las entradas web de
+  RF-05 y la futura API de RF-13 usan el mismo servicio y producen la misma
+  transición del carrito.
+
+#### Datos y permisos
+
+Datos visibles para el propietario:
+
+- nombre y `slug` del producto;
+- nombre, alcance y versión actual del tipo de licencia;
+- precio actual y moneda de la oferta;
+- disponibilidad actual de la línea;
+- total comprable del carrito.
+
+Datos internos:
+
+- identificadores de carrito, línea y oferta;
+- propietario del carrito;
+- fechas técnicas de creación o modificación.
+
+El carrito es privado. Un usuario solo puede consultar o modificar su propio
+carrito y sus propias líneas.
+
+#### Matriz de implementación prevista
+
+| Criterio | Comportamiento | Prueba prevista | Componentes afectados | Riesgos |
+|---|---|---|---|---|
+| CA-RF05-01 | Acceso privado sin escrituras anónimas | GET y POST sin sesión | Vistas, URLs y RF-04 | Modificación anónima |
+| CA-RF05-02 | Estado vacío sin escritura por GET | Consulta repetida sin carrito | Vista, selector y plantilla | Datos creados al leer |
+| CA-RF05-03 | Alta de una oferta disponible | POST y comprobación de propietario y oferta | Modelos y servicio de carrito, catálogo | Línea sin licencia concreta |
+| CA-RF05-04 | Alta repetida sin duplicados | Dos POST y recuento de líneas | Servicio y restricciones PostgreSQL | Duplicados o carrera |
+| CA-RF05-05 | Licencias distintas como líneas distintas | Dos ofertas del mismo producto | Modelo y servicio de carrito | Identidad de línea incorrecta |
+| CA-RF05-06 | Rechazo uniforme de indisponibilidad | Producto, categoría, oferta y licencia inactivos | Selector y servicio compartido | Divergencia con el catálogo |
+| CA-RF05-07 | Presentación y total decimal | Varias líneas y suma esperada | Selector, plantilla y oferta | Totales erróneos o N+1 |
+| CA-RF05-08 | Precio actual hasta checkout | Cambio de precio y segunda consulta | Selector y catálogo | Expectativa de precio reservado |
+| CA-RF05-09 | Línea sobrevenida no disponible | Desactivación después del alta | Selector, plantilla y futuro RF-06 | Checkout inválido o desaparición silenciosa |
+| CA-RF05-10 | Eliminación propia exclusivamente por POST | POST propio y GET sobre la operación | Vista, servicio y URLs | CSRF o mutación por GET |
+| CA-RF05-11 | Aislamiento estricto por propietario | Intentos cruzados entre dos clientes | Selector, servicio y vista | IDOR y fuga de datos |
+| CA-RF05-12 | Regla compartida con la futura API | Prueba de servicio y posterior equivalencia | Servicio de carrito y RF-13 | Reglas duplicadas web/API |
+
+#### Pruebas previstas
+
+- Acceso anónimo y autenticado al carrito.
+- Estado vacío sin efectos laterales de lectura.
+- Creación de un único carrito abierto por usuario.
+- Alta de una oferta disponible y rechazo de cada condición de indisponibilidad.
+- Repetición de la misma alta y protección persistente frente a duplicados.
+- Dos licencias distintas para un mismo producto.
+- Presentación, suma decimal y actualización de precios actuales.
+- Tratamiento de una línea que deja de estar disponible.
+- Eliminación por `POST` y rechazo de mutaciones por `GET`.
+- Aislamiento completo entre propietarios.
+- Pruebas del servicio independientes de la vista para permitir su reutilización
+  en RF-13.
+
+#### Evidencias previstas
+
+- `docs/evidence/RF-05/carrito-vacio.png`
+- `docs/evidence/RF-05/carrito-con-ofertas.png`
+- `docs/evidence/RF-05/oferta-no-disponible.png`
+- Resultado de las pruebas asociadas y puerta de calidad del incremento.
+
+#### Fuera de alcance
+
+- Suscripciones y planes periódicos.
+- Cantidades superiores a uno.
+- Carrito anónimo o fusión de carrito después del login.
+- Cupones, impuestos, envío y múltiples monedas.
+- Checkout, pedido e instantánea histórica, pertenecientes a RF-06.
+- Pagos, licencias adquiridas y descarga.
+- Gestión del carrito mediante API, perteneciente a RF-13.
+
+#### Trazabilidad
+
+RF-05 está `Aprobado`. D-CAT-01 define la venta unitaria sin suscripciones ni
+stock; D-CAT-02 establece que la selección comprable es una oferta concreta de
+producto y licencia; D-CAT-09 reserva la instantánea histórica para RF-06.
+Todavía no existen implementación, pruebas ejecutadas ni evidencias reales.
 
 ## RF-06: Convertir el carrito en un pedido histórico
 
