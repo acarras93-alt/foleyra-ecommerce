@@ -2187,3 +2187,98 @@ Con los nueve criterios cubiertos, las evidencias visuales incorporadas y la
 puerta completa superada, RF-04 queda `Verificado`. El commit de trazabilidad
 es `9a30310` (`feat(users): add web authentication flows`). No se modificaron
 migraciones ni la API.
+
+## 2026-09-03 — Checkpoint operativo de RF-05
+
+### Decisiones aprobadas
+
+Se resolvió el contrato previo a los criterios de RF-05. La lectura privada
+`GET /cart/` redirige al login para visitantes anónimos, mientras que un `GET`
+sobre las rutas de alta o eliminación responde `405` para cualquier usuario.
+Un `POST` anónimo con CSRF válido redirige al login sin acceder ni modificar el
+carrito; un `POST` sin CSRF válido conserva la respuesta `403` del middleware.
+
+Las mutaciones correctas usarán PRG hacia `/cart/` y comunicarán de forma
+distinguible el alta o la presencia previa de la oferta. Se aprueban `400` para
+un `offer_id` ausente o malformado y `404` para ofertas inexistentes, no
+disponibles, líneas inexistentes o líneas ajenas.
+
+El carrito se define como una selección actual única por usuario, sin estado ni
+historial. RF-06 creará su pedido histórico y vaciará las líneas dentro de su
+transacción, conservando el carrito vacío. La persistencia prevista usa una
+relación uno a uno con el propietario, borrado de líneas junto al carrito,
+`PROTECT` hacia la oferta y unicidad PostgreSQL de `(cart, offer)`; una carrera
+de unicidad se tratará como oferta ya incluida.
+
+RF-05 creará el servicio compartido y su prueba directa. La equivalencia con
+la API queda diferida a RF-13, que continúa propuesto; no se autorizan API ni
+cambios administrativos dentro de RF-05.
+
+### Alcance y comprobaciones
+
+Se actualizaron únicamente `docs/requirements/functional-requirements.md` y
+esta bitácora. No se modificaron código, modelos, migraciones, pruebas,
+dependencias, configuración ni evidencias. No se ejecutaron pruebas,
+migraciones ni comprobaciones de calidad, y no se creó ningún commit.
+
+## 2026-09-08 — Modelos iniciales de RF-05
+
+Se añadieron `Cart` y `CartItem` como persistencia mínima para el carrito
+privado. `Cart.owner` es una relación uno a uno con `settings.AUTH_USER_MODEL`;
+las líneas se eliminan junto con el carrito, referencian la oferta mediante
+`PROTECT` y PostgreSQL impide duplicar una oferta dentro del mismo carrito.
+
+La migración generada por Django es `apps/cart/migrations/0001_initial.py`.
+Depende del usuario intercambiable y de `catalog.0002`; crea únicamente los dos
+modelos y la restricción `uniq_cart_offer`. Se revisó su plan y se aplicó sobre
+PostgreSQL.
+
+Se ejecutaron `.venv/bin/python -m pytest -q apps/cart/tests/test_models.py`
+(`4 passed`), `.venv/bin/python -m pytest -q apps/cart/tests` (`5 passed`),
+`manage.py check --database default`, `makemigrations --check --dry-run`,
+`migrate --check`, y Ruff sobre los archivos modificados. No se implementaron
+servicios, selectores, mutaciones, plantillas, API ni administración. No se
+creó ningún commit.
+
+## 2026-09-08 — Servicios y representación de RF-05
+
+Se añadieron el servicio de alta idempotente, la eliminación limitada al
+propietario y la representación del carrito. La alta resuelve una oferta
+mediante el selector de disponibilidad del catálogo, obtiene o crea el carrito
+único del usuario y trata una colisión de unicidad como una oferta ya incluida.
+La representación conserva líneas que dejan de estar disponibles, usa precios
+y términos actuales y excluye esas líneas del total `Decimal` comprable.
+
+`apps/catalog/selectors.py` incorpora `get_available_offers()` e
+`is_offer_available()` para que carrito y catálogo usen la misma definición de
+disponibilidad: producto, categoría, oferta y tipo de licencia activos.
+
+Se confirmó primero el Red de `apps/cart/tests/test_services.py` por ausencia
+de los módulos de servicio y selector. Tras la implementación se ejecutaron
+`.venv/bin/python -m pytest -q apps/cart/tests/test_services.py` (`9 passed`),
+`.venv/bin/python -m pytest -q apps/cart/tests/test_services.py
+apps/catalog/tests/test_selectors.py` (`11 passed`) y
+`.venv/bin/python -m pytest -q apps/cart/tests apps/catalog/tests`
+(`93 passed`). Django no informó problemas ni migraciones pendientes y Ruff
+finalizó correctamente sobre `apps/cart` y el selector del catálogo. No se
+añadieron rutas de mutación, plantillas, endpoints API, cambios de Admin ni
+commit.
+
+## 2026-09-08 — Alta web de oferta en RF-05
+
+Se añadió `POST /cart/items/add/` como entrada web autenticada para delegar el
+alta de una oferta disponible al servicio compartido y redirigir mediante PRG a
+`/cart/`. La ruta rechaza `GET` antes de comprobar la autenticación. El servicio
+aisla el `get_or_create()` de la línea en una transacción anidada para que una
+colisión de unicidad pueda recuperarse sin dejar inválida la transacción
+exterior.
+
+La prueba nueva de integración confirmó primero el Red por ausencia de la ruta
+`cart:add-item`. Después se ejecutaron
+`.venv/bin/python -m pytest -q apps/cart/tests/test_views.py::test_authenticated_user_can_add_an_available_offer_to_cart`
+(`1 passed`), `.venv/bin/python -m pytest -q apps/cart/tests/test_services.py`
+(`9 passed`) y `.venv/bin/python -m pytest -q apps/cart/tests` (`16 passed`).
+`manage.py check --database default`, las comprobaciones de migraciones y Ruff
+sobre `apps/cart` finalizaron correctamente. No se modificaron API, Admin,
+migraciones, catálogo visual ni manejo HTTP de errores de criterios posteriores.
+No se creó ningún commit.

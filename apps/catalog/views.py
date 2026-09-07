@@ -75,20 +75,21 @@ def product_detail(request, slug):
         "category_name": product.category.name,
         "description": product.description,
         "duration_ms": product.duration_ms,
-        "audio_format": product.get_audio_format_display(),
+        "audio_format": product.get_audio_format_display(),  # pyright: ignore[reportAttributeAccessIssue]
         "sample_rate_hz": product.sample_rate_hz,
         "bit_depth": product.bit_depth,
         "preview_available": bool(product.preview_file),
         "preview_url": product.preview_file.url if product.preview_file else "",
         "license_offers": [
             {
+                "offer_id": offer.pk,
                 "name": offer.license_type.name,
                 "usage_scope": offer.license_type.usage_scope,
                 "summary": offer.license_type.summary,
                 "price": offer.price,
                 "currency": offer.currency,
             }
-            for offer in product.license_offers.all()
+            for offer in product.license_offers.all()  # pyright: ignore[reportAttributeAccessIssue]
         ],
     }
     return render(

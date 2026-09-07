@@ -25,6 +25,13 @@
                 {{ offer.usage_scope }}
                 {{ offer.summary }}
                 {{ offer.price|unlocalize }} {{ offer.currency }}
+                {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'cart:add-item' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="offer_id" value="{{ offer.offer_id }}">
+                        <button type="submit">Añadir al carrito</button>
+                    </form>
+                {% endif %}
             </li>
         {% endfor %}
     </ul>

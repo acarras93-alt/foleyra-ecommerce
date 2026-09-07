@@ -755,6 +755,33 @@ La operación de alta recibe el identificador de una `ProductLicenseOffer`, no
 el identificador aislado de un producto. Cada línea representa una licencia
 concreta para un producto y tiene cantidad implícita igual a uno.
 
+#### Decisiones operativas aprobadas
+
+- `GET /cart/` anónimo se redirige al login con un `next` interno; un `GET`
+  sobre alta o eliminación responde `405` para cualquier usuario. Esta regla
+  específica prevalece sobre la redirección general de CA-RF05-01.
+- Un `POST` anónimo con CSRF válido se redirige al login con `next=/cart/` sin
+  consultar ni modificar el carrito; un `POST` sin CSRF válido responde `403`.
+- Las altas y eliminaciones correctas usan PRG y redirigen a `/cart/`. La
+  interfaz informa de forma distinguible si la oferta se añadió o ya estaba
+  incluida.
+- Un `offer_id` ausente o malformado responde `400`; una oferta numérica
+  inexistente o no disponible responde `404`. Una línea inexistente o ajena
+  responde `404`.
+- El carrito es una selección actual única por usuario, sin estado ni
+  historial. RF-06 creará el pedido histórico y vaciará sus líneas en su misma
+  transacción, conservando el carrito como selección vacía.
+- El carrito se relaciona uno a uno con su propietario y sus líneas se borran
+  con él. Las líneas referencian ofertas con `PROTECT` y PostgreSQL garantiza
+  una sola línea por `(cart, offer)`; una carrera de unicidad se interpreta como
+  oferta ya incluida.
+- El identificador de oferta puede incluirse solo como campo oculto en el
+  formulario autenticado; no se publica como dato de catálogo ni se incorpora a
+  la API pública.
+- RF-05 crea y prueba el servicio compartido. La equivalencia completa de
+  CA-RF05-12 queda pendiente hasta que RF-13 sea aprobado e implemente su API;
+  RF-05 no añade endpoints API ni cambios administrativos.
+
 #### Precondiciones
 
 - El cliente está autenticado mediante RF-04.
@@ -926,7 +953,27 @@ carrito y sus propias líneas.
 RF-05 está `Aprobado`. D-CAT-01 define la venta unitaria sin suscripciones ni
 stock; D-CAT-02 establece que la selección comprable es una oferta concreta de
 producto y licencia; D-CAT-09 reserva la instantánea histórica para RF-06.
-Todavía no existen implementación, pruebas ejecutadas ni evidencias reales.
+Las decisiones operativas aprobadas resuelven la prioridad entre método,
+autenticación y CSRF, además del ciclo de vida de la selección actual. Todavía
+no existen evidencias reales ni se ha verificado el requisito completo.
+
+| Criterio | Prueba | Implementación | Estado |
+|---|---|---|---|
+| CA-RF05-01 | `apps/cart/tests/test_views.py` | `apps/cart/views.py`, `apps/cart/urls.py` y `config/urls.py` | Implementado y comprobado localmente |
+| CA-RF05-02 | `apps/cart/tests/test_views.py` | `apps/cart/views.py`, `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementado y comprobado localmente |
+| CA-RF05-03 | `apps/cart/tests/test_views.py` y `apps/cart/tests/test_services.py` | `apps/cart/services.py`, `apps/cart/views.py` y `apps/cart/urls.py` | Implementado y comprobado localmente |
+| CA-RF05-04 | `apps/cart/tests/test_models.py` y `apps/cart/tests/test_services.py` | `apps/cart/models.py` y `apps/cart/services.py` | Implementado y comprobado localmente; evidencia pendiente |
+| CA-RF05-05 | Pendiente: dos ofertas del mismo producto | `apps/cart/models.py` y `apps/cart/services.py` | Implementación parcial; falta prueba específica y evidencia |
+| CA-RF05-06 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/catalog/selectors.py`, `apps/cart/services.py` y `apps/cart/views.py` | Implementado y comprobado localmente; evidencia pendiente |
+| CA-RF05-07 | `apps/cart/tests/test_services.py` | `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementación parcial; falta comprobar la representación web y evidencia |
+| CA-RF05-08 | `apps/cart/tests/test_services.py` | `apps/cart/selectors.py` | Implementado y comprobado localmente; evidencia pendiente |
+| CA-RF05-09 | `apps/cart/tests/test_services.py` | `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementación parcial; falta comprobar la representación web y evidencia |
+| CA-RF05-10 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/services.py`, `apps/cart/views.py` y `apps/cart/urls.py` | Implementación parcial; falta comprobar `GET 405` y evidencia |
+| CA-RF05-11 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/services.py`, `apps/cart/selectors.py` y `apps/cart/views.py` | Implementación parcial; falta cobertura de consulta cruzada y evidencia |
+| CA-RF05-12 | `apps/cart/tests/test_services.py` | `apps/cart/services.py` | Servicio compartido implementado y comprobado localmente; equivalencia API pendiente de RF-13 |
+
+RF-05 conserva el estado `Aprobado`: ninguna fila anterior acredita la puerta
+de calidad ni las evidencias necesarias para declararlo `Verificado`.
 
 ## RF-06: Convertir el carrito en un pedido histórico
 

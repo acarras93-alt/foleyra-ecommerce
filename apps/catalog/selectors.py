@@ -18,36 +18,44 @@ def get_active_license_types() -> QuerySet[LicenseType]:
     return LicenseType.objects.filter(is_active=True)
 
 
+def get_available_offers() -> QuerySet[ProductLicenseOffer]:
+    return ProductLicenseOffer.objects.filter(
+        is_active=True,
+        product__is_active=True,
+        product__category__is_active=True,
+        license_type__is_active=True,
+    )
+
+
+def is_offer_available(offer: ProductLicenseOffer) -> bool:
+    return (
+        offer.is_active
+        and offer.product.is_active
+        and offer.product.category.is_active
+        and offer.license_type.is_active
+    )
+
+
 def get_available_products(
     search_query: str = "",
     category_slug: str = "",
     license_slug: str = "",
     ordering: str = "",
 ) -> QuerySet[Product]:
+    available_offers = get_available_offers()
     products = (
-        Product.objects.filter(
-            is_active=True,
-            category__is_active=True,
-            license_offers__is_active=True,
-            license_offers__license_type__is_active=True,
-        )
+        Product.objects.filter(pk__in=available_offers.values("product_id"))
         .annotate(
             minimum_price=Min(
                 "license_offers__price",
-                filter=Q(
-                    license_offers__is_active=True,
-                    license_offers__license_type__is_active=True,
-                ),
+                filter=Q(license_offers__in=available_offers),
             )
         )
         .select_related("category")
         .prefetch_related(
             Prefetch(
                 "license_offers",
-                queryset=ProductLicenseOffer.objects.filter(
-                    is_active=True,
-                    license_type__is_active=True,
-                ).select_related("license_type"),
+                queryset=available_offers.select_related("license_type"),
             )
         )
     )
