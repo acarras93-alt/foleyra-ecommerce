@@ -2,6 +2,8 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.cart.models import Cart, CartItem
 from apps.cart.selectors import get_cart_summary
@@ -80,6 +82,18 @@ def test_adding_the_same_offer_twice_keeps_one_item():
 
 
 @pytest.mark.django_db
+def test_adding_an_offer_locks_the_cart_before_changing_items():
+    user = create_user("locked-add-owner")
+    offer = create_offer(number=10)
+    Cart.objects.create(owner=user)
+
+    with CaptureQueriesContext(connection) as queries:
+        add_offer_to_cart(owner=user, offer_id=offer.pk)
+
+    assert any("FOR UPDATE" in query["sql"] for query in queries.captured_queries)
+
+
+@pytest.mark.django_db
 def test_adding_two_license_offers_for_the_same_product_creates_two_items():
     user = create_user("different-license-owner")
     first_offer = create_offer(number=8)
@@ -143,6 +157,18 @@ def test_owner_can_remove_an_item():
     remove_cart_item(owner=owner, item_id=item.pk)
 
     assert not CartItem.objects.filter(pk=item.pk).exists()
+
+
+@pytest.mark.django_db
+def test_removing_an_item_locks_the_cart_before_changing_items():
+    owner = create_user("locked-remove-owner")
+    offer = create_offer(number=11)
+    item, _ = add_offer_to_cart(owner=owner, offer_id=offer.pk)
+
+    with CaptureQueriesContext(connection) as queries:
+        remove_cart_item(owner=owner, item_id=item.pk)
+
+    assert any("FOR UPDATE" in query["sql"] for query in queries.captured_queries)
 
 
 @pytest.mark.django_db

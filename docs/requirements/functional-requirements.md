@@ -27,7 +27,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-03 | Buscar, filtrar, ordenar y paginar el catálogo | Visitante o cliente | Should | v0.2.0 | Verificado |
 | RF-04 | Registrarse, iniciar sesión y cerrar sesión | Visitante o cliente | Must | v0.3.0 | Verificado |
 | RF-05 | Gestionar los productos del carrito privado | Cliente autenticado | Must | v0.3.0 | Aprobado |
-| RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Aprobado |
+| RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Implementado |
 | RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Propuesto |
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Propuesto |
 | RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Propuesto |
@@ -986,11 +986,12 @@ evidencias visuales previstas para declarar el requisito `Verificado`.
 | Actor principal | Cliente autenticado |
 | Prioridad | Must |
 | Versión objetivo | v0.4.0 |
-| Estado | Aprobado |
+| Estado | Implementado |
 | Dependencias | RF-04, RF-05, D-CAT-09, RNF-01, RNF-03 a RNF-05, RNF-08, RNF-10 y RNF-11 |
 
-La aprobación define el contrato y sus criterios, pero no acredita código,
-migraciones, pruebas ni evidencia de RF-06.
+RF-06 está implementado con modelos históricos, una migración inicial, un
+servicio transaccional y la entrada web privada. Este estado no acredita aún
+la verificación completa del requisito ni una puerta de calidad final.
 
 #### Objetivo
 
@@ -1115,17 +1116,49 @@ generado y el plan de migración antes de aplicarse en PostgreSQL.
 - Cupones, impuestos, envío, stock, suscripciones, cantidades editables y
   múltiples monedas.
 
+#### Implementación y pruebas existentes
+
+- `apps/orders/models.py` define `Order` y `OrderItem`. El pedido conserva
+  propietario, estado `pending_payment`, total decimal y moneda EUR; cada línea
+  persiste SKU, nombre de producto, licencia, versión de términos, precio y
+  moneda sin clave foránea a la oferta actual.
+- `apps/orders/services.py` implementa `create_order_from_cart(owner=...)` en
+  una transacción PostgreSQL. Bloquea carrito y líneas, revalida la
+  disponibilidad compartida del catálogo, crea la instantánea y vacía el
+  carrito. Los errores de dominio `EmptyCart` y `OfferNotAvailable` impiden
+  crear pedidos o modificar líneas.
+- `POST /orders/create/` delega en el servicio para el cliente autenticado,
+  devuelve PRG hacia `/cart/` con el mensaje `Pedido creado.` y responde `409`
+  para carrito vacío o una oferta no disponible. `GET` devuelve `405`; CSRF
+  inválido devuelve `403`; un visitante con CSRF válido se redirige al login
+  con `next=/cart/`.
+- `apps/orders/migrations/0001_initial.py` crea las tablas `Order` y
+  `OrderItem`; depende del modelo de usuario intercambiable y no altera tablas
+  existentes de carrito o catálogo.
+- Las pruebas de servicio cubren conversión correcta, instantánea histórica,
+  carrito vacío, indisponibilidad, reversión ante un fallo de creación de
+  líneas, aislamiento entre propietarios y concurrencia con dos transacciones
+  PostgreSQL. Las pruebas HTTP cubren el flujo correcto, ambos conflictos,
+  método, CSRF y autenticación. La última ejecución conjunta observada de
+  `apps/orders/tests` finalizó con `11 passed`.
+- La puerta de calidad ejecutada tras completar las pruebas finalizó con
+  `150 passed`; las comprobaciones de Django y migraciones, Ruff, formato,
+  `pip check` y `git diff --check` no informaron incidencias.
+
+No se han generado evidencias en `docs/evidence/RF-06/`. La ausencia de esas
+evidencias impide declarar RF-06 como `Verificado`.
+
 #### Trazabilidad
 
-RF-06 está `Aprobado` desde el 2026-09-18. D-CAT-09 define la instantánea
-histórica y RF-05 define el carrito actual que se vacía tras una conversión
-correcta. La implementación se separará en `apps/orders/`: ese módulo poseerá
-el pedido histórico y el servicio transaccional, mientras `apps/cart/`
-conservará únicamente la selección actual.
+RF-06 pasó de `Aprobado` a `Implementado` el 2026-09-18. D-CAT-09 define la
+instantánea histórica y RF-05 define el carrito actual que se vacía tras una
+conversión correcta. `apps/orders/` posee el pedido histórico, su servicio
+transaccional y la interfaz web; `apps/cart/` conserva únicamente la selección
+actual y bloquea el mismo carrito antes de modificar sus líneas.
 
-No existen aún modelos, migraciones, rutas, pruebas ni evidencias de RF-06.
-El siguiente incremento debe comenzar por una prueba RED de CA-RF06-01, seguida
-de la persistencia mínima y de una migración generada y revisada.
+La API privada de pedidos permanece diferida a RF-14. RF-06 conserva el estado
+`Implementado`, no `Verificado`: la cobertura automatizada y la puerta de
+calidad están registradas, pero faltan evidencias reales del requisito.
 
 ## RF-07: Simular un pago aprobado de forma independiente
 

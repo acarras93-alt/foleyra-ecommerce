@@ -2366,3 +2366,81 @@ Las pruebas automatizadas acreditan la implementación actual de CA-RF05-01 a
 CA-RF05-11. RF-05 conserva el estado `Aprobado`, no `Verificado`: faltan las
 evidencias visuales previstas y la equivalencia de CA-RF05-12 depende de
 RF-13. No se generaron migraciones para este cierre documental.
+
+## 2026-09-18 — Bloqueo compartido del carrito para RF-06
+
+### Objetivo y cambios realizados
+
+Se corrigió el desfase detectado al revisar RN-RF06-07: las mutaciones de
+carrito no bloqueaban previamente la fila `Cart`. `add_offer_to_cart()` y
+`remove_cart_item()` ahora son transaccionales y adquieren un bloqueo
+`SELECT ... FOR UPDATE` sobre el carrito del propietario antes de modificar sus
+líneas.
+
+Se añadieron pruebas de servicio que verifican la emisión de `FOR UPDATE` en
+PostgreSQL para ambas mutaciones. No se modificaron modelos, migraciones,
+rutas, vistas, catálogo ni el esqueleto de `orders`.
+
+### Comprobaciones ejecutadas
+
+- RED: `.venv/bin/python -m pytest -q apps/cart/tests/test_services.py` falló
+  en las dos pruebas nuevas porque no se emitía `FOR UPDATE`; las diez pruebas
+  existentes finalizaron correctamente.
+- GREEN: el mismo comando finalizó con `12 passed in 2.69s` después del ajuste.
+- Regresión: `.venv/bin/python -m pytest -q` finalizó con `143 passed in
+  13.88s`; Ruff sobre los dos módulos Python modificados y `git diff --check`
+  finalizaron correctamente.
+
+### Resultado y alcance excluido
+
+Las futuras conversiones de RF-06 pueden bloquear la misma fila de carrito que
+sus mutaciones. No se implementó todavía la conversión, los modelos de pedido
+ni la prueba concurrente de CA-RF06-08.
+
+## 2026-09-18 — Implementación de RF-06
+
+### Objetivo y cambios realizados
+
+Se implementó la conversión del carrito propio a un pedido histórico en
+`apps/orders/`. `Order` conserva propietario, estado inicial
+`pending_payment`, total decimal y moneda EUR; `OrderItem` conserva la
+instantánea de SKU, nombre de producto, licencia, versión de términos, precio
+y moneda, sin depender de una oferta actual del catálogo.
+
+El servicio transaccional bloquea el carrito y sus líneas, valida la
+disponibilidad mediante el selector compartido de catálogo, crea pedido y
+líneas, y vacía el carrito. La vista privada `POST /orders/create/` delega en
+el servicio, aplica PRG hacia `/cart/` con un mensaje de éxito y devuelve
+`409` para carrito vacío o una oferta no disponible. También se añadieron los
+controles de método, CSRF y autenticación establecidos por el contrato.
+
+La migración inicial `apps/orders/migrations/0001_initial.py` fue generada y
+revisada: crea exclusivamente `Order` y `OrderItem` y depende del modelo de
+usuario intercambiable.
+
+### Comprobaciones ejecutadas
+
+- RED de la vista: las pruebas HTTP de conversión fallaron porque el `POST`
+  autenticado redirigía sin crear pedido y los casos de conflicto devolvían
+  `302`.
+- GREEN: `.venv/bin/python -m pytest -q apps/orders/tests` finalizó con
+  `7 passed in 1.67s`.
+- Ruff sobre la vista y sus pruebas, comprobación de formato y
+  `git diff --check` finalizaron correctamente.
+
+### Resultado y pendientes
+
+Se añadieron pruebas específicas de instantánea posterior a cambios de
+catálogo, reversión ante fallos internos, aislamiento entre propietarios y
+concurrencia real entre dos transacciones PostgreSQL. La ejecución de
+`.venv/bin/python -m pytest -q apps/orders/tests` finalizó con `11 passed in
+2.65s`; Ruff y la comprobación de formato sobre esas pruebas finalizaron
+correctamente.
+
+La puerta de calidad posterior finalizó correctamente con `150 passed in
+14.83s`, sin incidencias en las comprobaciones de Django y migraciones, Ruff,
+formato, `pip check` ni `git diff --check`.
+
+RF-06 queda `Implementado`, no `Verificado`. No se generaron evidencias en
+`docs/evidence/RF-06/`. Pago, licencias, descargas, consulta de pedidos e
+interfaz API permanecen fuera del alcance de RF-06.
