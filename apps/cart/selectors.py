@@ -27,12 +27,14 @@ class CartSummary:
 
 def get_cart_summary(*, owner) -> CartSummary:
     cart_items = (
-        CartItem.objects.filter(cart__owner=owner)
+        CartItem.objects.filter(
+            cart__owner=owner
+        )  # Solo líneas del carrito del usuario.
         .select_related(
             "offer__product__category",
             "offer__license_type",
-        )
-        .order_by("pk")
+        )  # Carga relaciones SQL necesarias de una vez.
+        .order_by("pk")  # Orden estable de las líneas.
     )
     total = Decimal("0.00")
     summary_items = []
