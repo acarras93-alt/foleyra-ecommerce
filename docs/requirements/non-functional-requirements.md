@@ -385,12 +385,13 @@ responsabilidad técnica.
 
 RNF-02, RNF-12 y RNF-13 se aplican transversalmente a todos los incrementos.
 
-## 5. Aplicación a autenticación y carrito v0.3.0
+## 5. Aplicación a autenticación, carrito y pedido v0.3.0-v0.4.0
 
 | Requisito funcional | RNF obligatorios |
 |---|---|
 | RF-04 | RNF-01, RNF-03, RNF-04, RNF-10 y RNF-11 |
 | RF-05 | RNF-01, RNF-03, RNF-04, RNF-05, RNF-06, RNF-08, RNF-10 y RNF-11 |
+| RF-06 | RNF-01, RNF-03, RNF-04, RNF-05, RNF-08, RNF-10 y RNF-11 |
 
 Para RF-04, RNF-10 exige que las sesiones no otorguen privilegios y que las
 funciones privadas requieran identidad. Para RF-05, RNF-05 obliga a concentrar
@@ -398,7 +399,14 @@ las transiciones del carrito en servicios reutilizables por RF-13, RNF-08
 protege la pertenencia y la unicidad persistentes, y RNF-10 exige aislamiento
 entre propietarios.
 
-RNF-02, RNF-12 y RNF-13 continúan aplicándose transversalmente a RF-04 y RF-05.
+Para RF-06, RNF-08 exige instantáneas históricas y una transacción PostgreSQL
+que no deje pedidos, líneas ni carritos parcialmente modificados. RNF-10 exige
+que la conversión resuelva exclusivamente el carrito del cliente autenticado;
+RNF-05 reserva la reutilización del servicio de pedido para la futura API de
+RF-14.
+
+RNF-02, RNF-12 y RNF-13 continúan aplicándose transversalmente a RF-04, RF-05
+y RF-06.
 
 ## 6. Criterio de verificación de versión
 

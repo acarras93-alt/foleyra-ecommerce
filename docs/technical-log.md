@@ -2283,6 +2283,58 @@ sobre `apps/cart` finalizaron correctamente. No se modificaron API, Admin,
 migraciones, catálogo visual ni manejo HTTP de errores de criterios posteriores.
 No se creó ningún commit.
 
+## 2026-09-18 — Preparación documental de RF-06
+
+### Objetivo
+
+Se añadieron los criterios propuestos mínimos para convertir un carrito privado
+en un pedido histórico: conversión de líneas disponibles, instantánea inmutable,
+atomicidad y aislamiento entre propietarios.
+
+### Decisiones y pendientes
+
+La preparación reutiliza únicamente D-CAT-09 y las decisiones aprobadas de
+RF-05: las líneas históricas copiarán SKU, nombre, licencia, versión de
+términos, precio y moneda, y el vaciado del carrito pertenecerá a la misma
+transacción que la creación del pedido.
+
+RF-06 conserva el estado `Propuesto`. Antes de aprobarlo faltan decisiones
+sobre carrito vacío, indisponibilidad al convertir, estado e identificador del
+pedido, total y moneda, contrato web y concurrencia de conversiones.
+
+### Alcance excluido y comprobaciones
+
+No se modificaron código, configuración, modelos, migraciones, pruebas ni
+evidencias. No se ejecutaron pruebas ni comprobaciones de calidad para esta
+preparación documental.
+
+## 2026-09-18 — Aprobación del contrato de RF-06
+
+### Decisiones aprobadas
+
+Se aprobó `POST /orders/create/` como conversión del carrito propio. Una
+conversión correcta crea un pedido `pending_payment`, captura las líneas
+históricas y el total decimal en EUR, vacía el carrito en la misma transacción
+y aplica PRG hacia `/cart/`. RF-06 no crea pagos, licencias, descargas ni un
+identificador público de pedido.
+
+Un carrito vacío o con una oferta sobrevenidamente no disponible responde 409,
+sin crear pedidos parciales ni cambiar el carrito. Un `GET` responde 405; un
+POST sin CSRF válido responde 403; un POST anónimo con CSRF válido se redirige
+al login con `next=/cart/` sin modificar datos.
+
+Las líneas históricas copian SKU, nombre, licencia, versión de términos, precio
+y moneda y no dependen de una clave foránea obligatoria a la oferta actual. La
+conversión y las mutaciones del carrito bloquearán el mismo carrito para evitar
+duplicados, vaciados parciales o pérdida de líneas ante concurrencia.
+
+### Resultado y alcance excluido
+
+RF-06 pasa de `Propuesto` a `Aprobado`; sus ocho criterios de aceptación quedan
+autorizados para desarrollo guiado por pruebas. No se modificaron código,
+configuración, modelos, migraciones, pruebas ni evidencias, y no se ejecutaron
+comprobaciones de calidad en esta aprobación documental.
+
 ## 2026-09-18 — Cierre documental de implementación de RF-05
 
 ### Objetivo y alcance

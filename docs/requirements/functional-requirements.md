@@ -27,7 +27,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-03 | Buscar, filtrar, ordenar y paginar el catálogo | Visitante o cliente | Should | v0.2.0 | Verificado |
 | RF-04 | Registrarse, iniciar sesión y cerrar sesión | Visitante o cliente | Must | v0.3.0 | Verificado |
 | RF-05 | Gestionar los productos del carrito privado | Cliente autenticado | Must | v0.3.0 | Aprobado |
-| RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Propuesto |
+| RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Aprobado |
 | RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Propuesto |
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Propuesto |
 | RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Propuesto |
@@ -978,6 +978,154 @@ RF-05 conserva el estado `Aprobado`: CA-RF05-12 depende de RF-13 y faltan las
 evidencias visuales previstas para declarar el requisito `Verificado`.
 
 ## RF-06: Convertir el carrito en un pedido histórico
+
+#### Metadatos
+
+| Campo | Valor |
+|---|---|
+| Actor principal | Cliente autenticado |
+| Prioridad | Must |
+| Versión objetivo | v0.4.0 |
+| Estado | Aprobado |
+| Dependencias | RF-04, RF-05, D-CAT-09, RNF-01, RNF-03 a RNF-05, RNF-08, RNF-10 y RNF-11 |
+
+La aprobación define el contrato y sus criterios, pero no acredita código,
+migraciones, pruebas ni evidencia de RF-06.
+
+#### Objetivo
+
+Convertir el carrito privado actual de un cliente en un pedido histórico cuyas
+líneas no dependan de valores posteriores del catálogo, y vaciar ese carrito
+en la misma transacción.
+
+#### Contrato web aprobado
+
+| Operación | Ruta | Método | Resultado |
+|---|---|---|---|
+| Convertir carrito propio | `/orders/create/` | `POST` | Crea un pedido `pending_payment`, vacía el carrito y redirige a `/cart/` |
+
+La conversión resuelve el carrito únicamente desde el cliente autenticado; no
+recibe `cart_id`, `owner_id`, líneas, importes ni moneda desde el navegador.
+Una respuesta correcta usa PRG hacia `/cart/` e informa que se creó el pedido.
+RF-09 definirá la consulta y cualquier identificador público del pedido.
+
+#### Precondiciones
+
+- El cliente está autenticado mediante RF-04.
+- Su carrito contiene al menos una línea.
+- Todas sus ofertas siguen disponibles al iniciar la conversión protegida.
+- PostgreSQL está disponible para ejecutar la transacción y los bloqueos.
+
+#### Flujo principal
+
+1. El cliente envía un `POST` para convertir su propio carrito.
+2. El sistema bloquea el carrito y sus líneas, y vuelve a comprobar la
+   disponibilidad de producto, categoría, oferta y tipo de licencia.
+3. El sistema crea un pedido con estado inicial `pending_payment`.
+4. Copia en cada línea histórica el SKU, nombre de producto, licencia, versión
+   de términos, precio y moneda actuales.
+5. Calcula y persiste el total decimal en EUR a partir de esas líneas.
+6. El sistema elimina las líneas bloqueadas del carrito y confirma toda la
+   transacción.
+7. El cliente vuelve a `/cart/`, que queda como selección vacía.
+
+#### Flujos alternativos y errores
+
+- FA-01: un carrito vacío responde `409` y no crea pedido ni líneas.
+- FA-02: si una o más ofertas dejan de estar disponibles, responde `409`, no
+  crea un pedido parcial y conserva el carrito completo.
+- FA-03: si falla la creación del pedido, de sus líneas o el vaciado, la
+  transacción se revierte por completo y el error no expone detalles internos.
+- FA-04: dos conversiones simultáneas del mismo carrito se serializan; solo una
+  puede crear el pedido y la siguiente encuentra el carrito vacío.
+- FE-01: un `GET` sobre la conversión responde `405` y no modifica datos.
+- FE-02: un `POST` sin CSRF válido responde `403`; un visitante anónimo con
+  CSRF válido se redirige al login con `next=/cart/`, sin crear datos.
+
+#### Reglas de negocio
+
+- RN-RF06-01: el pedido pertenece exclusivamente al propietario del carrito
+  convertido; ningún identificador de otro carrito puede influir en la acción.
+- RN-RF06-02: el pedido se crea con estado `pending_payment`; RF-06 no crea un
+  pago, una licencia ni una autorización de descarga.
+- RN-RF06-03: cada línea histórica conserva una instantánea de SKU, nombre de
+  producto, licencia, versión de términos, precio y moneda, sin una clave
+  foránea obligatoria a la oferta actual del catálogo.
+- RN-RF06-04: el total y la moneda se calculan en el servidor desde las líneas
+  históricas; durante el MVP la moneda es únicamente EUR y los importes usan
+  `Decimal` con dos decimales.
+- RN-RF06-05: un cambio posterior del catálogo no modifica las líneas ni el
+  total históricos del pedido.
+- RN-RF06-06: la creación del pedido, sus líneas y el vaciado del carrito son
+  una única transacción de PostgreSQL.
+- RN-RF06-07: las mutaciones del carrito y su conversión bloquean el mismo
+  carrito antes de cambiar líneas, para que una concurrencia no cree pedidos
+  duplicados ni pierda líneas.
+
+#### Criterios de aceptación
+
+- CA-RF06-01: dado un cliente autenticado con un carrito propio que contiene
+  una o más ofertas disponibles, cuando se convierte el carrito, entonces se
+  crea un pedido histórico `pending_payment` de ese cliente con una línea por
+  cada línea del carrito, su total en EUR y el carrito queda vacío.
+- CA-RF06-02: dado un pedido creado desde un carrito, cuando cambian después el
+  SKU, nombre, licencia, versión de términos, precio o moneda de una oferta,
+  entonces las líneas históricas del pedido conservan los valores capturados
+  durante la conversión y el total histórico no cambia.
+- CA-RF06-03: dado un cliente autenticado con un carrito vacío, cuando intenta
+  convertirlo, entonces recibe `409` y no se crea ningún pedido ni línea.
+- CA-RF06-04: dado un carrito con una o más ofertas que dejan de estar
+  disponibles antes de la conversión, cuando el cliente intenta convertirlo,
+  entonces recibe `409`, no se crea ningún pedido y el carrito no cambia.
+- CA-RF06-05: dado un fallo durante la creación del pedido, sus líneas o el
+  vaciado del carrito, cuando termina la operación, entonces no persiste un
+  pedido ni líneas históricas parciales y las líneas originales del carrito se
+  conservan.
+- CA-RF06-06: dados dos clientes con carritos distintos, cuando uno convierte
+  su carrito, entonces el pedido creado pertenece solo a ese cliente y el
+  carrito del otro no cambia.
+- CA-RF06-07: dado un visitante o un método HTTP no permitido, cuando intenta
+  convertir un carrito, entonces un `GET` recibe `405`, un `POST` sin CSRF
+  válido recibe `403` y un `POST` anónimo con CSRF válido se redirige al login
+  sin crear datos.
+- CA-RF06-08: dadas dos conversiones simultáneas del mismo carrito, cuando se
+  completan ambas solicitudes, entonces existe un único pedido creado a partir
+  de esas líneas y no se pierden ni duplican datos.
+
+#### Pruebas previstas
+
+- Pruebas de modelo de la persistencia histórica y de sus restricciones en
+  PostgreSQL.
+- Pruebas de servicio para conversión, instantánea, total, indisponibilidad,
+  reversión, aislamiento y concurrencia.
+- Pruebas HTTP para `POST`, PRG, carrito vacío, métodos, autenticación y CSRF.
+
+#### Migración prevista
+
+RF-06 requerirá una migración inicial generada por Django para la persistencia
+de pedidos y líneas históricas. Debe revisarse el usuario activo, el fichero
+generado y el plan de migración antes de aplicarse en PostgreSQL.
+
+#### Fuera de alcance
+
+- Pago, reintento de pago, licencia adquirida, descarga y consulta histórica de
+  pedidos, que corresponden a RF-07 a RF-11.
+- Identificador público, detalle o listado de pedidos, que pertenecen a RF-09.
+- API privada de pedido, que pertenece a RF-14.
+- Cupones, impuestos, envío, stock, suscripciones, cantidades editables y
+  múltiples monedas.
+
+#### Trazabilidad
+
+RF-06 está `Aprobado` desde el 2026-09-18. D-CAT-09 define la instantánea
+histórica y RF-05 define el carrito actual que se vacía tras una conversión
+correcta. La implementación se separará en `apps/orders/`: ese módulo poseerá
+el pedido histórico y el servicio transaccional, mientras `apps/cart/`
+conservará únicamente la selección actual.
+
+No existen aún modelos, migraciones, rutas, pruebas ni evidencias de RF-06.
+El siguiente incremento debe comenzar por una prueba RED de CA-RF06-01, seguida
+de la persistencia mínima y de una migración generada y revisada.
 
 ## RF-07: Simular un pago aprobado de forma independiente
 
