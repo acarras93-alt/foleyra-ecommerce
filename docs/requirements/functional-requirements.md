@@ -955,25 +955,27 @@ stock; D-CAT-02 establece que la selección comprable es una oferta concreta de
 producto y licencia; D-CAT-09 reserva la instantánea histórica para RF-06.
 Las decisiones operativas aprobadas resuelven la prioridad entre método,
 autenticación y CSRF, además del ciclo de vida de la selección actual. Todavía
-no existen evidencias reales ni se ha verificado el requisito completo.
+no existen evidencias visuales del flujo. La puerta de calidad del 2026-09-18
+acredita las comprobaciones automatizadas, pero RF-05 conserva el estado
+`Aprobado` hasta completar la evidencia requerida y la dependencia de RF-13.
 
 | Criterio | Prueba | Implementación | Estado |
 |---|---|---|---|
-| CA-RF05-01 | `apps/cart/tests/test_views.py` | `apps/cart/views.py`, `apps/cart/urls.py` y `config/urls.py` | Implementado y comprobado localmente |
-| CA-RF05-02 | `apps/cart/tests/test_views.py` | `apps/cart/views.py`, `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementado y comprobado localmente |
-| CA-RF05-03 | `apps/cart/tests/test_views.py` y `apps/cart/tests/test_services.py` | `apps/cart/services.py`, `apps/cart/views.py` y `apps/cart/urls.py` | Implementado y comprobado localmente |
-| CA-RF05-04 | `apps/cart/tests/test_models.py` y `apps/cart/tests/test_services.py` | `apps/cart/models.py` y `apps/cart/services.py` | Implementado y comprobado localmente; evidencia pendiente |
-| CA-RF05-05 | Pendiente: dos ofertas del mismo producto | `apps/cart/models.py` y `apps/cart/services.py` | Implementación parcial; falta prueba específica y evidencia |
-| CA-RF05-06 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/catalog/selectors.py`, `apps/cart/services.py` y `apps/cart/views.py` | Implementado y comprobado localmente; evidencia pendiente |
-| CA-RF05-07 | `apps/cart/tests/test_services.py` | `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementación parcial; falta comprobar la representación web y evidencia |
-| CA-RF05-08 | `apps/cart/tests/test_services.py` | `apps/cart/selectors.py` | Implementado y comprobado localmente; evidencia pendiente |
-| CA-RF05-09 | `apps/cart/tests/test_services.py` | `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementación parcial; falta comprobar la representación web y evidencia |
-| CA-RF05-10 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/services.py`, `apps/cart/views.py` y `apps/cart/urls.py` | Implementación parcial; falta comprobar `GET 405` y evidencia |
-| CA-RF05-11 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/services.py`, `apps/cart/selectors.py` y `apps/cart/views.py` | Implementación parcial; falta cobertura de consulta cruzada y evidencia |
-| CA-RF05-12 | `apps/cart/tests/test_services.py` | `apps/cart/services.py` | Servicio compartido implementado y comprobado localmente; equivalencia API pendiente de RF-13 |
+| CA-RF05-01 | `apps/cart/tests/test_views.py` | `apps/cart/views.py`, `apps/cart/urls.py` y `config/urls.py` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-02 | `apps/cart/tests/test_views.py` | `apps/cart/views.py`, `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-03 | `apps/cart/tests/test_views.py` y `apps/cart/tests/test_services.py` | `apps/cart/services.py`, `apps/cart/views.py` y `apps/cart/urls.py` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-04 | `apps/cart/tests/test_models.py`, `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/models.py`, `apps/cart/services.py` y `apps/cart/views.py` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-05 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/models.py`, `apps/cart/services.py` y `apps/cart/templates/cart/cart_detail.html` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-06 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/catalog/selectors.py`, `apps/cart/services.py` y `apps/cart/views.py` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-07 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-08 | `apps/cart/tests/test_services.py` | `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-09 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/selectors.py` y `apps/cart/templates/cart/cart_detail.html` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-10 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/services.py`, `apps/cart/views.py` y `apps/cart/urls.py` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-11 | `apps/cart/tests/test_services.py` y `apps/cart/tests/test_views.py` | `apps/cart/services.py`, `apps/cart/selectors.py` y `apps/cart/views.py` | Implementado y comprobado; evidencia visual pendiente |
+| CA-RF05-12 | `apps/cart/tests/test_services.py` | `apps/cart/services.py` | Servicio compartido implementado y comprobado; equivalencia API pendiente de RF-13 |
 
-RF-05 conserva el estado `Aprobado`: ninguna fila anterior acredita la puerta
-de calidad ni las evidencias necesarias para declararlo `Verificado`.
+RF-05 conserva el estado `Aprobado`: CA-RF05-12 depende de RF-13 y faltan las
+evidencias visuales previstas para declarar el requisito `Verificado`.
 
 ## RF-06: Convertir el carrito en un pedido histórico
 

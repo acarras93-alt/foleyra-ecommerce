@@ -2282,3 +2282,35 @@ La prueba nueva de integración confirmó primero el Red por ausencia de la ruta
 sobre `apps/cart` finalizaron correctamente. No se modificaron API, Admin,
 migraciones, catálogo visual ni manejo HTTP de errores de criterios posteriores.
 No se creó ningún commit.
+
+## 2026-09-18 — Cierre documental de implementación de RF-05
+
+### Objetivo y alcance
+
+Se consolidó la trazabilidad de RF-05 tras completar el carrito privado web:
+alta de ofertas disponibles, repetición idempotente, precios actuales, líneas
+no disponibles, eliminación propia y controles de método, CSRF y propiedad.
+RF-05 no incorpora pedidos históricos, pagos, licencias, descargas ni API
+privada.
+
+CA-RF05-12 mantiene la dependencia explícita de RF-13. La web delega sus
+mutaciones en los servicios de carrito, pero la equivalencia con una API no se
+puede demostrar hasta que RF-13 esté aprobado e implementado.
+
+### Comprobaciones ejecutadas
+
+La puerta de calidad ejecutada el 2026-09-18 finalizó correctamente:
+
+- `.venv/bin/python manage.py check --database default`: sin incidencias.
+- `.venv/bin/python manage.py makemigrations --check --dry-run`: sin cambios.
+- `.venv/bin/python manage.py migrate --check`: sin migraciones pendientes.
+- `.venv/bin/python -m pytest -q`: `141 passed`.
+- `.venv/bin/ruff check .` y `.venv/bin/ruff format --check .`: correctos.
+- `.venv/bin/pip check` y `git diff --check`: correctos.
+
+### Resultado y pendientes
+
+Las pruebas automatizadas acreditan la implementación actual de CA-RF05-01 a
+CA-RF05-11. RF-05 conserva el estado `Aprobado`, no `Verificado`: faltan las
+evidencias visuales previstas y la equivalencia de CA-RF05-12 depende de
+RF-13. No se generaron migraciones para este cierre documental.

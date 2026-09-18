@@ -12,6 +12,11 @@ Python, Django, Django REST Framework y PostgreSQL.
 	`username` y cierre de sesión por formulario `POST` con CSRF en
 	`/accounts/register/`, `/accounts/login/` y `/accounts/logout/`. La
 	autenticación de API continúa fuera de alcance hasta RF-13.
+- RF-05 está `Aprobado` e implementado: un cliente autenticado puede consultar
+	su carrito privado, añadir ofertas disponibles y eliminar líneas propias con
+	`POST` y CSRF. El carrito usa precios actuales, conserva las líneas que dejan
+	de estar disponibles fuera del total y no mantiene historial. La equivalencia
+	con una API autenticada queda pendiente de RF-13.
 - `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
