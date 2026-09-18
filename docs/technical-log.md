@@ -2444,3 +2444,33 @@ formato, `pip check` ni `git diff --check`.
 RF-06 queda `Implementado`, no `Verificado`. No se generaron evidencias en
 `docs/evidence/RF-06/`. Pago, licencias, descargas, consulta de pedidos e
 interfaz API permanecen fuera del alcance de RF-06.
+
+## 2026-09-18 — Entrada visible de conversión de RF-06
+
+### Objetivo y cambios realizados
+
+Se añadió al detalle del carrito con líneas un formulario visible para crear
+el pedido mediante `POST /orders/create/`. El formulario incluye CSRF y no
+envía identificadores de carrito, líneas, importes ni moneda; la conversión
+continúa resolviéndose desde el usuario autenticado en el servidor.
+
+Se añadió una prueba HTTP del detalle de carrito que comprueba la acción de
+conversión, el método POST, el token CSRF y la etiqueta visible del botón.
+
+### Comprobaciones ejecutadas
+
+- RED: la prueba del formulario falló porque el HTML no contenía la acción
+  `/orders/create/`.
+- GREEN: `.venv/bin/python -m pytest -q
+  apps/cart/tests/test_views.py::test_cart_with_items_shows_a_csrf_protected_order_creation_form`
+  finalizó con `1 passed in 0.74s`.
+- Puerta de calidad: las comprobaciones de Django y migraciones no informaron
+  incidencias; `.venv/bin/python -m pytest -q` finalizó con `155 passed in
+  16.44s`; Ruff, formato, `pip check` y `git diff --check` finalizaron
+  correctamente.
+
+### Resultado y alcance excluido
+
+La conversión de RF-06 dispone de una entrada web visible desde el carrito.
+No se modificaron pagos, licencias, descargas, consulta de pedidos, API ni
+evidencias visuales.

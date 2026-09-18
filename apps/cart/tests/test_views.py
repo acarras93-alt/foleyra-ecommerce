@@ -220,6 +220,26 @@ def test_cart_shows_available_offer_details_and_decimal_total(client):
 
 
 @pytest.mark.django_db
+def test_cart_with_items_shows_a_csrf_protected_order_creation_form(client):
+    user = get_user_model().objects.create_user(
+        username="cart-order-creation-user",
+        password="ReliablePassword123!",
+    )
+    offer = create_available_offer()
+    client.force_login(user)
+    client.post(reverse("cart:add-item"), {"offer_id": offer.pk})
+
+    response = client.get(reverse("cart:detail"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert f'action="{reverse("orders:create")}"' in content
+    assert 'method="post"' in content
+    assert "csrfmiddlewaretoken" in content
+    assert "Crear pedido" in content
+
+
+@pytest.mark.django_db
 def test_cart_shows_unavailable_item_excluded_from_total_and_removable(client):
     user = get_user_model().objects.create_user(
         username="unavailable-cart-item-user",

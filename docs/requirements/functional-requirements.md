@@ -1131,7 +1131,9 @@ generado y el plan de migración antes de aplicarse en PostgreSQL.
   devuelve PRG hacia `/cart/` con el mensaje `Pedido creado.` y responde `409`
   para carrito vacío o una oferta no disponible. `GET` devuelve `405`; CSRF
   inválido devuelve `403`; un visitante con CSRF válido se redirige al login
-  con `next=/cart/`.
+  con `next=/cart/`. El detalle del carrito con líneas muestra el formulario
+  visible `Crear pedido` con CSRF, sin enviar datos del pedido controlables por
+  el navegador.
 - `apps/orders/migrations/0001_initial.py` crea las tablas `Order` y
   `OrderItem`; depende del modelo de usuario intercambiable y no altera tablas
   existentes de carrito o catálogo.
@@ -1141,8 +1143,8 @@ generado y el plan de migración antes de aplicarse en PostgreSQL.
   PostgreSQL. Las pruebas HTTP cubren el flujo correcto, ambos conflictos,
   método, CSRF y autenticación. La última ejecución conjunta observada de
   `apps/orders/tests` finalizó con `11 passed`.
-- La puerta de calidad ejecutada tras completar las pruebas finalizó con
-  `150 passed`; las comprobaciones de Django y migraciones, Ruff, formato,
+- La puerta de calidad ejecutada tras incorporar la entrada visible finalizó
+  con `155 passed`; las comprobaciones de Django y migraciones, Ruff, formato,
   `pip check` y `git diff --check` no informaron incidencias.
 
 No se han generado evidencias en `docs/evidence/RF-06/`. La ausencia de esas
