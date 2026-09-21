@@ -1,7 +1,33 @@
 # Foleyra
 
-Foleyra es un MVP de comercio electrónico de productos sonoros construido con
-Python, Django, Django REST Framework y PostgreSQL.
+Foleyra es un proyecto de comercio electrónico de productos sonoros, construido
+con Python, Django, Django REST Framework y PostgreSQL como proyecto final de
+mi formación.
+
+**Estado: MVP en desarrollo.** Ya incluye catálogo web y API pública, cuentas de
+usuario, carrito privado y creación de pedidos pendientes de pago. El flujo
+completo de compra y entrega de archivos todavía no está terminado.
+
+## Recorrido del proyecto
+
+Un visitante puede explorar el catálogo, buscar productos, filtrar por categoría
+y licencia y escuchar las previews disponibles. Un usuario registrado puede
+preparar un carrito y convertirlo en un pedido con los datos de compra guardados.
+
+El trabajo reúne modelado de datos, autenticación, vistas y formularios Django,
+una API REST de lectura, operaciones atómicas y pruebas con PostgreSQL.
+La separación entre previews públicas y archivos maestros privados es una de
+las decisiones principales del diseño.
+
+Para una revisión rápida del portfolio:
+
+- Catálogo web: `/catalog/` y detalle de cada producto.
+- API pública: `/api/v1/catalog/products/`.
+- Código de negocio: `apps/catalog/`, `apps/cart/` y `apps/orders/`.
+- Decisiones y seguimiento: [documentación técnica](#documentación).
+
+Los datos del catálogo y los archivos de audio deben prepararse en el entorno
+local. La presencia de una ruta no implica que exista una demo pública desplegada.
 
 ## Estado actual
 
@@ -34,6 +60,14 @@ Python, Django, Django REST Framework y PostgreSQL.
 	`Implementado`, no `Verificado`, hasta incorporar sus evidencias. Los
 	requisitos privados posteriores continúan en estado `Propuesto`.
 
+## Pendiente para completar el MVP
+
+El catálogo y la API pública de lectura están implementados. Continúan
+pendientes la consulta privada de pedidos, los pagos simulados, la entrega autorizada
+de archivos maestros y la API privada, de acuerdo con los
+[requisitos funcionales](docs/requirements/functional-requirements.md).
+Los estados de implementación y verificación se registran por separado.
+
 ## Requisitos locales
 
 - Python 3.12.13.
@@ -41,14 +75,36 @@ Python, Django, Django REST Framework y PostgreSQL.
 - Un entorno virtual creado con las dependencias bloqueadas del proyecto.
 - Un archivo `.env` configurado sin exponer sus valores.
 
-Consulta el [manual de instalación](docs/installation.md) para preparar el
-entorno desde cero. Después de configurar las variables de entorno, inicia
-PostgreSQL con:
+Desde la raíz del repositorio, en macOS o Linux, prepara un entorno nuevo:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python --version
+python -m pip install --require-hashes -r requirements-dev.txt
+```
+
+Crea un archivo `.env` local a partir de `.env.example` si todavía no tienes
+uno. Sustituye los valores de ejemplo de `DJANGO_SECRET_KEY` y
+`POSTGRES_PASSWORD` por valores propios y conserva ese archivo fuera de Git.
+La configuración de Django y Docker Compose debe usar las mismas credenciales.
+
+Después, inicia PostgreSQL y espera a que `docker compose ps` muestre el
+servicio `db` saludable antes de ejecutar las migraciones:
 
 ```bash
 docker compose up -d db
 docker compose ps
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
+
+Abre `http://127.0.0.1:8000/`. La cuenta administrativa permite gestionar el
+catálogo desde `/admin/`. El [manual de instalación](docs/installation.md)
+contiene contexto adicional; algunas secciones siguen pendientes de completar.
+Estos pasos describen la configuración existente y no certifican un despliegue
+en producción.
 
 ## Verificación
 
