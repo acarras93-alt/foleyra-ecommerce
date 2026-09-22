@@ -30,7 +30,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Implementado |
 | RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Propuesto |
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Propuesto |
-| RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Propuesto |
+| RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Aprobado |
 | RF-10 | Consultar las licencias propias | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-11 | Descargar un archivo autorizado | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-12 | Consultar el catálogo mediante una API pública | Consumidor de la API | Must | v0.2.0 | Verificado |
@@ -1166,7 +1166,175 @@ calidad están registradas, pero faltan evidencias reales del requisito.
 
 ## RF-08: Simular un pago fallido y reintentarlo
 
-## RF-09: Consultar los pedidos propios
+### RF-09 — Consultar los pedidos propios
+
+#### Metadatos
+
+| Campo | Valor |
+|---|---|
+| Actor principal | Cliente autenticado |
+| Prioridad | Must |
+| Versión objetivo | v0.4.0 |
+| Estado | Aprobado |
+| Dependencias | RF-04, RF-06, RNF-01, RNF-03 a RNF-05, RNF-08, RNF-10 y RNF-11 |
+
+#### Objetivo
+
+Permitir que un cliente autenticado consulte únicamente sus propios pedidos
+históricos creados desde el carrito, incluyendo el estado del pedido, el total
+y las líneas capturadas durante la conversión.
+
+RF-09 no crea pedidos ni modifica su estado. Su función mínima para el MVP es
+hacer visible el resultado de RF-06 y preparar la continuidad hacia pago,
+licencias adquiridas y descarga autorizada.
+
+#### Contrato web mínimo aprobado
+
+| Operación | Ruta | Método | Resultado |
+|---|---|---|---|
+| Listar pedidos propios | `/orders/` | `GET` | Muestra los pedidos del cliente autenticado |
+| Consultar detalle propio | `/orders/{order_id}/` | `GET` | Muestra un pedido propio y sus líneas históricas |
+
+El identificador usado en la URL pertenece al pedido, no al carrito ni a una
+línea. Durante el MVP puede utilizarse la clave primaria interna si la vista
+mantiene aislamiento estricto por propietario; un identificador público estable
+podrá evaluarse como mejora posterior.
+
+#### Decisiones operativas aprobadas
+
+- `Order` incorporará `created_at` mediante migración para registrar el momento
+  de creación del pedido.
+- El listado de pedidos propios se ordenará por `created_at` descendente y, en
+  caso de empate, por identificador descendente.
+- El detalle del pedido usará exclusivamente la instantánea histórica de
+  `Order` y `OrderItem`; no consultará el catálogo vivo para reconstruir los
+  datos de compra.
+- Las reglas de propietario, orden y carga de líneas se concentrarán en una
+  frontera de consulta reutilizable por la vista web y por la futura API privada
+  de RF-14, sin implementar todavía dicha API.
+- La interfaz autenticada ofrecerá una entrada visible de navegación hacia el
+  listado de pedidos propios.
+
+#### Precondiciones
+
+- El cliente está autenticado mediante RF-04.
+- Puede existir cero o más pedidos creados previamente mediante RF-06.
+- Los pedidos ya contienen sus líneas históricas y no dependen del estado actual
+  del catálogo para mostrarse.
+
+#### Flujo principal
+
+1. El cliente autenticado accede al listado de pedidos desde la navegación o
+  mediante la URL directa.
+2. El sistema consulta únicamente los pedidos cuyo propietario es el usuario de
+   la sesión.
+3. El sistema ordena los pedidos por `created_at` descendente y, en caso de
+  empate, por identificador descendente.
+4. La página muestra cada pedido con identificador, fecha de creación, estado,
+  total y moneda.
+5. El cliente abre el detalle de uno de sus pedidos.
+6. El sistema muestra el estado, total, moneda y líneas históricas del pedido:
+   producto, SKU, licencia, versión de términos, precio y moneda.
+
+#### Flujos alternativos y errores
+
+- FA-01: si el cliente no tiene pedidos, el listado responde 200 y muestra un
+  estado vacío comprensible.
+- FE-01: un visitante anónimo se redirige al login con un `next` interno y no
+  obtiene datos de pedidos.
+- FE-02: si un cliente intenta abrir un pedido inexistente o perteneciente a
+  otro usuario, el sistema responde 404 sin revelar si el pedido existe.
+- FE-03: los métodos de escritura sobre las rutas de consulta no modifican
+  pedidos. Cualquier transición de estado queda fuera de RF-09.
+
+#### Reglas de negocio
+
+- RN-RF09-01: un cliente solo puede listar y consultar pedidos propios.
+- RN-RF09-02: el listado y el detalle utilizan los datos históricos de `Order`
+  y `OrderItem`, no los valores actuales del catálogo.
+- RN-RF09-03: consultar pedidos no crea, modifica, paga, cancela ni elimina
+  pedidos.
+- RN-RF09-04: un pedido ajeno se trata como inexistente para evitar fugas de
+  información.
+- RN-RF09-05: los importes se muestran con `Decimal` y la moneda persistida en
+  el pedido y sus líneas.
+- RN-RF09-06: la consulta debe cargar las líneas del pedido sin provocar una
+  consulta adicional innecesaria por cada línea.
+- RN-RF09-07: consultar el listado o el detalle no tiene efectos laterales
+  sobre pedidos, líneas, carrito, pagos, licencias o descargas autorizadas.
+
+#### Criterios de aceptación mínimos
+
+- CA-RF09-01: dado un visitante anónimo, cuando intenta consultar el listado o
+  el detalle de pedidos, entonces se redirige al login con un `next` interno y
+  no recibe datos privados.
+- CA-RF09-02: dado un cliente autenticado sin pedidos, cuando abre el listado,
+  entonces recibe 200 y ve un estado vacío comprensible.
+- CA-RF09-03: dado un cliente autenticado con uno o más pedidos propios, cuando
+  abre el listado, entonces ve únicamente sus pedidos con identificador, estado,
+  total y moneda.
+- CA-RF09-04: dados dos clientes con pedidos distintos, cuando uno consulta el
+  listado, entonces no aparecen pedidos del otro cliente.
+- CA-RF09-05: dado un cliente autenticado con un pedido propio, cuando abre su
+  detalle, entonces ve el estado, total, moneda y las líneas históricas con
+  producto, SKU, licencia, versión de términos, precio y moneda.
+- CA-RF09-06: dado un cliente autenticado, cuando intenta abrir un pedido ajeno
+  o inexistente, entonces recibe 404 y no se revela información del pedido.
+- CA-RF09-07: dado un pedido histórico, cuando cambian después los datos del
+  catálogo, entonces el detalle del pedido sigue mostrando los valores
+  capturados en `OrderItem`.
+- CA-RF09-08: dado un cliente autenticado con varios pedidos propios, cuando
+  abre el listado, entonces los pedidos aparecen ordenados por `created_at`
+  descendente y, en caso de empate, por identificador descendente.
+- CA-RF09-09: dado un cliente autenticado con pedidos propios, cuando consulta
+  el listado o el detalle de un pedido, entonces no se crea, modifica ni
+  elimina ningún pedido, línea, carrito, pago, licencia o descarga autorizada.
+- CA-RF09-10: dado un pedido propio con varias líneas, cuando se consulta su
+  detalle, entonces el sistema carga el pedido y sus líneas con un número
+  acotado de consultas, sin una consulta adicional por cada línea.
+- CA-RF09-11: dado un cliente autenticado, cuando navega por la interfaz
+  principal, entonces dispone de una entrada visible para acceder al listado de
+  sus pedidos.
+
+#### Pruebas previstas
+
+- Acceso anónimo al listado y al detalle.
+- Listado vacío para cliente autenticado sin pedidos.
+- Listado con pedidos propios y exclusión de pedidos ajenos.
+- Detalle de pedido propio con líneas históricas.
+- 404 uniforme para pedido inexistente o ajeno.
+- Comprobación de que el detalle no depende de cambios posteriores del
+  catálogo.
+- Orden estable por `created_at` descendente e identificador descendente.
+- Ausencia de efectos laterales al consultar listado o detalle.
+- Consulta eficiente del detalle con sus líneas.
+- Entrada de navegación visible para usuarios autenticados.
+
+#### Evidencias previstas
+
+- `docs/evidence/RF-09/listado-pedidos-vacio.png`
+- `docs/evidence/RF-09/listado-pedidos-propios.png`
+- `docs/evidence/RF-09/detalle-pedido-historico.png`
+- Resultado de las pruebas asociadas y puerta de calidad del incremento.
+
+#### Fuera de alcance
+
+- Crear pedidos, perteneciente a RF-06.
+- Pagar, reintentar pagos o cambiar estados de pago, perteneciente a RF-07 y
+  RF-08.
+- Crear o consultar licencias adquiridas, perteneciente a RF-10.
+- Descargar archivos autorizados, perteneciente a RF-11.
+- API privada de pedidos, perteneciente a RF-14.
+- Facturas, cancelaciones, devoluciones, comunicaciones por correo y
+  exportaciones.
+
+#### Trazabilidad
+
+RF-09 queda `Aprobado` para iniciar el trabajo de código. Los criterios
+anteriores definen el alcance mínimo para el MVP web: consulta privada de
+pedidos propios, orden estable por fecha de creación y detalle histórico sin
+transiciones de estado. La implementación, pruebas y evidencias quedan
+pendientes.
 
 ## RF-10: Consultar las licencias propias
 

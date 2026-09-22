@@ -392,6 +392,7 @@ RNF-02, RNF-12 y RNF-13 se aplican transversalmente a todos los incrementos.
 | RF-04 | RNF-01, RNF-03, RNF-04, RNF-10 y RNF-11 |
 | RF-05 | RNF-01, RNF-03, RNF-04, RNF-05, RNF-06, RNF-08, RNF-10 y RNF-11 |
 | RF-06 | RNF-01, RNF-03, RNF-04, RNF-05, RNF-08, RNF-10 y RNF-11 |
+| RF-09 | RNF-01, RNF-03, RNF-04, RNF-05, RNF-08, RNF-10 y RNF-11 |
 
 Para RF-04, RNF-10 exige que las sesiones no otorguen privilegios y que las
 funciones privadas requieran identidad. Para RF-05, RNF-05 obliga a concentrar
@@ -405,8 +406,14 @@ que la conversión resuelva exclusivamente el carrito del cliente autenticado;
 RNF-05 reserva la reutilización del servicio de pedido para la futura API de
 RF-14.
 
-RNF-02, RNF-12 y RNF-13 continúan aplicándose transversalmente a RF-04, RF-05
-y RF-06.
+Para RF-09, RNF-08 exige conservar la fecha de creación del pedido y consultar
+la instantánea histórica sin depender del catálogo vivo. RNF-10 exige que el
+listado y el detalle se limiten al propietario autenticado y traten los pedidos
+ajenos como inexistentes. RNF-05 reserva una frontera reutilizable para la
+futura API privada de RF-14 sin adelantarla.
+
+RNF-02, RNF-12 y RNF-13 continúan aplicándose transversalmente a RF-04, RF-05,
+RF-06 y RF-09.
 
 ## 6. Criterio de verificación de versión
 
