@@ -5,14 +5,17 @@ con Python, Django, Django REST Framework y PostgreSQL como proyecto final de
 mi formación.
 
 **Estado: MVP en desarrollo.** Ya incluye catálogo web y API pública, cuentas de
-usuario, carrito privado y creación de pedidos pendientes de pago. El flujo
-completo de compra y entrega de archivos todavía no está terminado.
+usuario, carrito privado, creación de pedidos pendientes de pago y base de
+consulta histórica de pedidos propios. El flujo completo de compra y entrega de
+archivos todavía no está terminado.
 
 ## Recorrido del proyecto
 
 Un visitante puede explorar el catálogo, buscar productos, filtrar por categoría
 y licencia y escuchar las previews disponibles. Un usuario registrado puede
 preparar un carrito y convertirlo en un pedido con los datos de compra guardados.
+La consulta privada de esos pedidos está en preparación mediante una frontera de
+selectores por propietario y datos históricos persistidos.
 
 El trabajo reúne modelado de datos, autenticación, vistas y formularios Django,
 una API REST de lectura, operaciones atómicas y pruebas con PostgreSQL.
@@ -35,36 +38,40 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
 - PostgreSQL 18.6 es la única base de datos admitida y se ejecuta localmente mediante Docker Compose.
 - El modelo de usuario activo es `users.User`, definido antes de la primera migración.
 - RF-04 está `Implementado`: la web ofrece registro, inicio de sesión mediante
-	`username` y cierre de sesión por formulario `POST` con CSRF en
-	`/accounts/register/`, `/accounts/login/` y `/accounts/logout/`. La
-	autenticación de API continúa fuera de alcance hasta RF-13.
+    `username` y cierre de sesión por formulario `POST` con CSRF en
+    `/accounts/register/`, `/accounts/login/` y `/accounts/logout/`. La
+    autenticación de API continúa fuera de alcance hasta RF-13.
 - RF-05 está `Aprobado` e implementado: un cliente autenticado puede consultar
-	su carrito privado, añadir ofertas disponibles y eliminar líneas propias con
-	`POST` y CSRF. El carrito usa precios actuales, conserva las líneas que dejan
-	de estar disponibles fuera del total y no mantiene historial. La equivalencia
-	con una API autenticada queda pendiente de RF-13.
+    su carrito privado, añadir ofertas disponibles y eliminar líneas propias con
+    `POST` y CSRF. El carrito usa precios actuales, conserva las líneas que dejan
+    de estar disponibles fuera del total y no mantiene historial. La equivalencia
+    con una API autenticada queda pendiente de RF-13.
 - RF-06 está `Implementado`: un cliente autenticado puede convertir su carrito
-	de ofertas disponibles en un pedido histórico `pending_payment` mediante
-	`POST /orders/create/`. La operación captura los datos de compra, calcula el
-	total en EUR, vacía el carrito de forma atómica y rechaza carritos vacíos u
-	ofertas no disponibles. La consulta de pedidos y la API privada permanecen
-	pendientes de RF-09 y RF-14.
+    de ofertas disponibles en un pedido histórico `pending_payment` mediante
+    `POST /orders/create/`. La operación captura los datos de compra, calcula el
+    total en EUR, vacía el carrito de forma atómica y rechaza carritos vacíos u
+    ofertas no disponibles. La API privada permanece pendiente de RF-14.
+- RF-09 está `Aprobado` y en preparación técnica: `Order` registra `created_at`
+    para ordenar pedidos históricos, y `apps.orders.selectors` concentra la
+    consulta de pedidos propios y el detalle con líneas mediante aislamiento por
+    propietario. La interfaz web `/orders/` y `/orders/{order_id}/` continúa
+    pendiente de implementación y evidencias.
 - `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
 - La API pública de solo lectura `/api/v1/catalog/products/` y `/api/v1/catalog/products/{slug}/` ofrece la misma selección disponible en web, filtros y ordenación aprobados, paginación de 12 elementos, detalle con previews y ofertas públicas, y errores JSON contractuales. No expone archivos maestros ni campos administrativos.
 - Las previews usan una raíz pública independiente y pueden obtenerse mediante `/media/` en desarrollo con `DEBUG=True`. Los archivos maestros permanecen en almacenamiento privado sin URL pública, y su nombre, ruta y contenido no se incluyen en el HTML ni en el contexto público. La entrega autorizada del maestro corresponde a RF-11 y continúa fuera del alcance implementado.
 - RF-01, RF-02 y RF-15 están `Aprobado`; RF-03 y RF-12 están `Verificado`.
-	Sus evidencias de pruebas y puertas de calidad están disponibles en
-	`docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
-	`Implementado`, no `Verificado`, hasta incorporar sus evidencias. Los
-	requisitos privados posteriores continúan en estado `Propuesto`.
+    Sus evidencias de pruebas y puertas de calidad están disponibles en
+    `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
+    `Implementado`, no `Verificado`, hasta incorporar sus evidencias. Los
+    requisitos privados posteriores continúan en estado `Propuesto`.
 
 ## Pendiente para completar el MVP
 
 El catálogo y la API pública de lectura están implementados. Continúan
-pendientes la consulta privada de pedidos, los pagos simulados, la entrega autorizada
-de archivos maestros y la API privada, de acuerdo con los
+pendientes la interfaz privada de consulta de pedidos, los pagos simulados, la
+entrega autorizada de archivos maestros y la API privada, de acuerdo con los
 [requisitos funcionales](docs/requirements/functional-requirements.md).
 Los estados de implementación y verificación se registran por separado.
 
@@ -128,7 +135,9 @@ pruebas de `apps.core` verifican la URL raíz, el acceso anónimo y el contenido
 público de la página de inicio. Las pruebas de `apps.catalog` cubren el flujo
 público catálogo-detalle con PostgreSQL, la entrega HTTP anónima de la preview
 desde almacenamiento temporal y la exclusión del archivo maestro del HTML y
-del contexto público.
+del contexto público. Las pruebas de `apps.orders` cubren la conversión del
+carrito en pedido histórico, la persistencia de `created_at` y los selectores de
+consulta propia con orden estable, aislamiento por propietario y carga de líneas.
 
 ## Documentación
 
