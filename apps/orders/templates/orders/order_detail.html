@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Pedido #{{ order.pk }}</h1>
+
+    <p>Estado: {{ order.get_status_display }}</p>
+    <p>Total: {{ order.total_amount|floatformat:2 }} {{ order.currency }}</p>
+
+    <h2>Líneas del pedido</h2>
+
+    <ul>
+        {% for item in order.items.all %}
+            <li>
+                <p>Producto: {{ item.product_name }}</p>
+                <p>SKU: {{ item.product_sku }}</p>
+                <p>Licencia: {{ item.license_name }}</p>
+                <p>Términos: {{ item.terms_version }}</p>
+                <p>Precio: {{ item.price|floatformat:2 }} {{ item.currency }}</p>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}

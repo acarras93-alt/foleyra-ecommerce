@@ -286,3 +286,24 @@ Soluciona y actualiza la documentacion con el estado actual del proyecto.
   `Implementado` o `Verificado` por estas comprobaciones de entorno.
 - El siguiente incremento es CA-RF01-01: prueba Red válida para el selector
   compartido, implementación mínima, Green y evidencia posterior.
+
+
+## Registro — 2026-09-26 — RF-09: acompañamiento test-first y cierre
+
+- Herramienta: Codex.
+- El desarrollador analizó los criterios, editó pruebas y componentes y ejecutó
+  las comprobaciones durante el trabajo guiado. La asistencia explicó
+  responsabilidades, propuso pruebas y cambios mínimos y revisó los resultados.
+- El alcance de cierre solicitado fue actualizar la documentación y crear un
+  commit que incluyera el trabajo de RF-09 y dejara el árbol limpio.
+- Se revisaron requisitos, diff, vistas, plantillas y pruebas. En el cierre se
+  completaron fecha y enlace al detalle del listado, previstos en el flujo,
+  con una ampliación de prueba RED-GREEN. Se corrigieron dos erratas en nombres
+  de pruebas para que la documentación use los identificadores definitivos.
+- La puerta automatizada completa finalizó con `172 passed in 19.50s`, controles
+  de Django y migraciones correctos, Ruff y formato correctos y dependencias sin
+  conflictos. La evidencia está en `docs/evidence/RF-09/`.
+- RF-09 queda `Implementado`; la documentación distingue las capturas y revisión
+  visual pendientes y la futura extensión de CA-RF09-09 a modelos aún ausentes.
+- Se conserva el historial de cambios del usuario. No se añadieron dependencias,
+  no se modificaron migraciones y no se publicaron cambios en un remoto.

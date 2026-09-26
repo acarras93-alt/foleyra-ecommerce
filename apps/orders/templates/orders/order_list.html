@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Mis pedidos</h1>
+
+    <ul>
+        {% for order in orders %}
+            <li>
+                Pedido #{{ order.pk }} —
+                {{ order.get_status_display }} —
+                {{ order.total_amount|floatformat:2 }}
+                {{ order.currency }}
+                <p>Fecha: <time>{{ order.created_at|date:"d/m/Y H:i" }}</time></p>
+                <a href="{% url 'orders:detail' order.pk %}">Ver detalle</a>
+            </li>
+        {% empty %}
+            <li>No tienes pedidos.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

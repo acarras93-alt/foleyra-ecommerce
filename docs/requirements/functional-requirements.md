@@ -30,7 +30,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Implementado |
 | RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Propuesto |
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Propuesto |
-| RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Aprobado |
+| RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Implementado |
 | RF-10 | Consultar las licencias propias | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-11 | Descargar un archivo autorizado | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-12 | Consultar el catálogo mediante una API pública | Consumidor de la API | Must | v0.2.0 | Verificado |
@@ -1175,7 +1175,7 @@ calidad están registradas, pero faltan evidencias reales del requisito.
 | Actor principal | Cliente autenticado |
 | Prioridad | Must |
 | Versión objetivo | v0.4.0 |
-| Estado | Aprobado |
+| Estado | Implementado |
 | Dependencias | RF-04, RF-06, RNF-01, RNF-03 a RNF-05, RNF-08, RNF-10 y RNF-11 |
 
 #### Objetivo
@@ -1330,11 +1330,35 @@ podrá evaluarse como mejora posterior.
 
 #### Trazabilidad
 
-RF-09 queda `Aprobado` para iniciar el trabajo de código. Los criterios
-anteriores definen el alcance mínimo para el MVP web: consulta privada de
-pedidos propios, orden estable por fecha de creación y detalle histórico sin
-transiciones de estado. La implementación, pruebas y evidencias quedan
-pendientes.
+RF-09 queda `Implementado` el 2026-09-26. Las rutas web privadas reutilizan
+los selectores por propietario preparados en `2817481`; el listado incluye
+fecha y acceso al detalle, y la plantilla de detalle usa exclusivamente los
+campos históricos de `Order` y `OrderItem`.
+
+La trazabilidad individual de CA-RF09-01 a CA-RF09-11, incluidos los nombres
+exactos de las pruebas, está en [las evidencias de RF-09](../evidence/RF-09/README.md).
+La [puerta de calidad del incremento](../evidence/RF-09/quality-gate-2026-09-26.md)
+registra los comandos y resultados reales. El commit de implementación es el
+que incorpora esa evidencia; puede localizarse con `git log -- docs/evidence/RF-09/`.
+
+| Elemento | Referencia |
+|---|---|
+| Rutas y vistas web | `apps/orders/urls.py`, `apps/orders/views.py` |
+| Consulta compartida | `apps/orders/selectors.py` |
+| Presentación y navegación | `apps/orders/templates/orders/order_list.html`, `apps/orders/templates/orders/order_detail.html`, `templates/base.html` |
+| Pruebas web | `apps/orders/tests/test_views.py` |
+| Preparación técnica previa | `apps/orders/models.py`, migraciones `0002` y `0003`, pruebas de modelos y selectores; commit `2817481` |
+
+CA-RF09-09 compara todos los registros y campos de `Order`, `OrderItem`, `Cart`
+y `CartItem` antes y después de cada GET. Pagos, licencias adquiridas y descargas
+autorizadas todavía no tienen modelos: esa parte de la cobertura deberá ampliarse
+cuando se implementen RF-07, RF-08, RF-10 y RF-11. `LicenseType` representa el
+catálogo de licencias, no una licencia adquirida.
+
+El estado no pasa a `Verificado`: quedan pendientes la comprobación visual
+manual y las tres capturas previstas. La navegación se comprueba en el HTML;
+la prueba no acredita por sí sola su presentación visual en el navegador.
+No se implementan API privada, pagos, licencias adquiridas ni descargas.
 
 ## RF-10: Consultar las licencias propias
 

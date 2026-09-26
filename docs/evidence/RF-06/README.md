@@ -82,7 +82,7 @@ CSRF, método HTTP y autenticación.
 
 - RF-05 proporciona el carrito que se convierte en pedido.
 - RF-07 y RF-08 deberán operar sobre pedidos pendientes de pago.
-- RF-09 permitirá consultar los pedidos propios.
+- RF-09 permite consultar los pedidos propios mediante listado y detalle web privados.
 - RF-10 creará las licencias adquiridas después de un pago aprobado.
 - RF-11 permitirá descargar el archivo autorizado cuando exista derecho de uso.
 

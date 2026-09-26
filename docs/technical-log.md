@@ -2474,3 +2474,44 @@ conversión, el método POST, el token CSRF y la etiqueta visible del botón.
 La conversión de RF-06 dispone de una entrada web visible desde el carrito.
 No se modificaron pagos, licencias, descargas, consulta de pedidos, API ni
 evidencias visuales.
+
+
+## 2026-09-26 — Implementación web y pruebas de RF-09
+
+### Cambios realizados
+
+Se incorporaron `GET /orders/` y `GET /orders/{order_id}/` con autenticación,
+consulta por propietario y 404 uniforme para pedidos ajenos e inexistentes.
+Las vistas reutilizan los selectores preparados en `2817481`. Las plantillas
+muestran el listado y el detalle histórico sin reconstruir los datos desde el
+catálogo vivo; `base.html` ofrece «Mis pedidos» a usuarios autenticados.
+
+Las pruebas web cubren CA-RF09-01 a CA-RF09-11: estado vacío, campos propios,
+aislamiento, detalle histórico, cambios posteriores del catálogo, orden con
+empate de fechas, ausencia de cambios en registros de pedidos y carrito,
+consultas acotadas con una y diez líneas y enlace de navegación.
+
+Al cerrar el incremento se añadió la fecha de creación y el enlace «Ver detalle»
+al listado, exigidos por el flujo aprobado. La ampliación de la prueba produjo
+RED por fecha ausente (`1 failed in 0.84s`) y GREEN tras el ajuste (`1 passed in
+0.66s`). Se corrigieron dos erratas en nombres de pruebas (`fileds` y `changues`).
+
+### Comprobaciones y evidencia
+
+La puerta automatizada completa terminó con `172 passed in 19.50s`, sin
+incidencias en Django, migraciones, Ruff, formato, dependencias ni espacios del
+diff. `pip check` deshabilitó su caché por permisos del entorno y finalizó sin
+dependencias rotas. Los comandos, resultados y límites se conservan en
+`docs/evidence/RF-09/quality-gate-2026-09-26.md`; el índice de esa carpeta vincula
+cada criterio con sus funciones de prueba.
+
+### Estado resultante
+
+README y requisitos registran RF-09 como `Implementado`, no `Verificado`.
+Permanecen pendientes la comprobación visual y las tres capturas previstas.
+CA-RF09-09 verifica `Order`, `OrderItem`, `Cart` y `CartItem`; su cobertura se
+ampliará a pagos, licencias adquiridas y descargas cuando existan esos modelos.
+La API privada y las transiciones de pago continúan fuera de alcance. No se
+crearon migraciones ni se modificaron dependencias.
+
+El incremento se versiona como `feat(orders): implement private order history`.

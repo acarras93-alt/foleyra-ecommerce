@@ -5,8 +5,8 @@ con Python, Django, Django REST Framework y PostgreSQL como proyecto final de
 mi formación.
 
 **Estado: MVP en desarrollo.** Ya incluye catálogo web y API pública, cuentas de
-usuario, carrito privado, creación de pedidos pendientes de pago y base de
-consulta histórica de pedidos propios. El flujo completo de compra y entrega de
+usuario, carrito privado, creación de pedidos pendientes de pago y consulta
+histórica de pedidos propios. El flujo completo de compra y entrega de
 archivos todavía no está terminado.
 
 ## Recorrido del proyecto
@@ -14,8 +14,8 @@ archivos todavía no está terminado.
 Un visitante puede explorar el catálogo, buscar productos, filtrar por categoría
 y licencia y escuchar las previews disponibles. Un usuario registrado puede
 preparar un carrito y convertirlo en un pedido con los datos de compra guardados.
-La consulta privada de esos pedidos está en preparación mediante una frontera de
-selectores por propietario y datos históricos persistidos.
+Desde «Mis pedidos» puede consultar el listado privado y abrir cada detalle,
+conservando los datos históricos aunque cambie el catálogo.
 
 El trabajo reúne modelado de datos, autenticación, vistas y formularios Django,
 una API REST de lectura, operaciones atómicas y pruebas con PostgreSQL.
@@ -26,6 +26,7 @@ Para una revisión rápida del portfolio:
 
 - Catálogo web: `/catalog/` y detalle de cada producto.
 - API pública: `/api/v1/catalog/products/`.
+- Pedidos propios (requieren sesión): `/orders/` y `/orders/{order_id}/`.
 - Código de negocio: `apps/catalog/`, `apps/cart/` y `apps/orders/`.
 - Decisiones y seguimiento: [documentación técnica](#documentación).
 
@@ -51,11 +52,14 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     `POST /orders/create/`. La operación captura los datos de compra, calcula el
     total en EUR, vacía el carrito de forma atómica y rechaza carritos vacíos u
     ofertas no disponibles. La API privada permanece pendiente de RF-14.
-- RF-09 está `Aprobado` y en preparación técnica: `Order` registra `created_at`
-    para ordenar pedidos históricos, y `apps.orders.selectors` concentra la
-    consulta de pedidos propios y el detalle con líneas mediante aislamiento por
-    propietario. La interfaz web `/orders/` y `/orders/{order_id}/` continúa
-    pendiente de implementación y evidencias.
+- RF-09 está `Implementado`: `/orders/` muestra únicamente los pedidos propios,
+    ordenados por fecha de creación e ID descendentes, con fecha y enlace al
+    detalle. `/orders/{order_id}/` presenta el pedido y sus líneas históricas;
+    los pedidos ajenos e inexistentes responden con el mismo 404 genérico.
+    La navegación autenticada incluye «Mis pedidos». Las consultas no alteran
+    pedidos ni carritos y la prueba del detalle verifica un número constante y
+    acotado de consultas con una y diez líneas. La cobertura de entidades futuras
+    y las capturas visuales se detallan en las [evidencias de RF-09](docs/evidence/RF-09/README.md).
 - `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
@@ -64,14 +68,15 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
 - RF-01, RF-02 y RF-15 están `Aprobado`; RF-03 y RF-12 están `Verificado`.
     Sus evidencias de pruebas y puertas de calidad están disponibles en
     `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
-    `Implementado`, no `Verificado`, hasta incorporar sus evidencias. Los
-    requisitos privados posteriores continúan en estado `Propuesto`.
+    `Implementado`, no `Verificado`, hasta incorporar sus evidencias. RF-09 también
+    queda `Implementado`, con pruebas automatizadas y verificación visual pendiente.
+    Pagos, licencias adquiridas, descargas y API privada continúan pendientes.
 
 ## Pendiente para completar el MVP
 
 El catálogo y la API pública de lectura están implementados. Continúan
-pendientes la interfaz privada de consulta de pedidos, los pagos simulados, la
-entrega autorizada de archivos maestros y la API privada, de acuerdo con los
+pendientes los pagos simulados, las licencias adquiridas, la entrega autorizada
+de archivos maestros y la API privada, de acuerdo con los
 [requisitos funcionales](docs/requirements/functional-requirements.md).
 Los estados de implementación y verificación se registran por separado.
 
@@ -138,6 +143,9 @@ desde almacenamiento temporal y la exclusión del archivo maestro del HTML y
 del contexto público. Las pruebas de `apps.orders` cubren la conversión del
 carrito en pedido histórico, la persistencia de `created_at` y los selectores de
 consulta propia con orden estable, aislamiento por propietario y carga de líneas.
+Las pruebas web verifican listado vacío, campos históricos, navegación, 404
+uniforme, conservación del histórico tras cambios del catálogo, ausencia de
+efectos laterales sobre pedidos y carrito y consultas acotadas del detalle.
 
 ## Documentación
 
