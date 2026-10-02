@@ -5,6 +5,7 @@ from django.db import models
 class Order(models.Model):
     class Status(models.TextChoices):
         PENDING_PAYMENT = "pending_payment", "Pending payment"
+        PAID = "paid", "Paid"
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -29,3 +30,22 @@ class OrderItem(models.Model):
     terms_version = models.CharField(max_length=20)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default="EUR", editable=False)
+
+
+class PaymentAttempt(models.Model):
+    class Result(models.TextChoices):
+        APPROVED = "approved", "Approved"
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.PROTECT,
+        related_name="payment_attempts",
+    )
+    idempotency_key = models.UUIDField()
+    result = models.CharField(
+        max_length=10,
+        choices=Result.choices,
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3)
+    created_at = models.DateTimeField(auto_now_add=True)

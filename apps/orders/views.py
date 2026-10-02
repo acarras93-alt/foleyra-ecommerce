@@ -1,4 +1,5 @@
 from functools import wraps
+from uuid import uuid4
 
 from django.contrib import messages
 from django.http import Http404, HttpResponse
@@ -10,7 +11,10 @@ from apps.orders.models import Order
 from apps.orders.selectors import get_order_for_owner, get_orders_for_owner
 from apps.orders.services import (
     EmptyCart,
+    InvalidPaymentInput,
     OfferNotAvailable,
+    PaymentConflict,
+    approve_simulated_payment,
     create_order_from_cart,
 )
 
@@ -46,15 +50,22 @@ def order_list(request):
 @order_read_login_required
 def order_detail(request, order_id):
     try:
-        order = get_order_for_owner(owner=request.user, order_id=order_id)
-
+        order = get_order_for_owner(
+            owner=request.user,
+            order_id=order_id,
+        )
     except Order.DoesNotExist:
         raise Http404("Pedido no encontrado") from None
+
+    payment_key = uuid4() if order.status == Order.Status.PENDING_PAYMENT else None
 
     return render(
         request,
         "orders/order_detail.html",
-        {"order": order},
+        {
+            "order": order,
+            "payment_key": payment_key,
+        },
     )
 
 
@@ -67,3 +78,40 @@ def create_order(request):
         return HttpResponse(status=409)
     messages.success(request, "Pedido creado.")
     return redirect("cart:detail")
+
+
+@require_POST
+def simulate_payment(request, order_id):
+    if not request.user.is_authenticated:
+        detail_url = reverse(
+            "orders:detail",
+            kwargs={"order_id": order_id},
+        )
+        return redirect(f"{reverse('users:login')}?next={detail_url}")
+
+    allowed_fields = {
+        "result",
+        "idempotency_key",
+        "csrfmiddlewaretoken",
+    }
+
+    try:
+        if set(request.POST) - allowed_fields:
+            get_order_for_owner(owner=request.user, order_id=order_id)
+            return HttpResponse(status=400)
+
+        approve_simulated_payment(
+            owner=request.user,
+            order_id=order_id,
+            result=request.POST.get("result"),
+            idempotency_key=request.POST.get("idempotency_key"),
+        )
+    except Order.DoesNotExist:
+        raise Http404("Pedido no encontrado") from None
+    except InvalidPaymentInput:
+        return HttpResponse(status=400)
+    except PaymentConflict:
+        return HttpResponse(status=409)
+
+    messages.success(request, "Pago simulado aprobado.")
+    return redirect("orders:detail", order_id=order_id)

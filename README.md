@@ -5,8 +5,8 @@ con Python, Django, Django REST Framework y PostgreSQL como proyecto final de
 mi formación.
 
 **Estado: MVP en desarrollo.** Ya incluye catálogo web y API pública, cuentas de
-usuario, carrito privado, creación de pedidos pendientes de pago y consulta
-histórica de pedidos propios. El flujo completo de compra y entrega de
+usuario, carrito privado, creación y consulta de pedidos propios y aprobación
+de pagos simulados. El flujo completo de compra y entrega de
 archivos todavía no está terminado.
 
 ## Recorrido del proyecto
@@ -15,7 +15,9 @@ Un visitante puede explorar el catálogo, buscar productos, filtrar por categor�
 y licencia y escuchar las previews disponibles. Un usuario registrado puede
 preparar un carrito y convertirlo en un pedido con los datos de compra guardados.
 Desde «Mis pedidos» puede consultar el listado privado y abrir cada detalle,
-conservando los datos históricos aunque cambie el catálogo.
+conservando los datos históricos aunque cambie el catálogo. Desde el detalle
+de un pedido pendiente puede simular un pago aprobado sin consumir su carrito
+actual ni efectuar un cobro real.
 
 El trabajo reúne modelado de datos, autenticación, vistas y formularios Django,
 una API REST de lectura, operaciones atómicas y pruebas con PostgreSQL.
@@ -52,6 +54,12 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     `POST /orders/create/`. La operación captura los datos de compra, calcula el
     total en EUR, vacía el carrito de forma atómica y rechaza carritos vacíos u
     ofertas no disponibles. La API privada permanece pendiente de RF-14.
+- RF-07 está `Verificado`: el propietario puede simular una aprobación mediante
+    `POST /orders/{order_id}/payments/simulate/`. Pedido e intento se guardan en
+    una transacción; el replay no duplica pagos y un pedido pagado con otra clave
+    responde 409. La propiedad se comprueba antes de rechazar campos extra.
+    El carrito y las líneas históricas se conservan. Las [evidencias de RF-07](docs/evidence/RF-07/README.md)
+    registran 28 casos del requisito y 200 pruebas totales con PostgreSQL.
 - RF-09 está `Implementado`: `/orders/` muestra únicamente los pedidos propios,
     ordenados por fecha de creación e ID descendentes, con fecha y enlace al
     detalle. `/orders/{order_id}/` presenta el pedido y sus líneas históricas;
@@ -70,13 +78,14 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
     `Implementado`, no `Verificado`, hasta incorporar sus evidencias. RF-09 también
     queda `Implementado`, con pruebas automatizadas y verificación visual pendiente.
-    Pagos, licencias adquiridas, descargas y API privada continúan pendientes.
+    Rechazos y reintentos de pago, licencias adquiridas, descargas y API privada
+    continúan pendientes.
 
 ## Pendiente para completar el MVP
 
 El catálogo y la API pública de lectura están implementados. Continúan
-pendientes los pagos simulados, las licencias adquiridas, la entrega autorizada
-de archivos maestros y la API privada, de acuerdo con los
+pendientes el rechazo y reintento de pagos simulados, las licencias adquiridas,
+la entrega autorizada de archivos maestros y la API privada, de acuerdo con los
 [requisitos funcionales](docs/requirements/functional-requirements.md).
 Los estados de implementación y verificación se registran por separado.
 
@@ -146,6 +155,8 @@ consulta propia con orden estable, aislamiento por propietario y carga de línea
 Las pruebas web verifican listado vacío, campos históricos, navegación, 404
 uniforme, conservación del histórico tras cambios del catálogo, ausencia de
 efectos laterales sobre pedidos y carrito y consultas acotadas del detalle.
+RF-07 añade pruebas de aprobación, validación, idempotencia, concurrencia entre
+conexiones PostgreSQL independientes y rollback sin efectos parciales.
 
 ## Documentación
 

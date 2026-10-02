@@ -2515,3 +2515,55 @@ La API privada y las transiciones de pago continúan fuera de alcance. No se
 crearon migraciones ni se modificaron dependencias.
 
 El incremento se versiona como `feat(orders): implement private order history`.
+
+## 2026-10-02 — RF-07: prioridad de propiedad ante campos extra
+
+Por petición de Álvaro se corrige una discrepancia del pago simulado existente:
+enviar campos extra sobre un pedido ajeno o inexistente devolvía 400 antes de
+comprobar la propiedad, aunque el contrato de RF-07 exige un 404 uniforme y
+validar primero el acceso al pedido.
+
+La vista consulta el selector de pedido propio antes de rechazar campos extra.
+Si el pedido es ajeno o no existe, utiliza el mismo 404; si es propio, mantiene
+el 400 sin invocar la aprobación. Las peticiones sin campos extra conservan la
+comprobación de propiedad y el bloqueo del pedido dentro del servicio
+transaccional de pago.
+
+Se amplía la prueba de 404 uniforme con owner, amount, currency, status y un
+campo desconocido, además del caso original sin campos extra. Cada caso
+comprueba ambos destinos y compara pedidos, líneas, intentos y carrito antes
+y después; también verifica que las respuestas no contienen datos privados.
+La prueba existente de campos extra sobre pedidos propios conserva su 400.
+
+Red observado en PostgreSQL antes de la corrección: 5 failed, 5 passed en la
+selección de pruebas de acceso y campos extra. Green tras la corrección:
+10 passed, 35 deselected. Regresión completa: 200 passed en 27,02 s.
+Ruff, formato de los dos archivos Python modificados, Django check y
+git diff --check sobre los tres archivos de este incremento no informan
+incidencias.
+
+Se preservan los cambios locales anteriores. No se crean ni aplican
+migraciones, no se hace commit y esta corrección no cambia el estado formal
+de RF-07 ni acredita sus evidencias visuales pendientes.
+
+## 2026-10-02 — Cierre documental y verificación de RF-07
+
+Por petición de Álvaro se actualizan README, el índice y la sección RF-07 a
+Verificado para el alcance inicial de aprobación simulada. Se añaden evidencias
+reproducibles y una matriz CA-RF07-01 a CA-RF07-09. No se atribuyen verificaciones
+manuales ni capturas inexistentes; derechos, rechazos, reintentos y API privada
+siguen en RF-10, RF-08 y RF-14 respectivamente.
+
+Se completa la comparación de PaymentAttempt en los GET del formulario y en
+las peticiones no autorizadas, y se eliminan dos espacios sobrantes de la
+plantilla. No se altera el comportamiento de pago. El Green inicial de estos
+controles completa evidencia existente, sin fabricar un RED de implementación.
+
+El commit de cierre incluye la implementación RF-07 todavía no versionada, su
+migración, pruebas y corrección de propiedad. La documentación compartida se
+selecciona por contenido: quedan fuera cambios previos de otros requisitos,
+planificación y flujos de Copilot. No se publican cambios remotos.
+
+Los resultados finales y límites figuran en
+`docs/evidence/RF-07/quality-gate-2026-10-02.md`; el identificador del commit se
+consulta con `git log -1 -- docs/evidence/RF-07/README.md`.

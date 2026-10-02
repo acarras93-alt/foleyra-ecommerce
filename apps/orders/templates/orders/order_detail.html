@@ -6,6 +6,19 @@
     <p>Estado: {{ order.get_status_display }}</p>
     <p>Total: {{ order.total_amount|floatformat:2 }} {{ order.currency }}</p>
 
+    {% if payment_key %}
+    <h2>Simulación de pago</h2>
+    <p>Esta operación es una simulación y no realiza ningún cobro real.</p>
+
+    <form method="post"
+        action="{% url 'orders:simulate_payment' order_id=order.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="idempotency_key" value="{{ payment_key }}">
+        <input type="hidden" name="result" value="approved">
+        <button type="submit">Simular pago aprobado</button>
+    </form>
+{% endif %}
+
     <h2>Líneas del pedido</h2>
 
     <ul>

@@ -28,7 +28,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-04 | Registrarse, iniciar sesión y cerrar sesión | Visitante o cliente | Must | v0.3.0 | Verificado |
 | RF-05 | Gestionar los productos del carrito privado | Cliente autenticado | Must | v0.3.0 | Aprobado |
 | RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Implementado |
-| RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Propuesto |
+| RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Verificado |
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Propuesto |
 | RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Implementado |
 | RF-10 | Consultar las licencias propias | Cliente autenticado | Must | v0.6.0 | Propuesto |
@@ -1162,7 +1162,118 @@ La API privada de pedidos permanece diferida a RF-14. RF-06 conserva el estado
 `Implementado`, no `Verificado`: la cobertura automatizada y la puerta de
 calidad están registradas, pero faltan evidencias reales del requisito.
 
-## RF-07: Simular un pago aprobado de forma independiente
+### RF-07 — Simular un pago aprobado de forma independiente
+
+#### Metadatos y alcance
+
+- Actor: cliente autenticado. Prioridad: Must. Versión objetivo: v0.5.0.
+- Estado: `Verificado` el 2026-10-02 mediante pruebas automatizadas y evidencias
+  reproducibles. El cierre documental y su commit se autorizan en esta fecha.
+- Dependencias: RF-04, RF-06 y RF-09; RNF-01 a RNF-05, RNF-08, RNF-10 a RNF-13.
+- Objetivo: aprobar un pago simulado de un pedido existente, sin volver a crear
+  el pedido ni consumir el carrito actual. No se utilizan tarjetas, pasarelas,
+  credenciales financieras, cobros reales ni webhooks.
+
+#### Contrato implementado
+
+`POST /orders/{order_id}/payments/simulate/` recibe `result=approved` y una
+`idempotency_key` UUID. Son los únicos campos de negocio admitidos; el
+formulario también incluye `csrfmiddlewaretoken`, que valida Django. Aparece
+en el detalle propio pendiente e indica claramente que es una simulación.
+Generar la clave del formulario no escribe datos de negocio. RF-08 añadirá `result=failed` a la misma operación.
+
+Éxito: 302 al detalle propio, mensaje de pago simulado aprobado y estado `paid`.
+GET sobre la operación: 405. POST sin CSRF: 403. Anónimo con CSRF válido: 302 al
+login con `next` al detalle propio solicitado. Pedido ajeno o inexistente: 404
+uniforme, incluso si se envían campos extra. Tras comprobar la propiedad,
+entrada ausente, inválida o campos manipulables no admitidos: 400.
+Pedido ya pagado con otra clave: 409. RF-08 ampliará el conflicto por reutilizar
+una clave con otro resultado cuando se admita también el rechazo simulado.
+
+El servidor obtiene propietario, importe y moneda del pedido histórico. Un
+intento persistido registra pedido, clave, resultado, importe, moneda y fecha.
+La clave se identifica dentro del pedido; reutilizarla con otro resultado se
+rechaza. La transición `pending_payment → paid` y el intento aprobado forman
+una transacción con bloqueo del pedido; existe como máximo una aprobación por
+pedido, también ante concurrencia. Un replay autorizado de la misma clave y
+resultado devuelve el éxito original sin crear datos adicionales, aunque el
+pedido ya esté pagado. Primero se valida propiedad; conocer una clave no concede
+acceso. Un fallo técnico no se registra como rechazo simulado.
+
+RF-07 termina inicialmente con pago y estado. Al implementar RF-10, su servicio
+se ampliará para emitir derechos en esa misma transacción. Ese enlace y la
+regularización de pedidos pagados anteriores forman parte de RF-10; no se
+crean licencias provisionales ni derechos al abrir una página.
+
+#### Criterios de aceptación
+
+- CA-RF07-01: dado un pedido propio pendiente, cuando su propietario abre el
+  detalle, entonces ve el formulario de simulación con CSRF y clave; ese GET no
+  cambia pedido, intentos, carrito ni derechos.
+- CA-RF07-02: dado un visitante anónimo, cuando envía el POST con CSRF válido,
+  entonces se redirige al login con `next` interno y no se registra ningún pago;
+  un POST sin CSRF devuelve 403 y un GET sobre la acción devuelve 405.
+- CA-RF07-03: dado un cliente autenticado, cuando intenta pagar un pedido ajeno
+  o inexistente, entonces recibe el mismo 404 sin información privada ni cambios.
+- CA-RF07-04: dado un pedido propio pendiente, cuando solicita una aprobación
+  válida, entonces se guarda un único intento aprobado, el pedido pasa a `paid`
+  y el detalle informa del resultado y mantiene sus líneas históricas.
+- CA-RF07-05: dado un catálogo o carrito distinto al de la compra, cuando se
+  aprueba el pago, entonces el importe y moneda proceden de `Order`; ni el
+  carrito actual ni los valores de `OrderItem` se alteran. Enviar propietario,
+  importe, moneda o estado como campos extra responde 400 sin cambios.
+- CA-RF07-06: dada una petición ya aprobada, cuando se repite con su misma clave
+  y resultado, entonces se conserva un solo intento aprobado y el mismo pedido
+  pagado; con una clave nueva recibe 409 sin una segunda aprobación.
+- CA-RF07-07: dadas dos aprobaciones simultáneas del mismo pedido, cuando ambas
+  terminan, entonces solo existe una aprobación persistida; la misma clave se
+  resuelve como replay y una clave diferente como conflicto. La prueba usa
+  transacciones y conexiones PostgreSQL independientes.
+- CA-RF07-08: dado un fallo interno entre el registro del intento y la
+  actualización del pedido, cuando se aborta la operación, entonces no queda
+  ningún cambio parcial ni se vacía o modifica el carrito.
+- CA-RF07-09: dado un resultado o clave inválidos, cuando se envía la petición,
+  entonces recibe 400 sin persistir intentos ni cambiar el pedido; la respuesta
+  no contiene secretos, rutas privadas ni detalles internos.
+
+#### Implementación y verificación
+
+`Order.Status.PAID` y `PaymentAttempt` persisten el resultado de la simulación.
+La migración `orders.0004_alter_order_status_paymentattempt` incorpora esos
+cambios y se encuentra aplicada en el entorno local comprobado.
+`approve_simulated_payment` filtra por propietario, bloquea el pedido y agrupa
+intento y transición en una transacción. La vista y el formulario están en
+`apps/orders/`; importe y moneda se obtienen exclusivamente del pedido.
+
+La revisión detectó que los campos extra anticipaban un 400 sobre pedidos
+ajenos o inexistentes. Se corrigió para comprobar primero la propiedad y se
+amplió CA-RF07-03 a cinco campos extra, manteniendo el 400 sobre pedidos propios.
+Antes de la corrección: 5 fallos y 5 éxitos en la selección correspondiente;
+después: 10 éxitos. La ausencia de escrituras de intentos también se comprueba
+al abrir el formulario y ante peticiones no autorizadas.
+
+Verificación final: 28 casos de RF-07 y 200 pruebas totales superadas con
+PostgreSQL. Se utilizan conexiones PostgreSQL independientes para concurrencia
+y se provoca un fallo después de insertar el intento para comprobar rollback.
+Django, migraciones, Ruff, formato, dependencias y diff pasan sus controles.
+Las ejecuciones y la correspondencia de CA01–CA09 se conservan en las
+[evidencias de RF-07](../evidence/RF-07/README.md).
+
+La verificación acredita el contrato HTTP, HTML y datos mediante pruebas de
+integración. No se afirma una revisión visual manual ni capturas de navegador.
+Los derechos aún no existen y su emisión corresponde a RF-10; la API privada,
+a RF-14. El rechazo y el reintento con resultado `failed` corresponden a RF-08;
+hoy un resultado no admitido devuelve 400 conforme a CA-RF07-09.
+
+#### Trazabilidad
+
+El cierre autorizado el 2026-10-02 registra RF-07 como `Verificado` para su
+alcance inicial de pago y estado, con CA-RF07-01 a CA-RF07-09 comprobados.
+La implementación existente, la corrección de acceso, las pruebas, la migración
+y estas evidencias forman un único commit reproducible. Su identificador se
+obtiene con `git log -1 -- docs/evidence/RF-07/README.md`. No se reconstruye un
+ciclo RED-GREEN de la implementación inicial: solo se atribuye el RED observado
+a la corrección de prioridad de propiedad.
 
 ## RF-08: Simular un pago fallido y reintentarlo
 
