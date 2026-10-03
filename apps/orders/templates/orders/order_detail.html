@@ -19,6 +19,31 @@
     </form>
 {% endif %}
 
+    <h2>Historial de intentos de pago</h2>
+
+    <ul>
+        {% for attempt in order.payment_attempts.all %}
+            <li data-payment-attempt-id="{{ attempt.pk }}">
+                <p>
+                    Resultado:
+                    {% if attempt.result == "approved" %}
+                        Aprobado
+                    {% else %}
+                        Rechazado
+                    {% endif %}
+                </p>
+                <p>
+                    Fecha:
+                    <time datetime="{{ attempt.created_at|date:'c' }}">
+                        {{ attempt.created_at|date:"d/m/Y H:i" }}
+                    </time>
+                </p>
+            </li>
+        {% empty %}
+            <li>Este pedido todavía no tiene intentos de pago.</li>
+        {% endfor %}
+    </ul>
+
     <h2>Líneas del pedido</h2>
 
     <ul>

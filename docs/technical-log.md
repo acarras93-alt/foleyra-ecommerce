@@ -2567,3 +2567,42 @@ planificación y flujos de Copilot. No se publican cambios remotos.
 Los resultados finales y límites figuran en
 `docs/evidence/RF-07/quality-gate-2026-10-02.md`; el identificador del commit se
 consulta con `git log -1 -- docs/evidence/RF-07/README.md`.
+
+## 2026-10-03 — RF-08: verificación y cierre del rechazo y reintento
+
+Por solicitud de Álvaro, Codex revisa la implementación realizada criterio a
+criterio y actualiza RF-08 a `Verificado`. La documentación todavía lo marcaba
+como `Propuesto`; se alinea con el código y la verificación actual, sin inventar
+una transición documental previa a `Implementado`.
+
+El cierre versiona `PaymentAttempt.Result.FAILED`, la migración 0005, la
+admisión de rechazo en el servicio transaccional, los mensajes según resultado,
+la precarga ordenada de intentos y su historial HTML. El rechazo mantiene el
+pedido pendiente; la aprobación con clave nueva conserva el intento fallido.
+Claves incompatibles o nuevas sobre un pedido pagado reciben 409. El replay
+conserva resultados históricos sin revertir el pedido.
+
+La revisión completa la prueba del historial: resultado y fecha en cada fila,
+empate de fechas resuelto por ID, prioridad de fecha sobre ID y ausencia de
+escrituras en pedidos/intentos de ambos clientes. Se conservan las pruebas del
+desarrollador y no se modifica producción en esta revisión. El presupuesto de
+consultas del detalle es cinco por la precarga del historial, con igualdad entre
+uno y diez intentos y entre una y diez líneas.
+
+Resultados ejecutados: regresión inicial de pedidos `75 passed in 22.67s`;
+prueba ampliada de historial `1 passed in 1.12s`; batería completa final
+`219 passed in 32.39s`. Django y migraciones correctos, 0005 aplicada, Ruff
+correcto, 118 archivos formateados y dependencias sin conflictos. pip deshabilita
+su caché por permisos, sin afectar el resultado. No se ejecutan migraciones.
+
+La matriz CA01–CA08, comandos y límites se registran en
+`docs/evidence/RF-08/README.md` y `quality-gate-2026-10-03.md`. La evidencia es
+HTTP/HTML y PostgreSQL, no una revisión visual manual. El rechazo está probado
+por POST; el formulario actual mantiene aprobación/reintento. Derechos y
+entrega siguen en RF-10/RF-11, y la API privada en RF-14. La prueba de ausencia
+de emisión deberá ampliarse cuando existan esas entidades.
+
+Se actualizan README, requisitos funcionales, bitácora y evidencias. La selección
+del commit preserva cambios previos ajenos de planificación, otros requisitos,
+carrito y comentarios de pruebas anteriores. No se realiza push. El commit se
+identifica mediante `git log -1 -- docs/evidence/RF-08/README.md`.

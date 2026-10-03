@@ -60,6 +60,14 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     responde 409. La propiedad se comprueba antes de rechazar campos extra.
     El carrito y las líneas históricas se conservan. Las [evidencias de RF-07](docs/evidence/RF-07/README.md)
     registran 28 casos del requisito y 200 pruebas totales con PostgreSQL.
+- RF-08 está `Verificado`: el mismo POST admite `result=failed`, conserva el
+    pedido pendiente y registra el rechazo. Reintentar con una clave nueva puede
+    aprobar el pago conservando los intentos anteriores. El detalle muestra el
+    historial propio ordenado con resultado y fecha; su consulta no modifica datos.
+    Las pruebas cubren seguridad, idempotencia, concurrencia y rollback.
+    El rechazo se comprueba mediante POST; el formulario visible mantiene la
+    aprobación y el reintento con clave nueva. Véanse las
+    [evidencias de RF-08](docs/evidence/RF-08/README.md).
 - RF-09 está `Implementado`: `/orders/` muestra únicamente los pedidos propios,
     ordenados por fecha de creación e ID descendentes, con fecha y enlace al
     detalle. `/orders/{order_id}/` presenta el pedido y sus líneas históricas;
@@ -78,16 +86,17 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
     `Implementado`, no `Verificado`, hasta incorporar sus evidencias. RF-09 también
     queda `Implementado`, con pruebas automatizadas y verificación visual pendiente.
-    Rechazos y reintentos de pago, licencias adquiridas, descargas y API privada
-    continúan pendientes.
+    Licencias adquiridas, descargas y API privada continúan pendientes.
 
 ## Pendiente para completar el MVP
 
 El catálogo y la API pública de lectura están implementados. Continúan
-pendientes el rechazo y reintento de pagos simulados, las licencias adquiridas,
+pendientes las licencias adquiridas,
 la entrega autorizada de archivos maestros y la API privada, de acuerdo con los
 [requisitos funcionales](docs/requirements/functional-requirements.md).
 Los estados de implementación y verificación se registran por separado.
+
+El orden restante es **RF-10 → RF-11 → RF-13 → RF-14 → RF-15**.
 
 ## Requisitos locales
 

@@ -35,6 +35,7 @@ class OrderItem(models.Model):
 class PaymentAttempt(models.Model):
     class Result(models.TextChoices):
         APPROVED = "approved", "Approved"
+        FAILED = "failed", "Failed"
 
     order = models.ForeignKey(
         Order,

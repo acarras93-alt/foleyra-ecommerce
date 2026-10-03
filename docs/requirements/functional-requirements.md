@@ -29,7 +29,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-05 | Gestionar los productos del carrito privado | Cliente autenticado | Must | v0.3.0 | Aprobado |
 | RF-06 | Convertir el carrito en un pedido histórico | Cliente autenticado | Must | v0.4.0 | Implementado |
 | RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Verificado |
-| RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Propuesto |
+| RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Verificado |
 | RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Implementado |
 | RF-10 | Consultar las licencias propias | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-11 | Descargar un archivo autorizado | Cliente autenticado | Must | v0.6.0 | Propuesto |
@@ -1180,15 +1180,15 @@ calidad están registradas, pero faltan evidencias reales del requisito.
 `idempotency_key` UUID. Son los únicos campos de negocio admitidos; el
 formulario también incluye `csrfmiddlewaretoken`, que valida Django. Aparece
 en el detalle propio pendiente e indica claramente que es una simulación.
-Generar la clave del formulario no escribe datos de negocio. RF-08 añadirá `result=failed` a la misma operación.
+Generar la clave del formulario no escribe datos de negocio. RF-08 incorpora `result=failed` a la misma operación desde el 2026-10-03.
 
 Éxito: 302 al detalle propio, mensaje de pago simulado aprobado y estado `paid`.
 GET sobre la operación: 405. POST sin CSRF: 403. Anónimo con CSRF válido: 302 al
 login con `next` al detalle propio solicitado. Pedido ajeno o inexistente: 404
 uniforme, incluso si se envían campos extra. Tras comprobar la propiedad,
 entrada ausente, inválida o campos manipulables no admitidos: 400.
-Pedido ya pagado con otra clave: 409. RF-08 ampliará el conflicto por reutilizar
-una clave con otro resultado cuando se admita también el rechazo simulado.
+Pedido ya pagado con otra clave: 409. RF-08 amplía el conflicto por reutilizar
+una clave con otro resultado al admitir también el rechazo simulado.
 
 El servidor obtiene propietario, importe y moneda del pedido histórico. Un
 intento persistido registra pedido, clave, resultado, importe, moneda y fecha.
@@ -1262,8 +1262,8 @@ Las ejecuciones y la correspondencia de CA01–CA09 se conservan en las
 La verificación acredita el contrato HTTP, HTML y datos mediante pruebas de
 integración. No se afirma una revisión visual manual ni capturas de navegador.
 Los derechos aún no existen y su emisión corresponde a RF-10; la API privada,
-a RF-14. El rechazo y el reintento con resultado `failed` corresponden a RF-08;
-hoy un resultado no admitido devuelve 400 conforme a CA-RF07-09.
+a RF-14. El rechazo y el reintento se verifican en RF-08 el 2026-10-03;
+un resultado distinto de `approved` o `failed` devuelve 400 conforme a CA-RF07-09.
 
 #### Trazabilidad
 
@@ -1275,7 +1275,112 @@ obtiene con `git log -1 -- docs/evidence/RF-07/README.md`. No se reconstruye un
 ciclo RED-GREEN de la implementación inicial: solo se atribuye el RED observado
 a la corrección de prioridad de propiedad.
 
-## RF-08: Simular un pago fallido y reintentarlo
+### RF-08 — Simular un pago fallido y reintentarlo
+
+#### Metadatos y contrato implementado
+
+- Actor: cliente autenticado. Prioridad: Must. Versión: v0.5.0.
+- Estado: `Verificado` el 2026-10-03 para el contrato HTTP, HTML y persistencia
+  de rechazo y reintento simulados. Dependencias: RF-07 y sus RNF, RF-06 y RF-09.
+- Misma ruta y servicio de RF-07; se admite `result=failed` además de `approved`.
+- Un rechazo simulado es un resultado de negocio: guarda un intento `failed`,
+  mantiene `Order.status=pending_payment` y redirige al detalle con un mensaje
+  comprensible. No es un error 500 ni un nuevo estado del carrito.
+- Reintentar exige una clave nueva. Repetir la misma clave y resultado devuelve
+  el resultado original; usar la misma clave con otro resultado devuelve 409.
+- El detalle muestra intentos propios con resultado y fecha, ordenados por fecha
+  e ID descendentes, y permite reintentar solo mientras el pedido esté pendiente.
+  No muestra claves técnicas de idempotencia ni datos de otro propietario.
+- No hay cobros reales, devolución de dinero, cancelación ni procesamiento asíncrono.
+
+#### Criterios de aceptación
+
+- CA-RF08-01: dado un pedido propio pendiente, cuando se simula un rechazo,
+  entonces se registra un intento fallido, el pedido permanece pendiente y el
+  cliente ve un mensaje que permite distinguir rechazo de aprobación.
+- CA-RF08-02: dado un rechazo, cuando termina la operación, entonces no cambia
+  el carrito ni las líneas históricas y no se emiten derechos o descargas.
+- CA-RF08-03: dado un intento rechazado, cuando se repite con la misma clave y
+  resultado, entonces no se duplica; si se reutiliza esa clave para aprobar,
+  recibe 409 y se conserva el resultado original.
+- CA-RF08-04: dado un pedido pendiente con un intento fallido, cuando se
+  reintenta con una clave nueva y resultado aprobado, entonces conserva el
+  intento fallido, añade una sola aprobación y pasa a `paid` mediante RF-07.
+- CA-RF08-05: dado un pedido con intentos previos, cuando el cliente lo consulta,
+  entonces ve exclusivamente su historial ordenado de intentos; la consulta no
+  crea un nuevo intento ni cambia resultados o estados.
+- CA-RF08-06: dado un pedido pagado, cuando se intenta registrar un rechazo o
+  nuevo pago con otra clave, entonces recibe 409 y el pedido sigue pagado. Un
+  replay de clave existente conserva su resultado histórico sin revertir el pedido.
+- CA-RF08-07: dado un anónimo, un POST sin CSRF o un pedido ajeno/inexistente,
+  cuando se intenta rechazar o reintentar, entonces se mantienen las respuestas
+  de seguridad de RF-07 y no se escribe ningún dato.
+- CA-RF08-08: dadas peticiones concurrentes de rechazo y aprobación, cuando se
+  procesan, entonces los bloqueos serializan las transiciones: nunca se revierte
+  un pago aprobado ni aparece más de una aprobación; un error técnico revierte
+  el intento parcial y no se convierte en rechazo simulado.
+
+#### Implementación y verificación
+
+`PaymentAttempt.Result.FAILED` amplía el campo existente mediante la migración
+`orders.0005_alter_paymentattempt_result`, aplicada en el entorno comprobado.
+`approve_simulated_payment` conserva la comprobación de propietario, la
+transacción y el bloqueo del pedido; admite ambos resultados y solo actualiza
+el estado a `paid` cuando el resultado es `approved`.
+
+La vista devuelve 302 al detalle con `Pago simulado rechazado.` o
+`Pago simulado aprobado.` según el intento devuelto. Un replay del rechazo tras
+una aprobación posterior mantiene el pedido pagado. Una clave nueva sobre un
+pedido pagado o una clave reutilizada con otro resultado devuelve 409.
+
+El selector precarga únicamente los intentos del pedido propio con orden
+`-created_at, -id`. La plantilla muestra resultado y fecha incluso tras el pago,
+sin publicar claves de intentos anteriores. El formulario de aprobación genera
+una clave nueva mientras el pedido está pendiente; el rechazo se verifica
+mediante POST con `result=failed`. La interfaz actual conserva el botón de
+aprobación y no incorpora un botón específico de rechazo.
+
+La prueba del historial comprueba ambos resultados, fechas visibles, desempate
+por ID, prioridad de fecha sobre ID y ausencia de cambios en pedidos e intentos
+de ambos clientes. Como comprobación técnica complementaria de CA-RF08-05, el
+número de consultas permanece constante con uno y diez intentos, dentro de un
+presupuesto de cinco consultas para el detalle autenticado. El presupuesto
+previo de cuatro consultas de RF-09 se amplía por la precarga fija del historial;
+se conserva la igualdad al pasar de una a diez líneas.
+
+Para CA-RF08-07, anónimo con CSRF válido obtiene 302 al login con `next` al
+detalle; sin CSRF obtiene 403; autenticado con CSRF válido y pedido ajeno o
+inexistente obtiene 404 uniforme. Se comprueban rechazo y reintento. El token
+inválido del reintento es una variante técnica complementaria.
+
+La concurrencia usa dos conexiones PostgreSQL y admite los dos órdenes válidos:
+rechazo primero produce dos intentos y 302/302; aprobación primero produce una
+sola aprobación y 409 para el rechazo. En ambos casos el pedido termina pagado.
+La regresión de RF-07 cubre dos aprobaciones concurrentes y un fallo técnico
+tras insertar el intento: se revierte la transacción y no se registra un rechazo
+como sustituto del error. Una ejecución concurrente no garantiza recorrer ambos
+órdenes; los flujos secuenciales de CA-RF08-04 y CA-RF08-06 completan esos casos.
+
+Las pruebas y resultados reproducibles figuran en las
+[evidencias de RF-08](../evidence/RF-08/README.md). La verificación es automatizada
+sobre PostgreSQL; no acredita revisión visual manual ni pasarela real.
+CA-RF08-02 verifica carrito e historia intactos; la ausencia actual de módulos
+de derechos y descargas se declara como límite. Las comprobaciones de emisión
+y entrega deberán ampliarse al implementar RF-10 y RF-11, sin inventar entidades.
+La API privada queda en RF-14.
+
+#### Trazabilidad
+
+Álvaro solicita el cierre y commit el 2026-10-03 tras comunicar la regresión
+Green. Esta revisión contrasta el código, completa la cobertura del historial
+y vuelve a ejecutar las comprobaciones. La documentación aún conservaba el
+estado `Propuesto`; se alinea con la implementación realizada criterio a criterio
+y con la verificación autorizada. No se atribuye una fecha de cambio documental
+a `Implementado` que no se hubiera registrado.
+
+El commit reúne código, migración, pruebas y documentación de RF-08; se identifica
+con `git log -1 -- docs/evidence/RF-08/README.md`. Los cambios previos de otros
+requisitos y metodología permanecen fuera de ese commit.
 
 ### RF-09 — Consultar los pedidos propios
 

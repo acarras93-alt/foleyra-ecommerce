@@ -7,7 +7,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
-from apps.orders.models import Order
+from apps.orders.models import Order, PaymentAttempt
 from apps.orders.selectors import get_order_for_owner, get_orders_for_owner
 from apps.orders.services import (
     EmptyCart,
@@ -100,12 +100,13 @@ def simulate_payment(request, order_id):
             get_order_for_owner(owner=request.user, order_id=order_id)
             return HttpResponse(status=400)
 
-        approve_simulated_payment(
+        attempt = approve_simulated_payment(
             owner=request.user,
             order_id=order_id,
             result=request.POST.get("result"),
             idempotency_key=request.POST.get("idempotency_key"),
         )
+
     except Order.DoesNotExist:
         raise Http404("Pedido no encontrado") from None
     except InvalidPaymentInput:
@@ -113,5 +114,9 @@ def simulate_payment(request, order_id):
     except PaymentConflict:
         return HttpResponse(status=409)
 
-    messages.success(request, "Pago simulado aprobado.")
+    if attempt.result == PaymentAttempt.Result.APPROVED:
+        messages.success(request, "Pago simulado aprobado.")
+    else:
+        messages.error(request, "Pago simulado rechazado.")
+
     return redirect("orders:detail", order_id=order_id)

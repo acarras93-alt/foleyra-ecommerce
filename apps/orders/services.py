@@ -76,8 +76,12 @@ def approve_simulated_payment(
         pk=order_id,
         owner=owner,
     )
-    # Validar la entrada antes de guardar cambios.
-    if result != PaymentAttempt.Result.APPROVED:
+
+    # Admitir aprobación y rechazo simulados.
+    if result not in (
+        PaymentAttempt.Result.APPROVED,
+        PaymentAttempt.Result.FAILED,
+    ):
         raise InvalidPaymentInput
 
     try:
@@ -95,25 +99,22 @@ def approve_simulated_payment(
             raise PaymentConflict
         return previous_attempt
 
-    # Si la clave es nueva y el pedido ya está pagado, devolver conflicto.
+    # Una clave nueva solo puede utilizarse en un pedido pendiente.
     if order.status != Order.Status.PENDING_PAYMENT:
         raise PaymentConflict
 
-    # Si está pendiente, continuar con la creación del intento y el cambio a paid
-    if order.status != Order.Status.PENDING_PAYMENT:
-        raise PaymentConflict
-
-    # Registrar el intento con los datos históricos del pedido.
+    # Registrar el resultado con el importe y moneda históricos.
     attempt = PaymentAttempt.objects.create(
         order=order,
         idempotency_key=payment_key,
-        result=PaymentAttempt.Result.APPROVED,
+        result=result,
         amount=order.total_amount,
         currency=order.currency,
     )
 
-    # Completar la transición del pedido.
-    order.status = Order.Status.PAID
-    order.save(update_fields=["status"])
+    # Un rechazo conserva el pedido pendiente.
+    if result == PaymentAttempt.Result.APPROVED:
+        order.status = Order.Status.PAID
+        order.save(update_fields=["status"])
 
     return attempt
