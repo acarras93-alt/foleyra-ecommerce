@@ -2516,6 +2516,62 @@ crearon migraciones ni se modificaron dependencias.
 
 El incremento se versiona como `feat(orders): implement private order history`.
 
+
+## 2026-09-27 — Criterios restantes del MVP y planificación por hitos
+
+Se revisaron requisitos, RNF, modelos, servicios, selectores, interfaces,
+pruebas y configuración del repositorio limpio en `70842ca`. Se redactan como
+propuestas RF-07, RF-08, RF-10, RF-11, RF-13 y RF-14. RF-15 conserva literalmente
+sus siete CA aprobados y añade cinco CA propuestos y una matriz de roles.
+El orden se mantiene: RF-07 → RF-08 → RF-10 → RF-11 → RF-13 → RF-14 → RF-15.
+
+La revisión identifica dos dependencias de integración: emitir derechos dentro
+de la aprobación y capturar una referencia estable al maestro privado. Los
+contratos propuestos contemplan datos anteriores, idempotencia, rollback,
+permisos y equivalencia web/API; no existen aún sus implementaciones.
+
+Se añade `docs/requirements/mvp-implementation-plan.md`, con estado observado,
+recorridos, hitos y metodología de seis preguntas o dos cuando el comportamiento
+ya existe. Se alinean RNF-03/12/13, flujos y prompts para permitir un Green
+inicial real sin forzar cambios de producción. El calendario antiguo queda
+sustituido; el 1 de octubre no se mantiene como entrega ni se inventa otra fecha.
+
+Se corrigen desajustes de README/RF-01: RF-04 ya figuraba verificado en los
+requisitos; RF-01 conserva el estado aprobado de su trazabilidad; `master_file`
+ya existe, pero su cierre documental y entrega permanecen pendientes. README
+ya no promete gestión de catálogo en un Admin todavía sin configurar.
+
+Comprobaciones propias: Git inicialmente limpio; `.env` no versionado;
+`.venv/bin/ruff check --no-cache .` correcto;
+`.venv/bin/ruff format --no-cache --check .`: 114 archivos ya formateados;
+`git diff --check` sin incidencias. Revisión documental de IDs, enlaces locales,
+estados y conservación de CA-RF15-01 a CA-RF15-07.
+
+La captura del desarrollador de esta fecha aporta `172 passed in 21.04s`,
+PostgreSQL saludable y controles Django, migraciones, Ruff y dependencias
+correctos. Se atribuye a esa ejecución: no se repite pytest ni la puerta de
+base de datos durante esta actualización exclusivamente documental.
+
+No se cambian código de aplicación, migraciones, dependencias ni datos de
+negocio; no se hace commit o push. Ningún RF nuevo pasa a implementado/verificado.
+
+## 2026-10-01 — Regla de prevención de recompra en RF-10
+
+Por petición de Álvaro se documenta RN-RF10-01 y su criterio CA-RF10-12:
+impedir una nueva compra de la misma combinación de producto y tipo de licencia
+cuando el cliente ya tiene un derecho activo. Se distingue esta regla de la
+unicidad de líneas del carrito y del replay idempotente del pago original.
+
+Se explicitan controles en alta de carrito, checkout y aprobación, conservación
+de datos ante rechazo, concurrencia entre pedidos distintos y referencias
+estables para reconocer producto y tipo de licencia. La regularización de datos
+anteriores debe resolver su identidad sin reconstruir los snapshots.
+
+Cambio exclusivamente documental: no se implementa la regla, no se ejecutan
+pruebas ni migraciones y RF-10 conserva su estado Propuesto. La cobertura y la
+integración web/API quedan pendientes de su incremento. Se revisa el cambio
+documental conservando los cambios previos del usuario; no se hace commit.
+
 ## 2026-10-02 — RF-07: prioridad de propiedad ante campos extra
 
 Por petición de Álvaro se corrige una discrepancia del pago simulado existente:
@@ -2606,3 +2662,45 @@ Se actualizan README, requisitos funcionales, bitácora y evidencias. La selecci
 del commit preserva cambios previos ajenos de planificación, otros requisitos,
 carrito y comentarios de pruebas anteriores. No se realiza push. El commit se
 identifica mediante `git log -1 -- docs/evidence/RF-08/README.md`.
+
+## 2026-10-11 — Revisión del estado actual, documentación y preparación de publicación
+
+Por solicitud expresa de Álvaro, Codex revisa los cambios locales de Foleyra,
+actualiza la documentación y prepara su commit y push a `origin/main`.
+La base local es `6a0a27c`; existen también tres commits anteriores pendientes
+de publicación, correspondientes a RF-09, RF-07 y RF-08.
+
+El incremento existente incorpora `LicenseGrant`, emisión dentro de la
+aprobación, listado/detalle privados, condiciones históricas ampliadas y
+`source_product`. También contiene docstrings de carrito/pedidos, ajustes de
+tipado y paginación en la API pública y ampliaciones de pruebas. Se preserva
+ese trabajo; no se implementa el siguiente criterio ni se añaden dependencias.
+El único ajuste Python de esta revisión ordena un import señalado por Ruff;
+se limpia además un espacio sobrante de una plantilla nueva.
+
+Se actualizan README, estado observado del plan, avance parcial de RF-10,
+flujo de Copilot y manual de instalación. La copia antigua de criterios de
+la raíz queda identificada como histórica y enlaza fuentes relativas vigentes.
+Se incorpora `docs/evidence/RF-10/` con pruebas, migraciones, resultados y
+pendientes. RF-10 no pasa a completado ni verificado: faltan regularizaciones,
+prevención de recompra, referencia al tipo de licencia, versionado y validación
+de condiciones. RF-11 y la API privada siguen pendientes; RF-15 no tiene
+configurada la administración de catálogo/pedidos. Reducir RF-13/14 a evolutivos
+continúa como propuesta a confirmar, no como modificación del alcance aprobado.
+
+Docker estaba detenido y el arranque desde la sesión no funcionó. Tras iniciarlo
+el desarrollador, `db` quedó saludable y se ejecutaron pruebas con PostgreSQL:
+selección de licencias `30 passed, 72 deselected in 3.03s`; batería completa
+`250 passed in 35.28s`. Una prueba de servicios contiene solo `pass`: se declara
+como pendiente y no se atribuye cobertura a ese resultado.
+
+Django check sin incidencias, modelos sin migraciones nuevas, migrate --check
+correcto y migraciones aplicadas hasta catalog.0003/orders.0008. Ruff correcto,
+120 archivos ya formateados, dependencias sin conflictos y diff sin incidencias.
+No se ejecutan migraciones sobre la base local. Los resultados reproducibles y
+límites se registran en `docs/evidence/RF-10/quality-gate-2026-10-11.md`.
+
+Esta actualización documenta un estado de desarrollo, no una instalación limpia,
+validación visual, cierre académico ni despliegue en producción. La publicación
+se comprueba por separado contra el remoto; el commit del incremento se consulta
+con `git log -1 -- docs/evidence/RF-10/README.md`.

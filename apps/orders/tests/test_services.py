@@ -1,15 +1,19 @@
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from threading import Barrier
+from uuid import uuid4
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.db import close_old_connections
+from django.urls import reverse
+from pytest_django.asserts import assertContains
 
 from apps.cart.models import CartItem
 from apps.cart.services import add_offer_to_cart
 from apps.catalog.models import Category, LicenseType, Product, ProductLicenseOffer
-from apps.orders.models import Order, OrderItem
+from apps.orders.models import LicenseGrant, Order, OrderItem, PaymentAttempt
 from apps.orders.services import EmptyCart, OfferNotAvailable, create_order_from_cart
 
 
@@ -56,7 +60,7 @@ def test_converting_an_owners_available_cart_creates_pending_order_and_empties_c
     assert order.status == Order.Status.PENDING_PAYMENT
     assert order.total_amount == Decimal("12.90")
     assert order.currency == "EUR"
-    assert order.items.count() == 1
+    assert OrderItem.objects.filter(order=order).count() == 1
     assert not CartItem.objects.filter(cart__owner=owner).exists()
 
 
@@ -80,7 +84,7 @@ def test_order_lines_preserve_the_catalog_values_captured_at_conversion():
     offer.currency = "USD"
     offer.save(update_fields=["price", "currency"])
 
-    order.refresh_from_db()
+    order.refresh_from_db(from_queryset=None)
     order_item = OrderItem.objects.get(order=order)
 
     assert order.total_amount == Decimal("12.90")
@@ -195,3 +199,243 @@ def test_two_conversions_of_the_same_cart_create_one_order_without_duplicate_lin
     assert Order.objects.filter(owner=owner).count() == 1
     assert OrderItem.objects.get(order__owner=owner).price == Decimal("12.90")
     assert not CartItem.objects.filter(cart__owner=owner).exists()
+
+
+@pytest.mark.django_db
+def test_approved_payment_issues_one_permission_per_order_item(client):
+    # Preparar: usuario autenticado
+    owner = get_user_model().objects.create_user(
+        username="payment-owner", password="ReliablePassword123!"
+    )
+    client.force_login(owner)
+
+    # Preparar pedido con varias líneas históricas
+    order = Order.objects.create(
+        owner=owner,
+        status=Order.Status.PENDING_PAYMENT,
+        total_amount=Decimal("12.90"),
+        currency="EUR",
+    )
+
+    first_item = OrderItem.objects.create(
+        order=order,
+        product_name="Impacto cinematográfico",
+        product_sku="PED-001",
+        license_name="Licencia comercial",
+        terms_version="1.0",
+        price=Decimal("12.90"),
+        currency="EUR",
+    )
+
+    second_item = OrderItem.objects.create(
+        order=order,
+        product_name="Pasos sobre madera",
+        product_sku="PED-002",
+        license_name="Licencia comercial",
+        terms_version="1.0",
+        price=Decimal("8.50"),
+        currency="EUR",
+    )
+
+    third_item = OrderItem.objects.create(
+        order=order,
+        product_name="Lluvia exterior",
+        product_sku="PED-003",
+        license_name="Licencia comercial",
+        terms_version="1.0",
+        price=Decimal("9.90"),
+        currency="EUR",
+    )
+
+    # Contiene una copia de los valores anteriores al pago
+    items_before = list(OrderItem.objects.filter(order=order).order_by("pk").values())
+
+    # Actuar: solicitar la aprobación y seguir la redirección.
+    payment_key = uuid4()
+
+    payment_url = reverse(
+        "orders:simulate_payment",
+        kwargs={"order_id": order.pk},
+    )
+    detail_url = reverse(
+        "orders:detail",
+        kwargs={"order_id": order.pk},
+    )
+
+    response = client.post(
+        payment_url,
+        {
+            "result": "approved",
+            "idempotency_key": str(payment_key),
+        },
+        follow=True,
+    )
+
+    # Devolverse: redirección al detalle y página accesible.
+    assert response.redirect_chain == [(detail_url, 302)]
+    assert response.status_code == 200
+
+    # Cambiar: el pedido queda pagado, conservando propietario e importe.
+    order.refresh_from_db(from_queryset=None)
+
+    assert order.status == Order.Status.PAID
+    assert order.owner == owner
+    assert order.total_amount == Decimal("12.90")
+    assert order.currency == "EUR"
+
+    # Crear: exactamente un intento aprobado con los datos esperados.
+    attempts = PaymentAttempt.objects.filter(order=order)
+    assert attempts.count() == 1
+
+    attempt = attempts.get()
+    assert attempt.result == "approved"
+    assert attempt.idempotency_key == payment_key
+    assert attempt.amount == Decimal("12.90")
+    assert attempt.currency == "EUR"
+    assert attempt.created_at is not None
+
+    # Conservar: las líneas históricas permanecen intactas.
+    items_after = list(OrderItem.objects.filter(order=order).order_by("pk").values())
+    assert items_after == items_before
+
+    # Mostrar: resultado, estado y datos históricos en el detalle.
+    expected_message = "Pago simulado aprobado."
+
+    assert expected_message in [
+        message.message for message in get_messages(response.wsgi_request)
+    ]
+    assertContains(response, expected_message)
+    assertContains(response, "Estado: Paid")
+    assertContains(response, "Producto: Impacto cinematográfico")
+    assertContains(response, "SKU: PED-001")
+    assertContains(response, "Licencia: Licencia comercial")
+    assertContains(response, "Términos: 1.0")
+    assertContains(response, "Precio: 12,90 EUR")
+
+    grants = list(
+        LicenseGrant.objects.filter(order_item__order=order)
+        .select_related("order_item__order__owner")
+        .order_by("pk")
+    )
+
+    # Compruebar cantidad, correspondencia con las tres líneas, estado activo y propietario
+    assert len(grants) == 3
+
+    expected_item_ids = {first_item.pk, second_item.pk, third_item.pk}
+    actual_item_ids = {grant.order_item.pk for grant in grants}
+
+    assert actual_item_ids == expected_item_ids
+
+    for grant in grants:
+        assert grant.status == LicenseGrant.Status.ACTIVE
+        assert grant.order_item.order.owner.pk == owner.pk
+        assert grant.issued_at is not None
+
+
+@pytest.mark.django_db
+def test_payment_replay_with_same_key_preserves_existing_license_grants(client):
+    # Preparar: usuario autenticado.
+    owner = get_user_model().objects.create_user(
+        username="license-replay-owner",
+        password="ReliablePassword123!",
+    )
+    client.force_login(owner)
+
+    # Preparar: pedido pendiente con dos líneas históricas.
+    order = Order.objects.create(
+        owner=owner,
+        status=Order.Status.PENDING_PAYMENT,
+        total_amount=Decimal("21.40"),
+        currency="EUR",
+    )
+
+    OrderItem.objects.create(
+        order=order,
+        product_name="Impacto cinematográfico",
+        product_sku="PED-001",
+        license_name="Licencia comercial",
+        terms_version="1.0",
+        price=Decimal("12.90"),
+        currency="EUR",
+    )
+
+    OrderItem.objects.create(
+        order=order,
+        product_name="Pasos sobre madera",
+        product_sku="PED-002",
+        license_name="Licencia comercial",
+        terms_version="1.0",
+        price=Decimal("8.50"),
+        currency="EUR",
+    )
+
+    # Preparar: misma URL y mismos datos para ambas solicitudes.
+    payment_url = reverse(
+        "orders:simulate_payment",
+        kwargs={"order_id": order.pk},
+    )
+    detail_url = reverse(
+        "orders:detail",
+        kwargs={"order_id": order.pk},
+    )
+
+    payment_key = uuid4()
+    payment_data = {
+        "result": "approved",
+        "idempotency_key": str(payment_key),
+    }
+
+    # Actuar: aprobar el pago por primera vez.
+    first_response = client.post(
+        payment_url,
+        payment_data,
+        follow=True,
+    )
+
+    assert first_response.redirect_chain == [(detail_url, 302)]
+    assert first_response.status_code == 200
+
+    order.refresh_from_db()
+    assert order.status == Order.Status.PAID
+
+    # Guardar: derechos emitidos, incluidos sus identificadores y fechas.
+    grants_before = list(
+        LicenseGrant.objects.filter(order_item__order=order).order_by("pk").values()
+    )
+
+    assert len(grants_before) == 2
+    assert all(grant["status"] == LicenseGrant.Status.ACTIVE for grant in grants_before)
+
+    original_attempt = PaymentAttempt.objects.get(order=order)
+
+    # Actuar: repetir la aprobación con la misma clave.
+    repeated_response = client.post(
+        payment_url,
+        payment_data,
+        follow=True,
+    )
+
+    # Comprobar: la repetición conserva la respuesta de éxito.
+    assert repeated_response.redirect_chain == [(detail_url, 302)]
+    assert repeated_response.status_code == 200
+
+    # Comprobar: siguen existiendo exactamente los mismos derechos.
+    grants_after = list(
+        LicenseGrant.objects.filter(order_item__order=order).order_by("pk").values()
+    )
+
+    assert len(grants_after) == 2
+    assert grants_after == grants_before
+
+    # Comprobar: el pedido sigue pagado y conserva el intento original.
+    order.refresh_from_db()
+    assert order.status == Order.Status.PAID
+
+    attempts = PaymentAttempt.objects.filter(order=order)
+    assert attempts.count() == 1
+    assert attempts.get().pk == original_attempt.pk
+
+
+@pytest.mark.django_db
+def test_order_preserves_license_conditions_after_catalog_changes(client):
+    pass

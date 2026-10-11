@@ -21,7 +21,11 @@ applyTo: "**/tests/**/*.py,**/test_*.py,**/*_tests.py"
   pruebas.
 - No debilites, borres o marques una prueba para hacer pasar una implementación.
 - Separa preparación, acción y comprobación de forma legible.
-- Ejecuta primero el archivo o prueba objetivo y después la batería completa
-  con `.venv/bin/python -m pytest -q`.
-- Informa del estado Red inicial y del estado Green final con el motivo de cada
-  resultado.
+- Ejecuta primero el archivo o prueba objetivo y después la regresión
+  pertinente al cambio. La batería completa con `.venv/bin/python -m pytest -q`
+  y la puerta de calidad se aplican al cierre del requisito o versión; adelanta
+  comprobaciones cuando un riesgo concreto lo justifique, según la
+  [premisa de cierre](../../docs/requirements/mvp-implementation-plan.md#4-premisa-de-trabajo-hasta-el-cierre-del-proyecto).
+- Informa del estado Red inicial y del Green final para comportamiento nuevo.
+  Si ya existe, registra el Green inicial justificado sin fabricar Red; no
+  dupliques pruebas existentes que ya demuestran el criterio completo.

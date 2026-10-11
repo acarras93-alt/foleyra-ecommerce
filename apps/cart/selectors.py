@@ -7,6 +7,8 @@ from apps.catalog.selectors import is_offer_available
 
 @dataclass(frozen=True)
 class CartSummaryItem:
+    """Represent a cart line with current catalog data and availability."""
+
     item_id: int
     offer_id: int
     product_name: str
@@ -21,11 +23,19 @@ class CartSummaryItem:
 
 @dataclass(frozen=True)
 class CartSummary:
+    """Group cart lines and the total price of available offers."""
+
     items: tuple[CartSummaryItem, ...]
     total: Decimal
 
 
 def get_cart_summary(*, owner) -> CartSummary:
+    """Return the owner's cart lines and the total of available offers.
+
+    Use current catalog data and include unavailable lines in the summary,
+    excluding their prices from the total.
+    """
+
     cart_items = (
         CartItem.objects.filter(
             cart__owner=owner

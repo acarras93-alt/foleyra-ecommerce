@@ -307,3 +307,46 @@ Soluciona y actualiza la documentacion con el estado actual del proyecto.
   visual pendientes y la futura extensión de CA-RF09-09 a modelos aún ausentes.
 - Se conserva el historial de cambios del usuario. No se añadieron dependencias,
   no se modificaron migraciones y no se publicaron cambios en un remoto.
+
+
+## Registro — 2026-09-27 — Especificación del cierre del MVP
+
+- Herramienta: Codex, con revisión paralela de pagos/entrega y API/Admin.
+- Encargo: comprobar el estado y redactar criterios restantes en el orden
+  RF-07, RF-08, RF-10, RF-11, RF-13, RF-14 y RF-15; formalizar seis preguntas o
+  precondiciones/recorrido cuando ya exista comportamiento.
+- Fuentes: requisitos/RNF, código y pruebas locales, estado Git y captura de
+  comprobaciones aportada por el desarrollador. La información de los documentos
+  se contrasta con el encargo; no se ejecutan fases futuras por estar descritas.
+- Resultado: contratos propuestos, dependencias explícitas, recorridos y plan
+  por hitos sin mantener el 1 de octubre. Se preservan siete CA aprobados de
+  RF-15; nuevas decisiones y cinco CA adicionales permanecen propuestos.
+- Se alinean requisitos, README, flujos y prompts de pruebas con el Green
+  inicial de comportamiento existente. El desarrollador mantiene la revisión
+  de cada criterio y la comprensión de sus pruebas y componentes.
+- Verificación propia: Ruff y formato correctos (114 archivos), Git inicial
+  limpio y revisión del diff/documentación. Las 172 pruebas corresponden a la
+  captura del usuario; no se presentan como nueva ejecución de Codex.
+- No se implementan funcionalidades, migraciones ni dependencias; tampoco se
+  ejecutan commits o publicación remota en esta revisión.
+
+## Registro — 2026-10-11 — Revisión y publicación del estado de desarrollo
+
+- Herramienta: Codex, sin delegación a subagentes.
+- Encargo del desarrollador: «Haz un git push con el estado actual de Foleyra,
+  actualiza la documentación antes de hacerlo».
+- Fuentes: diff y estado Git, código, pruebas, migraciones, requisitos,
+  instrucciones del repositorio y documentación existente.
+- Trabajo: conservar el incremento parcial de RF-10, actualizar estado y
+  pendientes, completar instrucciones de instalación y registrar evidencia real.
+  Se ordena un import señalado por Ruff y se limpia un espacio de una plantilla.
+- Control humano: el desarrollador inicia Docker Desktop cuando la sesión no
+  consigue arrancarlo. Las pruebas se ejecutan después con PostgreSQL saludable.
+- Resultados: 30 pruebas seleccionadas y 250 en batería completa satisfactorias;
+  Django, migraciones, Ruff, formato y dependencias correctos. La prueba vacía
+  con `pass` se identifica y no se atribuye a ella una garantía demostrada.
+- Evidencia: `docs/evidence/RF-10/README.md` y su puerta del 2026-10-11.
+- Límites: sin implementación de nuevos criterios, migraciones en la base local,
+  cambio de dependencias, cierre formal de RF-10 ni despliegue. La solicitud
+  autoriza versionar y publicar los cambios actuales; no autoriza reducir el
+  alcance del MVP ni considerar realizadas evidencias pendientes.

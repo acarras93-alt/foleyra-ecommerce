@@ -5,6 +5,11 @@ from apps.catalog.models import ProductLicenseOffer
 
 
 class Cart(models.Model):
+    """Represent a user's temporary selection of offers.
+
+    Each user can have at most one cart.
+    """
+
     owner = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -13,6 +18,8 @@ class Cart(models.Model):
 
 
 class CartItem(models.Model):
+    """Link an offer to a cart, allowing each offer only once per cart."""
+
     cart = models.ForeignKey(
         Cart,
         on_delete=models.CASCADE,

@@ -138,6 +138,23 @@ por pruebas, el orden operativo de un cambio funcional es:
 - **Versión Git:** relaciona el requisito con commits pequeños y coherentes que
   dejen el repositorio en estado válido.
 
+Hasta finalizar el proyecto, aplica la
+[premisa de trabajo acordada el 2026-10-07](../docs/requirements/mvp-implementation-plan.md#4-premisa-de-trabajo-hasta-el-cierre-del-proyecto):
+un criterio cada vez, comportamiento en una o dos frases y revisión de cobertura
+antes de escribir. Indica qué prueba reutilizar, ampliar o crear. Puedes redactar
+la prueba completa; explica qué prepara, qué operación ejecuta y qué fallo
+detectan sus comprobaciones. Concentra el aprendizaje en la pieza nueva de la
+implementación y su conexión con los datos. Amplía el análisis solo ante una
+ambigüedad que cambia el comportamiento, un riesgo concreto o cobertura faltante.
+
+Si el comportamiento ya existe, registra un Green inicial justificado sin
+fabricar Red ni cambiar producción. Para comportamiento faltante, conserva el
+ciclo Red-Green. Cierra el criterio con prueba específica, regresión pertinente
+y una nota breve de cobertura; consolida documentación y puerta completa al
+cierre del requisito o versión, adelantando controles si el riesgo lo exige.
+Las seis preguntas quedan como guía de apoyo, no como análisis exhaustivo
+obligatorio para cada criterio.
+
 No avances automáticamente al siguiente criterio, requisito o fase.
 
 ## Restricciones obligatorias

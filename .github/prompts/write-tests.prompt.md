@@ -1,6 +1,6 @@
 ---
 name: write-tests
-description: Escribe la prueba mínima para un criterio aprobado y confirma el estado Red.
+description: Escribe la prueba mínima para un criterio aprobado y comprueba su estado real.
 agent: agent
 argument-hint: "requirementId=RF-XX criterion=CA-RFXX-XX"
 ---
@@ -17,17 +17,26 @@ Antes de editar:
 
 1. confirma que el requisito y el criterio están aprobados;
 2. localiza las pruebas y la implementación relacionadas;
-3. explica qué comportamiento observable comprobará la prueba;
+3. resume el comportamiento observable en una o dos frases e indica qué
+   prueba existente reutilizar o ampliar y cuándo hace falta una nueva;
 4. comprueba que no hay cambios previos que debas preservar.
+
+Aplica la [premisa de cierre acordada el 2026-10-07](../../docs/requirements/mvp-implementation-plan.md#4-premisa-de-trabajo-hasta-el-cierre-del-proyecto).
+Puedes redactar la prueba completa. Explica al desarrollador qué prepara, qué
+operación ejecuta y qué fallo detectan sus comprobaciones. No exijas un análisis
+exhaustivo de la infraestructura; profundiza cuando exista una ambigüedad que
+cambie el comportamiento, un riesgo concreto o una parte del criterio sin cubrir.
 
 Después:
 
 - añade el caso mínimo y legible;
 - no modifiques código de producción, migraciones ni dependencias;
 - ejecuta solo la prueba objetivo;
-- confirma que falla por la ausencia del comportamiento esperado;
+- si falta comportamiento, confirma que falla por ese motivo;
+- si pasa por comportamiento existente, comprueba que demuestra el criterio y
+  registra el Green inicial sin forzar un fallo ni cambiar producción;
 - si falla por configuración o por una expectativa incorrecta, corrige la
   prueba y vuelve a ejecutarla;
-- informa de los archivos modificados, el comando y el motivo exacto del fallo.
+- informa de los archivos modificados, el comando, el resultado y su causa.
 
 No hagas commits y no continúes con la implementación en este mismo paso.

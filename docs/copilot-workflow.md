@@ -20,30 +20,32 @@ Las instrucciones globales se cargan automáticamente. Los archivos
 `.instructions.md` se aplican cuando coinciden con los archivos de trabajo. Los
 prompts se invocan manualmente para mantener cada responsabilidad separada.
 
-## Situación actual: iniciar el primer incremento del catálogo
+## Situación actual al 2026-10-11
 
-El checkpoint de decisiones quedó aprobado el 2026-08-25. `apps.catalog`, su
-modelo base y `catalog.0001_initial` ya existen; todavía no hay catálogo web,
-detalle, filtros ni API implementados o verificados.
+Catálogo, API pública, autenticación, carrito y consulta de pedidos ya tienen
+implementación. RF-07/08 tienen cierre documentado y RF-10 está parcialmente
+desarrollado: emisión, consulta privada, condiciones capturadas y referencia
+al producto. Continúan RF-10, RF-11, RF-13, RF-14 y RF-15. Sus contratos,
+pendientes y resultados se consultan en requisitos y evidencias; una nueva
+redacción no implica aprobación ni ejecución.
 
-Antes de escribir el primer comportamiento de catálogo:
+Hasta finalizar el proyecto, aplicar la
+[premisa de trabajo del 2026-10-07](requirements/mvp-implementation-plan.md#4-premisa-de-trabajo-hasta-el-cierre-del-proyecto):
 
-1. realizar las capturas indicadas en `docs/evidence/phase-01/README.md`;
-2. leer `config/settings.py`, `apps/users/models.py` y la migración inicial;
-3. explicar en voz alta por qué `AUTH_USER_MODEL` debía preceder a `migrate`;
-4. localizar en PostgreSQL la tabla `users_user` y confirmar que `auth_user` no
-   existe;
-5. repetir las pruebas y comprender qué comprueba cada una;
-6. revisar los cuatro commits de implementación de la fase 01;
-7. revisar el
-   [checkpoint de decisiones del catálogo](requirements/catalog-decision-checkpoint.md);
-8. seleccionar CA-RF01-01 como alcance exclusivo del siguiente incremento;
-9. no avanzar a otro criterio ni requisito hasta registrar un Red válido y el
-   Green del criterio actual.
+- leer un criterio en una o dos frases y revisar primero la cobertura existente;
+- reutilizar o ampliar pruebas suficientes y crear una nueva solo cuando falte;
+- delegar la escritura mecánica de la prueba y revisar preparación, operación
+  y fallos que detectan las comprobaciones;
+- concentrar el aprendizaje en la pieza nueva de la implementación;
+- cerrar con prueba específica, regresión pertinente y nota breve de cobertura.
 
-La separación entre trabajo manual, asistencia de Copilot, pruebas y
-actualización documental para v0.2.0 está definida en el
-[flujo de desarrollo del catálogo](catalog-development-workflow.md).
+Las seis preguntas son una guía de apoyo para dudas y riesgos, no una obligación
+de análisis exhaustivo. El ciclo Red-Green y el Green inicial justificado para
+comportamiento existente se mantienen. La puerta completa corresponde al cierre
+del requisito o versión, sin impedir controles adicionales por un riesgo concreto.
+
+Se trabaja un criterio por vez. Los flujos antiguos del catálogo se conservan
+como referencia de aquella fase; su calendario ya no rige la entrega actual.
 
 ## Ciclo para cada incremento futuro
 
@@ -58,14 +60,17 @@ En Copilot Chat:
 Revisar personalmente el alcance, los riesgos, la migración propuesta y el
 plan de pruebas. Corregir primero el requisito si faltan decisiones.
 
-### 2. Crear una prueba y observar Red
+### 2. Crear una prueba y comprobar el estado real
 
 ```text
 /write-tests requirementId=RF-XX criterion=CA-RFXX-XX
 ```
 
 Leer la prueba línea por línea. Ejecutarla y confirmar que falla por la ausencia
-del comportamiento, no por un error de sintaxis, entorno o datos.
+del comportamiento, no por un error de sintaxis, entorno o datos. Si pasa
+porque el comportamiento ya existe, revisar la suficiencia de la prueba y
+registrar ese Green inicial; no se requiere un cambio de producción ni un
+fallo artificial. Si una prueba existente ya es suficiente, se reutiliza.
 
 No crear un commit mientras el repositorio quede deliberadamente en rojo.
 

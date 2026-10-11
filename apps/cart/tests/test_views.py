@@ -38,6 +38,7 @@ def create_available_offer():
     )
 
 
+@pytest.mark.django_db
 def test_anonymous_visitor_is_redirected_to_login_when_opening_cart(client):
     response = client.get("/cart/")
 

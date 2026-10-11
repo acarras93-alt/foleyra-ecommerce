@@ -1,3 +1,5 @@
+"""Define URL routes for cart display and item management."""
+
 from django.urls import path
 
 from . import views

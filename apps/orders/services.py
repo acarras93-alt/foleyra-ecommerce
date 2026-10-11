@@ -5,7 +5,7 @@ from django.db import transaction
 
 from apps.cart.models import Cart, CartItem
 from apps.catalog.selectors import is_offer_available
-from apps.orders.models import Order, OrderItem, PaymentAttempt
+from apps.orders.models import LicenseGrant, Order, OrderItem, PaymentAttempt
 
 
 class EmptyCart(Exception):
@@ -49,10 +49,15 @@ def create_order_from_cart(*, owner) -> Order:
         [
             OrderItem(
                 order=order,
+                source_product=item.offer.product,
                 product_sku=item.offer.product.sku,
                 product_name=item.offer.product.name,
                 license_name=item.offer.license_type.name,
                 terms_version=item.offer.license_type.terms_version,
+                terms_text=item.offer.license_type.terms_text,
+                usage_scope=item.offer.license_type.usage_scope,
+                grantor_name=item.offer.grantor_name,
+                rights_holder_name=item.offer.rights_holder_name,
                 price=item.offer.price,
                 currency=item.offer.currency,
             )
@@ -112,9 +117,15 @@ def approve_simulated_payment(
         currency=order.currency,
     )
 
-    # Un rechazo conserva el pedido pendiente.
+    # Marca el pedido como pagado, recupera sus lineas historicas y crea un derecho activo a cada linea.
     if result == PaymentAttempt.Result.APPROVED:
         order.status = Order.Status.PAID
         order.save(update_fields=["status"])
+
+        for order_item in OrderItem.objects.filter(order=order):
+            LicenseGrant.objects.create(
+                order_item=order_item,
+                status=LicenseGrant.Status.ACTIVE,
+            )
 
     return attempt

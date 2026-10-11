@@ -308,22 +308,12 @@ El checkpoint de base del modelo y sus decisiones se registra antes de iniciar
 RF-01. Los commits posteriores se crearán únicamente al completar y verificar
 el incremento correspondiente.
 
-## Calendario reprogramado hasta la entrega
+## Calendario histórico sustituido
 
-| Fecha | Resultado esperado | Estado al 2026-08-25 |
-| --- | --- | --- |
-| 25 de agosto | Checkpoint aprobado, entorno recuperado y puerta base ejecutada | Completado |
-| 26–28 de agosto | RF-01 por incrementos test-first y evidencias reales | Pendiente |
-| 29–31 de agosto | RF-02 por incrementos test-first y evidencias reales | Pendiente |
-| 1–3 de septiembre | RF-03 por incrementos test-first y evidencias reales | Pendiente |
-| 4–6 de septiembre | RF-12 por incrementos test-first y evidencias reales | Pendiente |
-| 7 de septiembre | Fixture de demostración, revisión de alcance y evidencias de catálogo | Pendiente |
-| 8 de septiembre | Versión candidata y congelación de funcionalidades | Pendiente |
-| 9–11 de septiembre | Consolidación: regresión, seguridad, permisos e integridad | Pendiente |
-| 12 de septiembre | Instalación limpia, documentación y evidencias académicas | Pendiente |
-| 13 de septiembre | Portfolio, historial Git y ensayo de defensa | Pendiente |
-| 14 de septiembre | Auditoría final y corrección exclusiva de defectos bloqueantes | Pendiente |
-| 15 de septiembre | Verificar y entregar v1.0.0; no desarrollar funcionalidades | Pendiente |
-
-El calendario se replanifica recortando alcance `Should`, nunca ocultando
-pruebas fallidas, permisos incompletos o exposición de archivos privados.
+El calendario definido el 2026-08-25 para agosto/septiembre queda sustituido
+por la planificación por hitos del 2026-09-27 en
+[RNF-12](requirements/non-functional-requirements.md) y en el
+[plan de cierre del MVP](requirements/mvp-implementation-plan.md).
+El 1 de octubre tampoco se mantiene como fecha de entrega; no se fija otra
+sin estimar el trabajo restante. Este documento conserva el flujo del catálogo
+como referencia de su fase, no como instrucción para reiniciarla.

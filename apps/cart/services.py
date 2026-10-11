@@ -6,15 +6,22 @@ from apps.catalog.selectors import get_available_offers
 
 
 class OfferNotAvailable(Exception):
-    pass
+    """Signal that an offer is missing or unavailable."""
 
 
 class CartItemNotFound(Exception):
-    pass
+    """Signal that no matching item exists in the owner's cart."""
 
 
 @transaction.atomic
 def add_offer_to_cart(*, owner, offer_id: int) -> tuple[CartItem, bool]:
+    """Add an available offer to the owner's cart, creating the cart if needed.
+
+    Return the item and whether it was created. Reuse an existing item
+    for the same offer.
+
+    Raise OfferNotAvailable if the offer is missing or unavailable.
+    """
     try:
         offer = get_available_offers().get(pk=offer_id)
     except ProductLicenseOffer.DoesNotExist:
@@ -31,6 +38,11 @@ def add_offer_to_cart(*, owner, offer_id: int) -> tuple[CartItem, bool]:
 
 @transaction.atomic
 def remove_cart_item(*, owner, item_id: int) -> None:
+    """Delete an item from the owner's cart.
+
+    Raise CartItemNotFound if the owner has no cart or the requested item
+    does not belong to that cart.
+    """
     try:
         cart = Cart.objects.select_for_update().get(owner=owner)
         item = CartItem.objects.get(pk=item_id, cart=cart)

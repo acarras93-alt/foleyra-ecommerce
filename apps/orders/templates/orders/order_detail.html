@@ -54,6 +54,10 @@
                 <p>Licencia: {{ item.license_name }}</p>
                 <p>Términos: {{ item.terms_version }}</p>
                 <p>Precio: {{ item.price|floatformat:2 }} {{ item.currency }}</p>
+
+                {% if not item.source_product_id %}
+                        <p>Pendiente de preparación de entrega</p>
+                {% endif %}
             </li>
         {% endfor %}
     </ul>

@@ -2,12 +2,13 @@ from functools import wraps
 from uuid import uuid4
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
-from apps.orders.models import Order, PaymentAttempt
+from apps.orders.models import LicenseGrant, Order, PaymentAttempt
 from apps.orders.selectors import get_order_for_owner, get_orders_for_owner
 from apps.orders.services import (
     EmptyCart,
@@ -120,3 +121,61 @@ def simulate_payment(request, order_id):
         messages.error(request, "Pago simulado rechazado.")
 
     return redirect("orders:detail", order_id=order_id)
+
+
+@require_GET
+@login_required
+def license_list(request):
+    # Consultar los permisos activos de los pedidos pagados del usuario.
+    grants = (
+        LicenseGrant.objects.filter(
+            order_item__order__owner=request.user,
+            order_item__order__status=Order.Status.PAID,
+            status=LicenseGrant.Status.ACTIVE,
+        )
+        .select_related("order_item__order")
+        .order_by("-issued_at", "-pk")
+    )
+
+    # Mostrar los permisos y los datos históricos de sus líneas.
+    return render(
+        request,
+        "orders/license_list.html",
+        {"grants": grants},
+    )
+
+
+@require_GET
+@login_required
+def license_detail(request, license_id):
+    # Obtener únicamente un permiso del usuario autenticado.
+    grant = get_object_or_404(
+        LicenseGrant.objects.select_related("order_item__order"),
+        pk=license_id,
+        order_item__order__owner=request.user,
+    )
+
+    # Leer las condiciones históricas de la línea comprada.
+    item = grant.order_item
+
+    has_documented_terms = all(
+        value.strip()
+        for value in (
+            item.terms_version,
+            item.terms_text,
+            item.usage_scope,
+            item.grantor_name,
+            item.rights_holder_name,
+        )
+    )
+
+    # Mostrar el detalle sin reconstruir condiciones desde el catálogo.
+    return render(
+        request,
+        "orders/license_detail.html",
+        {
+            "grant": grant,
+            "item": item,
+            "has_documented_terms": has_documented_terms,
+        },
+    )

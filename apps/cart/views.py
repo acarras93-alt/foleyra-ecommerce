@@ -18,6 +18,7 @@ from apps.cart.services import (
 
 @login_required
 def cart_detail(request):
+    """Render the authenticated user's cart summary."""
     return render(
         request,
         "cart/cart_detail.html",
@@ -26,6 +27,8 @@ def cart_detail(request):
 
 
 def cart_write_login_required(view_func):
+    """Require login for a cart view, using the cart detail as the return URL."""
+
     @wraps(view_func)
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -38,6 +41,12 @@ def cart_write_login_required(view_func):
 @require_POST
 @cart_write_login_required
 def add_item(request):
+    """Add an available offer to the authenticated user's cart via POST.
+
+    Return 400 for an invalid offer ID and raise Http404 for a missing or
+    unavailable offer. Redirect to the cart with a message indicating
+    whether the item was added or already existed.
+    """
     try:
         offer_id = int(request.POST.get("offer_id"))
     except (TypeError, ValueError):
@@ -56,6 +65,11 @@ def add_item(request):
 @require_POST
 @cart_write_login_required
 def remove_item(request, item_id):
+    """Remove an item from the authenticated user's cart via POST.
+
+    Raise Http404 if no matching item exists in the user's cart.
+    Redirect to the cart after removal.
+    """
     try:
         remove_cart_item(owner=request.user, item_id=item_id)
     except CartItemNotFound:

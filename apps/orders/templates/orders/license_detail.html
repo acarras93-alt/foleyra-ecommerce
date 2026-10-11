@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Detalle del permiso</title>
+</head>
+<body>
+    <h1>Detalle del permiso</h1>
+
+    <article>
+        <p>Identificador: {{ grant.pk }}</p>
+        <p>Pedido: {{ item.order.pk }}</p>
+
+        <h2>{{ item.product_name }}</h2>
+        <p>SKU: {{ item.product_sku }}</p>
+        <p>Licencia: {{ item.license_name }}</p>
+        <p>Términos: {{ item.terms_version }}</p>
+        <p>Precio: {{ item.price }} {{ item.currency }}</p>
+
+        <p>Estado: {{ grant.get_status_display }}</p>
+        <p>Fecha de emisión: {{ grant.issued_at }}</p>
+
+        {% if not item.source_product_id %}
+            <p>Pendiente de preparación de entrega</p>
+        {% endif %}
+
+        {% if has_documented_terms %}
+            <h2>Condiciones de uso</h2>
+            <p>{{ item.terms_text|linebreaksbr }}</p>
+            <p>Alcance: {{ item.usage_scope }}</p>
+            <p>Concedente: {{ item.grantor_name }}</p>
+            <p>Titular declarado: {{ item.rights_holder_name }}</p>
+        {% else %}
+            <p>Condiciones históricas pendientes de documentación</p>
+        {% endif %}
+
+        <a href="{% url 'orders:detail' order_id=item.order.pk %}">Ver pedido</a>
+    </article>
+
+    <a href="{% url 'license_list' %}">Volver a Mis licencias</a>
+</body>
+</html>

@@ -88,10 +88,16 @@ Cada comportamiento nuevo comienza con una prueba que falla por la ausencia de
 ese comportamiento. El Red debe ser válido antes de escribir la implementación
 mínima que obtiene Green.
 
+Si el comportamiento completo ya existe, se escribe o amplía una prueba de
+regresión y se ejecuta; puede comenzar en Green. Se registra como cobertura de
+comportamiento preexistente, sin fabricar Red ni cambiar código que ya cumple.
+Si ya existe una prueba suficiente, se reutiliza su trazabilidad y se ejecuta.
+
 #### Verificación
 
 - El requisito y criterio están aprobados antes de crear la prueba.
-- La bitácora identifica comando, prueba y causa exacta del Red.
+- La bitácora identifica comando, prueba y causa exacta del Red o, cuando ya
+  existía el comportamiento, el Green inicial y el código que lo satisface.
 - Un fallo de sintaxis, import, entorno o PostgreSQL no cuenta como Red válido.
 - Después del Green se ejecutan la prueba específica y la regresión aplicable.
 - No se debilitan, borran o marcan pruebas para ocultar un defecto.
@@ -314,33 +320,64 @@ Además:
 El planning se gestiona por resultados verificables y reserva una fase de
 consolidación. Retrasar la versión final no autoriza a ampliar el MVP.
 
-#### Hitos reprogramados el 2026-08-25
+#### Hitos de referencia y foco actualizado el 2026-10-04
 
-| Fecha | Resultado exigido | Estado actual |
-| --- | --- | --- |
-| 25 de agosto | Checkpoint del catálogo aprobado y puerta base recuperada | Completado |
-| 26–28 de agosto | RF-01 implementado y verificado por incrementos | Pendiente |
-| 29–31 de agosto | RF-02 implementado y verificado por incrementos | Pendiente |
-| 1–3 de septiembre | RF-03 implementado y verificado por incrementos | Pendiente |
-| 4–6 de septiembre | RF-12 implementado y verificado por incrementos | Pendiente |
-| 7 de septiembre | Fixture de demostración, revisión de alcance y evidencias de catálogo | Pendiente |
-| 8 de septiembre | Versión candidata, decisión explícita de alcance y congelación de funcionalidades | Pendiente |
-| 9–11 de septiembre | Regresión, seguridad, permisos, integridad y rendimiento | Pendiente |
-| 12 de septiembre | Reproducción limpia, documentación y evidencias académicas | Pendiente |
-| 13 de septiembre | Portfolio, revisión del historial y ensayo de entrevista técnica | Pendiente |
-| 14 de septiembre | Auditoría final y corrección exclusiva de defectos bloqueantes | Pendiente |
-| 15 de septiembre | Entrega y etiqueta v1.0.0 si toda la puerta de calidad está verde | Pendiente |
+El calendario de agosto/septiembre queda sustituido. Por decisión del
+desarrollador, el 1 de octubre tampoco es una fecha de entrega comprometida.
+No se establece otra fecha sin estimar el trabajo pendiente con datos de avance.
+
+| Orden | Resultado exigido |
+|---|---|
+| 1 · RF-07 | Pago simulado aprobado, íntegro e idempotente |
+| 2 · RF-08 | Rechazo y reintento con historial y estados coherentes |
+| 3 · RF-10 | Registro atómico y consulta privada de permisos con condiciones trazables |
+| 4 · RF-11 | Entrega privada del archivo correcto para la compra |
+| 5 · RF-13 | Carrito por API autenticada con reglas compartidas |
+| 6 · RF-14 | Compra, consultas y entrega por API privada |
+| 7 · RF-15 | Administración con permisos y protección de historia |
+| 8 · Consolidación | Regresión, recorrido manual, evidencias e instalación limpia |
+
+Los contratos y decisiones técnicas nuevos permanecen propuestos en los RF
+hasta su aprobación; este orden y la metodología proceden del encargo actual.
+El detalle está en el [plan del MVP](mvp-implementation-plan.md).
+
+El foco inmediato acordado el 2026-10-04 es completar RF-10 y RF-11 y validar
+después el recorrido web de adquisición y entrega. RF-07 y RF-08 ya constan
+como verificados. RF-13, RF-14 y RF-15 conservan su alcance y estado: concentrar
+el trabajo actual no los elimina ni permite declarar terminado todo el MVP.
+El objetivo de una o dos semanas orienta la priorización; no certifica una fecha
+de entrega ni autoriza a omitir garantías de seguridad o integridad.
 
 #### Reglas de planificación
 
-- Los requisitos `Must` y el recorrido backend tienen prioridad sobre los
-  elementos `Should` y el acabado visual.
-- Desde el 8 de septiembre no se añaden capacidades nuevas: se consolidan las
-  implementadas y se puede recortar alcance no esencial.
-- Un hito se mueve o recorta de forma explícita; no se declara completado con
-  pruebas fallidas, permisos incompletos o archivos privados expuestos.
-- El 15 de septiembre sigue siendo una fecha de verificación y entrega, no una
-  jornada para desarrollar funcionalidades.
+- Los requisitos `Must` y el recorrido backend tienen prioridad sobre nuevo
+  acabado visual o ampliaciones ajenas al MVP.
+- La congelación funcional comienza al cerrar el alcance acordado y antes de
+  consolidación; durante ella se corrigen defectos y se prepara la entrega.
+- Cada hito termina con criterios comprobados, documentación y puerta de
+  calidad aplicable, no por llegar a una fecha.
+- Un hito se reestima explícitamente; no se ocultan fallos, permisos incompletos
+  o exposición de archivos para declarar una entrega.
+- El ritmo debe permitir que el desarrollador comprenda y explique cada
+  comportamiento; se trabaja por criterios, sin desarrollar todos a la vez.
+
+#### Validación de extremo a extremo con productos sonoros reales
+
+El cierre funcional del recorrido web incluye una validación con una muestra
+reducida de audios reales, previews preparadas, cuentas de prueba y pagos
+simulados. Se introduce un sonido durante RF-10/11 y se completa el recorrido
+integrado después de su implementación; no se importa la biblioteca completa.
+
+La verificación contrasta datos persistidos en PostgreSQL, archivos almacenados
+y respuestas al usuario. Debe demostrar separación público/privado (RNF-06),
+conservación histórica (RNF-08) y aislamiento entre propietarios (RNF-10).
+Complementa las pruebas automatizadas y la puerta de calidad de RNF-11.
+
+El protocolo, la muestra y las condiciones de cierre se describen en el
+[plan del MVP](mvp-implementation-plan.md#validación-de-extremo-a-extremo-con-productos-sonoros-reales).
+Las evidencias remiten a los criterios existentes de RF-10/11 e indican versión,
+resultado y limitaciones, sin publicar secretos ni claves privadas del maestro.
+La validación permanece pendiente hasta ejecutarla y registrar sus resultados.
 
 #### Evidencia
 
@@ -359,8 +396,19 @@ responsabilidad técnica.
 
 - El manual, los requisitos y las versiones bloqueadas se revisan antes del
   prompt.
-- El desarrollador escribe o comprende el criterio, confirma el Red, revisa la
-  implementación y explica la migración.
+- El desarrollador escribe o comprende el criterio, confirma un Red válido o
+  un Green inicial justificado por comportamiento existente, revisa la
+  implementación y explica la migración cuando exista.
+- Aplica la [premisa de trabajo hasta el cierre del proyecto](mvp-implementation-plan.md#4-premisa-de-trabajo-hasta-el-cierre-del-proyecto),
+  acordada el 2026-10-07: un criterio cada vez, lectura breve, revisión de
+  cobertura existente, apoyo del asistente en la escritura de pruebas,
+  aprendizaje centrado en la implementación y evidencia suficiente.
+- El desarrollador revisa qué prepara la prueba, qué operación ejecuta y qué
+  fallo detectan sus comprobaciones. El análisis se amplía solo ante una
+  ambigüedad que cambia el comportamiento, un riesgo concreto o una parte del
+  criterio sin cubrir. No se exige una investigación exhaustiva ni dominar
+  toda la infraestructura de concurrencia antes de continuar; sus garantías
+  siguen verificándose.
 - La revisión con Copilot se realiza después en una conversación o fase
   separada y produce hallazgos reproducibles.
 - No se acepta código que el desarrollador no pueda explicar ni verificar.
@@ -415,7 +463,24 @@ futura API privada de RF-14 sin adelantarla.
 RNF-02, RNF-12 y RNF-13 continúan aplicándose transversalmente a RF-04, RF-05,
 RF-06 y RF-09.
 
-## 6. Criterio de verificación de versión
+## 6. Aplicación a los incrementos restantes del MVP
+
+| RF | Comprobaciones de calidad a concretar al implementar su contrato |
+|---|---|
+| RF-07/08 | Propiedad, CSRF, importes históricos, unicidad de aprobación, idempotencia, rollback y concurrencia PostgreSQL |
+| RF-10 | Un permiso por línea pagada, emisión atómica, condiciones históricas inmutables y consultables, versionado, documentación antigua explícita, aislamiento, consultas acotadas y GET sin efectos |
+| RF-11 | Archivo privado correcto, referencia estable, ausencia de exposición, denegación uniforme y conservación del archivo comprado |
+| RF-13/14 | Sesión y permisos explícitos, CSRF, contrato JSON, equivalencia web/API y consultas acotadas |
+| RF-15 | Permisos por rol, historia protegida, formularios seguros de archivos y ausencia de N+1 |
+
+Aplican RNF-01 a RNF-06, RNF-08 y RNF-10 a RNF-13 según la operación;
+RNF-07 añade eficiencia del catálogo/Admin. Las reglas particulares nuevas se
+especifican como propuestas en los RF, sin darlas por implementadas.
+Los límites de consultas se prueban usando las relaciones, no por la mera
+presencia de una optimización ORM. Las lecturas no deben crear ni modificar
+datos de negocio para completar una transición omitida.
+
+## 7. Criterio de verificación de versión
 
 Un RNF pasa a `Verificado` únicamente cuando su evidencia corresponde a una
 versión o commit existente. Si una comprobación no puede ejecutarse, se registra

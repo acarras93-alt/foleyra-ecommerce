@@ -71,6 +71,7 @@ class LicenseType(models.Model):
     usage_scope = models.CharField(max_length=180)
     summary = models.CharField(max_length=255)
     terms_version = models.CharField(max_length=20)
+    terms_text = models.TextField(blank=True, default="")
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -95,6 +96,16 @@ class ProductLicenseOffer(models.Model):
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    grantor_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+    )
+    rights_holder_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
     )
     currency = models.CharField(max_length=3, default="EUR", editable=False)
     is_active = models.BooleanField(default=True)

@@ -6,7 +6,9 @@ from rest_framework.exceptions import NotFound
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.catalog.selectors import (
     ORDERING_OPTIONS,
@@ -29,7 +31,9 @@ class PublicProductPagination(PageNumberPagination):
 
     def paginate_queryset(self, queryset, request, view=None):
         self.request_path = request.path
-        self.query_params = view.get_canonical_query_params()
+        self.query_params = (
+            view.get_canonical_query_params() if view is not None else {}
+        )
         try:
             return super().paginate_queryset(queryset, request, view)
         except NotFound as error:
@@ -49,7 +53,9 @@ class PublicProductPagination(PageNumberPagination):
         return f"{self.request_path}?{urlencode({**self.query_params, 'page': page_number})}"
 
 
-class PublicCatalogAPIView:
+class PublicCatalogAPIView(APIView):
+    request: Request
+
     def error_response(
         self, code, parameter=None, status_code=status.HTTP_400_BAD_REQUEST
     ):

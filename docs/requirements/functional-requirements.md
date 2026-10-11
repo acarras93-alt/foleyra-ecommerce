@@ -31,7 +31,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Verificado |
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Verificado |
 | RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Implementado |
-| RF-10 | Consultar las licencias propias | Cliente autenticado | Must | v0.6.0 | Propuesto |
+| RF-10 | Registrar y consultar permisos de uso con condiciones trazables | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-11 | Descargar un archivo autorizado | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-12 | Consultar el catálogo mediante una API pública | Consumidor de la API | Must | v0.2.0 | Verificado |
 | RF-13 | Gestionar el carrito mediante una API autenticada | Cliente de la API autenticado | Must | v0.3.0 | Propuesto |
@@ -41,6 +41,13 @@ las pruebas, la implementación y las evidencias académicas.
 Las decisiones transversales que deben aprobarse antes de crear el módulo se
 encuentran en el
 [checkpoint de decisiones del catálogo](catalog-decision-checkpoint.md).
+
+RF-07 queda verificado el 2026-10-02 y RF-08 el 2026-10-03. El orden restante es
+**RF-10 → RF-11 → RF-13 → RF-14 → RF-15**. El [plan de cierre y metodología](mvp-implementation-plan.md)
+registra el estado observado el 2026-10-11, incluido el avance parcial de RF-10,
+y la premisa de revisar cobertura existente y profundizar según dudas o riesgos.
+Los seis requisitos antes vacíos se desarrollan como propuestas; RF-15 conserva
+CA01–CA07 aprobados y separa expresamente sus ampliaciones propuestas.
 
 ## 4. Especificación detallada
 
@@ -53,7 +60,7 @@ encuentran en el
 | Actor principal | Visitante o cliente |
 | Prioridad | Must |
 | Versión objetivo | v0.2.0 |
-| Estado | Verificado |
+| Estado | Aprobado |
 | Dependencias | RNF-01, RNF-03 a RNF-09 y RNF-11 |
 
 #### Objetivo
@@ -175,9 +182,11 @@ El requisito está disponible para usuarios anónimos y autenticados.
 #### Trazabilidad
 
 RF-01 mantiene el estado `Aprobado`; no está completamente verificado porque
-CA-RF01-05 permanece pendiente. El modelo actual no tiene contrato ni campo para
-el archivo maestro privado. Su verificación se difiere a RF-11, que definirá el
-almacenamiento y la entrega autorizada.
+CA-RF01-05 tiene su cierre documental pendiente. Desde D-CAT-06 el modelo sí
+incluye `master_file` en almacenamiento privado sin URL pública. La entrega
+autorizada sigue pendiente de RF-11; en ese hito se revisarán conjuntamente las
+evidencias de no exposición y entrega. Esta corrección del 2026-09-27 no declara
+el criterio verificado sin completar su trazabilidad.
 
 | Elemento | Referencia |
 |---|---|
@@ -190,7 +199,7 @@ almacenamiento y la entrega autorizada.
 | CA-RF01-02 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-02.md` | `472ae50` | Verificado: comportamiento preexistente |
 | CA-RF01-03 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-03.md` | `5be00ca` | Verificado |
 | CA-RF01-04 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-04.md` | `c8e2a20` | Verificado |
-| CA-RF01-05 | Pendiente: requiere contrato de archivo maestro privado | No aplica hasta RF-11 | No aplica | Pendiente, diferido a RF-11 |
+| CA-RF01-05 | Revisar cobertura de no exposición existente en catálogo y completar trazabilidad | Cierre documental pendiente | Pendiente de vincular | Pendiente; revisión final con RF-11 |
 | CA-RF01-06 | `apps/catalog/tests/test_views.py` | `docs/evidence/RF-01/CA-RF01-06.md` | `8415d55` | Verificado |
 | CA-RF01-07 | `apps/catalog/tests/test_selectors.py` | `docs/evidence/RF-01/CA-RF01-07.md` | `b2d6eab`, `f3991b7` | Verificado |
 
@@ -1576,9 +1585,325 @@ manual y las tres capturas previstas. La navegación se comprueba en el HTML;
 la prueba no acredita por sí sola su presentación visual en el navegador.
 No se implementan API privada, pagos, licencias adquiridas ni descargas.
 
-## RF-10: Consultar las licencias propias
+### RF-10 — Registrar y consultar permisos de uso con condiciones trazables
 
-## RF-11: Descargar un archivo autorizado
+#### Metadatos y alcance
+
+- Actor: cliente autenticado. Prioridad: Must. Versión: v0.6.0.
+- Estado: `Propuesto`. Dependencias: RF-06 a RF-09; RNF-01 a RNF-06,
+  RNF-08 y RNF-10 a RNF-13.
+- Una licencia adquirida representa el permiso de uso registrado para el
+  cliente de una línea pagada; no es el modelo de catálogo `LicenseType` ni
+  acredita una transmisión de propiedad intelectual sobre la grabación.
+  Conserva propietario a través del pedido, identificador, línea, fecha de
+  emisión y estado `active`.
+- Los datos visibles proceden de la compra histórica: producto, SKU, tipo de
+  licencia, versión y texto de condiciones, concedente y titular declarado de
+  los derechos. Identificar una versión sin conservar su contenido no basta.
+
+#### Objetivo y decisión de orientación
+
+Por instrucción del usuario del 2026-10-04, RF-10 se orienta a registrar y
+consultar permisos de uso con condiciones trazables. «Mis licencias» se conserva
+como nombre de la sección web y `/licenses/` como ruta. La orientación queda
+acordada; los contratos y criterios de implementación siguientes permanecen
+propuestos y se trabajarán uno a uno.
+
+El cliente debe poder responder «qué uso tengo permitido, sobre qué producto,
+según qué condiciones y de qué compra procede». Las condiciones describen el
+alcance de uso, usos permitidos, restricciones, duración, territorio, carácter
+exclusivo o no exclusivo y atribución cuando corresponda. Identifican al
+concedente y al titular declarado de los derechos, que pueden ser distintos;
+no se atribuye automáticamente esa titularidad a Foleyra.
+
+El MVP conserva un registro de adquisición mediante pago simulado; ese registro
+no verifica por sí mismo la titularidad real del proveedor ni sustituye la
+revisión de condiciones necesaria para una explotación comercial real.
+
+#### Condiciones trazables: contrato propuesto
+
+- Antes de crear el pedido, el cliente puede consultar las condiciones completas
+  de la oferta y su versión desde la selección de compra. Un resumen de licencia
+  no sustituye el texto completo.
+- Las nuevas líneas de pedido capturan en el servidor la versión y el texto
+  completo de las condiciones, el alcance de uso, el concedente y el titular
+  declarado, además de los snapshots existentes. Estos datos se capturan al
+  crear el pedido, no se reconstruyen desde el catálogo al pagar o consultar.
+  El modelo concreto y los nombres de campos se definirán al abordar el criterio.
+- El contenido capturado es histórico e inmutable. Una modificación de las
+  condiciones publicadas exige una nueva versión para ese tipo de licencia;
+  no sobrescribe las condiciones de pedidos existentes ni obliga al cliente
+  a adquirir de nuevo la misma combinación de producto y tipo de licencia.
+  La aprobación usa las condiciones capturadas por el pedido pendiente.
+- Una nueva conversión sin condiciones completas o identidades declaradas
+  responde 409 con mensaje comprensible, sin pedido parcial ni vaciado del
+  carrito. Un pedido pendiente antiguo sin esa preparación tampoco puede
+  aprobarse: responde 409 sin intento, cambio de estado ni emisión de permisos.
+- Las compras anteriores que solo guardan `terms_version` siguen consultables.
+  Se indica «Condiciones históricas pendientes de documentación» cuando falta
+  el contenido, sin mostrar condiciones actuales como si fueran las compradas.
+  Solo una operación explícita con correspondencia revisada puede completar
+  esos datos; conserva los snapshots originales, es idempotente y no inventa
+  condiciones ni reconstruye una aceptación del usuario que no esté registrada.
+  La emisión de derechos para pedidos ya pagados prevista en CA-RF10-10 no
+  convierte por sí sola esas condiciones desconocidas en condiciones trazables.
+- El detalle de cada permiso muestra las condiciones capturadas y su procedencia
+  de compra. El listado conserva una representación breve con versión; consultar
+  el texto no genera ni modifica permisos.
+
+#### Fuera de alcance de esta orientación
+
+Generación de contratos o certificados PDF, firma electrónica, registro oficial
+de propiedad intelectual, DRM, detección automática de copias y reclamaciones
+automáticas. Tampoco se incorporan transferencias, suscripciones o revocaciones
+desde la interfaz del cliente. Un aviso de copyright puede identificar al titular
+declarado; no sustituye las condiciones ni se presenta como certificado de
+titularidad. La entrega privada del archivo continúa en RF-11.
+
+#### Contrato e integración propuestos
+
+`GET /licenses/` lista derechos propios por emisión e ID descendentes.
+`GET /licenses/{license_id}/` muestra un derecho propio y referencia a su pedido.
+Sin resultados: 200 con mensaje comprensible. Anónimo: login con `next` interno.
+Ajeno/inexistente: 404 uniforme. Escrituras sobre estas consultas: 405.
+La navegación autenticada incluye «Mis licencias».
+
+La aprobación de RF-07 se amplía aquí: pago, estado `paid` y un derecho por cada
+línea se confirman atómicamente. La unicidad por línea se protege en PostgreSQL;
+repeticiones no duplican derechos. El GET nunca emite licencias. Para pedidos
+`paid` creados antes de RF-10 se usa una operación administrativa explícita e
+idempotente de regularización, probada aparte; no se ejecuta al consultar.
+
+Preparación necesaria para RF-11: las nuevas líneas capturan una referencia
+estable al producto de origen (`source_product`, nombre técnico propuesto),
+protegida contra borrado, además de sus snapshots. No se resuelve el producto
+por un SKU mutable. La relación admite nulo durante la transición para conservar las líneas
+antiguas, sin inventar asociaciones. Nunca reconstruye los campos históricos
+desde el catálogo. Las líneas antiguas mantienen sus datos; un mapeo técnico solo se completa con correspondencia explícita y revisada. Una
+referencia desconocida permanece sin resolver y nunca habilita otra compra.
+Esta ampliación del servicio de checkout y su migración forman parte del
+incremento; no modifica importes, propiedad ni textos históricos de RF-06/09.
+
+#### Regla de negocio: impedir la recompra de una licencia adquirida
+
+- RN-RF10-01: un cliente con un derecho activo no puede comprar de nuevo la
+  misma combinación de producto y tipo de licencia. La identidad se comprueba
+  mediante referencias técnicas estables; no mediante nombres, SKU, precio,
+  moneda o textos de términos que puedan cambiar en el catálogo. Un cambio de
+  precio o de versión de términos no habilita por sí solo una nueva compra de
+  esa misma combinación. Otro tipo de licencia o producto queda fuera de este
+  bloqueo y sigue sujeto a las demás reglas de compra.
+- Al implementar RF-10, los servicios de alta en carrito y creación de pedido
+  rechazan la combinación ya adquirida con 409 y un mensaje comprensible,
+  sin modificar el carrito ni crear otro pedido. La aprobación de pago vuelve
+  a comprobarla: si se adquirió mediante otro pedido mientras este estaba
+  pendiente, rechaza la nueva aprobación con 409, sin registrar un intento,
+  cambiar el estado ni emitir derechos. No elimina automáticamente selecciones
+  del carrito ni modifica pedidos históricos.
+- Esta protección se comparte entre web y la futura API privada y debe cubrir
+  dos pedidos distintos que intenten adquirir simultáneamente la misma
+  combinación. La unicidad por línea no basta para impedir esa recompra.
+  Repetir una aprobación ya confirmada con la misma clave conserva el éxito
+  original según RF-07; ese replay no se considera una nueva compra.
+- La preparación técnica de CA-RF10-11 se amplía con una referencia estable al
+  tipo de licencia de origen (`source_license_type`, nombre propuesto), además
+  de `source_product`. Las líneas antiguas requieren correspondencia explícita
+  y revisada durante la regularización; una identidad sin resolver no permite
+  afirmar que se ha comprobado la ausencia de una licencia previa. Resolver
+  estos casos es condición de cierre de la regla, sin inventar asociaciones ni
+  sobrescribir los snapshots históricos.
+
+#### Criterios de aceptación propuestos
+
+- CA-RF10-01: dado un pago aprobado para un pedido con varias líneas, cuando se
+  confirma la transición, entonces existe exactamente un derecho activo por
+  línea y todos pertenecen al propietario del pedido; repetir la aprobación no
+  duplica derechos.
+- CA-RF10-02: dado un pedido pendiente o con intentos fallidos, cuando se
+  consulta «Mis licencias», entonces no aparecen derechos para esas líneas.
+- CA-RF10-03: dado un fallo al emitir una de las licencias, cuando se aborta la
+  aprobación, entonces pago, pedido y derechos revierten juntos; una carrera de
+  emisión nunca deja derechos duplicados o un pedido recién pagado sin ellos.
+- CA-RF10-04: dado un cliente autenticado sin derechos, cuando abre el listado,
+  entonces recibe 200 y un estado vacío, sin crear licencias al consultar.
+- CA-RF10-05: dados dos clientes con derechos distintos, cuando uno abre su
+  listado, entonces ve solo los suyos, con identificador, pedido, producto,
+  licencia, versión de términos, fecha y estado, en el orden definido.
+- CA-RF10-06: dado un permiso propio, cuando se abre su detalle, entonces
+  muestra los datos históricos, las condiciones completas capturadas, su versión,
+  alcance, concedente y titular declarado, y el enlace al pedido propio, sin
+  sustituirlos por modificaciones del catálogo ni publicar rutas del maestro.
+  Para una compra antigua sin condiciones documentadas muestra el aviso previsto,
+  sin atribuirle condiciones actuales.
+- CA-RF10-07: dado un anónimo o un identificador ajeno/inexistente, cuando se
+  solicita listado o detalle, entonces se aplica login o 404 según el contrato;
+  los métodos de escritura no modifican derechos.
+- CA-RF10-08: dado un cliente autenticado, cuando navega por la interfaz
+  principal, entonces encuentra «Mis licencias» y puede abrir un detalle propio.
+- CA-RF10-09: dados uno y varios derechos propios, cuando se renderizan sus
+  datos, entonces las consultas permanecen acotadas sin crecimiento por derecho,
+  y listado/detalle no modifican pedidos, intentos, carrito ni derechos.
+- CA-RF10-10: dados pedidos pagados anteriores sin derechos, cuando se ejecuta
+  la regularización explícita, entonces se crean solo los faltantes para líneas
+  pagadas; repetirla no duplica datos y no concede derechos a pedidos pendientes.
+- CA-RF10-11: dada una nueva conversión de carrito, cuando se guarda la línea,
+  entonces conserva la referencia técnica estable al producto y sus snapshots;
+  cambiar el SKU después no rompe esa referencia. Las líneas antiguas sin mapeo
+  continúan consultables y se identifican como pendientes de preparación de entrega.
+- CA-RF10-12: dado un cliente con un derecho activo para un producto y tipo de
+  licencia, cuando intenta añadir esa combinación al carrito, crear otro pedido
+  que la contenga o aprobar otro pedido pendiente que la incluya, entonces se
+  rechaza con 409 y un mensaje comprensible, sin nuevos pedidos, intentos o
+  derechos ni cambios en los datos de negocio. Cambiar precio, moneda, nombre,
+  SKU o versión de términos no elude el bloqueo; otro cliente sin ese derecho
+  o una combinación distinta no se rechazan por esta regla. Dos aprobaciones
+  concurrentes sobre pedidos diferentes no confirman dos adquisiciones de la
+  misma combinación; el replay válido del pago original conserva su éxito.
+- CA-RF10-13: dada una oferta preparada, cuando se crea un pedido, entonces
+  cada línea captura la versión y texto completo de condiciones, alcance de uso,
+  concedente y titular declarado desde el servidor junto con sus datos de compra;
+  al aprobarse el pago su permiso consulta exactamente esos datos capturados.
+- CA-RF10-14: dado un pedido pendiente o pagado con condiciones capturadas,
+  cuando el catálogo publica otra versión, entonces su pago y consultas conservan
+  las condiciones originales. Cambiar el contenido sin cambiar la versión del
+  mismo tipo de licencia se rechaza sin sobrescribir datos históricos.
+- CA-RF10-15: dada una compra antigua sin texto histórico, cuando se consulta,
+  entonces muestra la ausencia de documentación sin usar términos actuales;
+  completar una correspondencia explícita y revisada conserva los snapshots
+  originales y repetir la operación no cambia datos. Una correspondencia ausente
+  o ambigua se rechaza sin inventar condiciones ni constancia de aceptación.
+- CA-RF10-16: dada una oferta con condiciones completas, cuando el cliente
+  prepara la compra, entonces puede consultar su texto y versión antes de crear
+  el pedido. Sin condiciones completas o identidades declaradas, la conversión
+  responde 409 y conserva el carrito; un pedido pendiente sin esa preparación
+  responde 409 al aprobar el pago, sin intento, cambio de estado ni permisos.
+
+#### Orden y evidencias previstas
+
+11: referencias técnicas de producto y tipo de licencia; 13–14 y 16: captura,
+versionado y consulta previa de condiciones; 01–03: emisión transaccional;
+10 y 15: datos anteriores y documentación histórica; 12: prevención de recompra
+e integración con carrito, checkout y pagos; 04–08: consulta privada y navegación;
+09: regresión y rendimiento.
+Crear datos y consultar permisos son responsabilidades distintas aunque se
+cierren en este requisito. Pruebas previstas de modelos, servicios y vistas;
+evidencias en `docs/evidence/RF-10/`.
+
+#### Avance parcial observado el 2026-10-11
+
+El requisito conserva `Propuesto` para los contratos todavía pendientes; su
+implementación parcial no acredita el cierre de todos los criterios ni aprueba
+automáticamente nuevas decisiones. La evidencia del árbol publicado se recoge
+en [RF-10](../evidence/RF-10/README.md).
+
+- `LicenseGrant` existe y se emite por línea en la aprobación transaccional.
+  Las pruebas cubren replay, fallo de emisión y aprobaciones concurrentes.
+- `/licenses/` y su detalle están implementados con propiedad, login, métodos,
+  navegación, orden y condiciones históricas. La lectura no crea permisos.
+- Catálogo y líneas incorporan texto de condiciones e identidades declaradas;
+  el checkout copia esos valores. Las compras antiguas incompletas muestran
+  avisos sin reconstruir datos desde el catálogo.
+- Las nuevas líneas capturan `source_product` con `PROTECT`, admitiendo nulo
+  para las antiguas. No existe todavía `source_license_type`, un vínculo al
+  maestro comprado ni una operación explícita de regularización.
+- Continúan pendientes CA10, CA12 y CA16. CA14 tiene conservación de snapshots,
+  pero falta rechazar cambios de contenido con la misma versión. CA15 dispone
+  del aviso de datos antiguos, pero no de la regularización explícita.
+  La referencia al tipo de licencia añadida al contrato de CA11 sigue pendiente.
+
+Los tests de estas partes se identifican en la evidencia parcial. Una prueba
+vacía con `pass` no acredita cobertura, aunque pytest la contabilice.
+
+### RF-11 — Descargar un archivo autorizado
+
+#### Metadatos y alcance
+
+- Actor: cliente autenticado con derecho adquirido. Prioridad: Must. Versión: v0.6.0.
+- Estado: `Propuesto`. Dependencias: RF-06 a RF-10 y separación de maestros ya
+  existente; RNF-01 a RNF-06, RNF-08 y RNF-10 a RNF-13.
+- `GET /licenses/{license_id}/download/` entrega el archivo como adjunto mediante
+  streaming, después de validar propietario, derecho activo, línea y pedido pagado.
+- Una descarga autorizada es la decisión de acceso sobre un derecho persistido;
+  no requiere crear un token, permiso nuevo o registro de descarga por cada GET.
+  No se ofrecen enlaces públicos, firmados ni permanentes a almacenamiento en el MVP.
+- Se permiten descargas repetidas del mismo archivo mientras exista el derecho.
+  DRM, ZIP, conversión de audio, CDN y límites comerciales de descargas quedan fuera.
+
+#### Identidad del archivo y política de entrega propuestas
+
+Además de la referencia estable introducida en RF-10, la nueva línea de pedido
+captura la clave interna del maestro en el almacenamiento privado. Esta clave
+no se acepta desde el cliente, no es una URL y nunca se expone en HTML, JSON,
+contextos de plantillas, errores ni logs. Las representaciones seleccionan los
+campos permitidos y no incluyen objetos que expongan la clave. Reemplazar el maestro del catálogo produce otra clave y debe
+conservar el objeto referenciado por compras anteriores. No se añade un gestor
+de versiones: la aplicación y el Admin de RF-15 comparten una política que
+escribe un objeto nuevo y no borra ni sobrescribe claves de compras anteriores.
+
+«Maestro preparado» significa clave privada configurada, objeto existente y
+asociación inequívoca con la compra; no basta una cadena no vacía.
+
+Al activar RF-11, el checkout debe rechazar con 409 una oferta cuyo maestro no
+esté preparado para capturarse. El servicio de pago debe rechazar un pedido
+pendiente sin maestro preparado con 409, sin crear una aprobación.
+Se amplían las pruebas y la documentación de RF-06/07 para estos dos guardas;
+no se cambian los precios ni snapshots originales. Una pérdida operativa posterior
+del archivo devuelve un error controlado de descarga, nunca otro archivo.
+
+Para compras antiguas sin clave se exige una asociación explícita y revisada
+con el archivo correcto. No se adivina por SKU, por nombre ni por el maestro
+actual. Mientras falte esa asociación, la descarga devuelve 404 genérico y el
+detalle propio informa de indisponibilidad. La regularización solo modifica el
+vínculo técnico autorizado, conserva los datos históricos y es idempotente.
+
+Anónimo: 302 al login con `next` interno. Licencia ajena, inexistente, inactiva,
+pedido no pagado o archivo ausente: 404 genérico sin información interna.
+Métodos no admitidos: 405. Una respuesta exitosa es 200 con
+`Content-Disposition: attachment`, nombre seguro derivado de datos públicos y
+`Cache-Control: private, no-store`; no permite elegir rutas mediante parámetros.
+
+#### Criterios de aceptación propuestos
+
+- CA-RF11-01: dada una compra propia pagada y un derecho activo con archivo
+  preparado, cuando se solicita la descarga, entonces recibe 200 y los bytes
+  del maestro correcto como adjunto, con cabeceras privadas y nombre seguro.
+- CA-RF11-02: dado un visitante anónimo, cuando solicita la descarga, entonces
+  se redirige al login con `next` interno y no recibe bytes privados.
+- CA-RF11-03: dado un identificador ajeno/inexistente, derecho inactivo o pedido
+  no pagado, cuando se solicita la descarga, entonces recibe 404 sin bytes ni
+  detalles que revelen la existencia de una compra ajena.
+- CA-RF11-04: dado un maestro ausente o una línea antigua sin asociación segura,
+  cuando el propietario solicita la descarga, entonces recibe un error 404
+  controlado; no se usa la preview ni un maestro de otro producto como alternativa.
+- CA-RF11-05: dado el almacenamiento del maestro, cuando se inspeccionan rutas
+  públicas, HTML, contextos, JSON y errores, entonces su clave, nombre interno y URL no son
+  públicos; una ruta bajo `MEDIA_URL` no permite recuperar sus bytes.
+- CA-RF11-06: dados cambios posteriores de SKU, nombre o maestro del catálogo,
+  cuando se descarga una compra preparada, entonces se obtiene el archivo
+  capturado para esa compra; desactivar el producto u oferta no revoca un derecho pagado.
+- CA-RF11-07: dada una nueva compra sin maestro preparado, cuando se intenta
+  convertir el carrito, entonces recibe 409 sin pedido parcial ni vaciado; un
+  pedido pendiente sin maestro preparado recibe 409 al pagar, sin aprobación,
+  cambio de estado ni derechos.
+- CA-RF11-08: dada una compra antigua con correspondencia revisada, cuando se
+  regulariza su vínculo de archivo, entonces queda asociada solo al maestro
+  indicado, sin modificar propiedad, precios o términos; repetirlo no cambia
+  el resultado y un mapeo inexistente o ambiguo se rechaza sin asociación.
+- CA-RF11-09: dado un derecho válido, cuando se repite la descarga o se usa un
+  método no admitido, entonces el GET autorizado mantiene los mismos derechos
+  y datos de negocio y el método no admitido responde 405 sin escritura.
+- CA-RF11-10: dado el detalle de una licencia propia preparada, cuando se abre,
+  entonces ofrece un enlace de descarga autenticada; la autorización se vuelve
+  a comprobar en el servidor aunque el cliente escriba la URL directamente.
+
+#### Orden y pruebas previstas
+
+05: regresión de almacenamiento existente; 06–08: identidad de entrega y
+preparación de compras; 01–04: entrega y permisos; 09–10: ausencia de efectos y
+navegación. Se amplía CA-RF09-09 para los modelos de pago y derechos ya creados.
+Las pruebas usan archivos temporales controlados y consumen `streaming_content`
+para verificar los bytes. No se leen ni copian maestros reales como fixtures.
+Evidencia prevista: `docs/evidence/RF-11/`.
 
 ### RF-12 — Consultar el catálogo mediante una API pública
 
@@ -1844,9 +2169,232 @@ lista y detalle, se conserva en `docs/evidence/RF-12/` y corresponde al commit
 | Evidencia | `docs/evidence/RF-12/quality-gate-2026-09-02.md` |
 | Commit | `355cc2d` |
 
-## RF-13: Gestionar el carrito mediante una API autenticada
+### RF-13 — Gestionar el carrito mediante una API autenticada
 
-## RF-14: Ejecutar checkout, pago y consultas privadas mediante API
+#### Metadatos y autenticación propuestas
+
+- Actor: cliente API autenticado. Prioridad: Must. Versión: v0.3.0 (etiqueta de
+  alcance, no orden de ejecución). Estado: `Propuesto`.
+- Dependencias: RF-04, RF-05 y RF-12; RNF-01 a RNF-06, RNF-08 y RNF-10 a RNF-13.
+- Autenticación MVP: sesión Django de RF-04, `SessionAuthentication` e
+  `IsAuthenticated` explícitos en cada vista privada. Escrituras con CSRF.
+  No se añaden JWT, tokens, OAuth, emisión de credenciales ni login API.
+- Un consumidor sin sesión válida recibe 403 JSON, no redirección al login;
+  esta elección no promete 401. Sesión válida sin CSRF en escritura: 403 JSON.
+- Se conserva RF-12 público, sin autenticación y con sus códigos propios.
+
+#### Contrato HTTP propuesto
+
+| Operación | Ruta y método | Resultado |
+|---|---|---|
+| Consultar carrito propio | `GET /api/v1/cart/` | 200 con resumen, incluso vacío; no crea carrito |
+| Resolver ofertas comprables | `GET /api/v1/cart/offers/?product={slug}` | 200 con ofertas disponibles e IDs para un producto público disponible |
+| Añadir oferta | `POST /api/v1/cart/items/` con `{"offer_id": 7}` | 201 si crea línea; 200 si ya estaba |
+| Eliminar línea propia | `DELETE /api/v1/cart/items/{item_id}/` | 204 sin cuerpo |
+
+La consulta autenticada de ofertas resuelve la obtención de `offer_id` sin
+ampliar los campos de la API pública ni exigir acceso al Admin. Producto no
+disponible/inexistente: 404; parámetro ausente/malformado: 400. Devuelve
+`results` con `offer_id`, nombre y slug de licencia, precio y moneda, ordenados
+por precio e ID. No modifica catálogo ni carrito.
+
+El resumen tiene `items`, `total` y `currency`; cada línea contiene `item_id`,
+`offer_id`, `product_name`, `product_slug`, `license_name`, `usage_scope`,
+`terms_version`, `price`, `currency` e `is_available`. Se reutiliza
+`get_cart_summary`; el alta devuelve la misma representación de línea.
+Los importes JSON son strings de dos decimales con punto, moneda EUR y cantidad
+implícita uno; las líneas se ordenan por ID ascendente, sin paginación del carrito.
+La oferta no disponible permanece visible y se excluye del total comprable.
+
+Errores: `{"error": {"code": "..."}}`, con catálogo cerrado para esta API:
+403 `authentication_required` o `csrf_failed`; 400 `invalid_request`;
+404 `product_not_found`, `offer_not_available` o `cart_item_not_found`;
+405 `method_not_allowed`; 415 `unsupported_media_type` si existe un cuerpo
+con tipo distinto de JSON. Se usa `JSONParser` para las escrituras con cuerpo;
+DELETE sin cuerpo es válido. JSON malformado: 400 `invalid_request`. Una autenticación
+fallida tiene prioridad sobre el método; las garantías de 405 se prueban con
+sesión y CSRF válidos cuando corresponda. Los errores internos son genéricos,
+sin trazas ni rutas privadas. Los códigos de RF-12 siguen siendo exclusivos de
+sus endpoints, no un límite global para las nuevas API.
+
+HEAD se permite en rutas GET con la misma autorización y cabeceras, sin cuerpo
+ni escrituras; OPTIONS devuelve 200 con métodos permitidos solo tras autenticar,
+sin datos de negocio. El resto de métodos fuera de contrato devuelve 405.
+Esta regla se hereda en RF-14; no cambia los métodos de RF-12 ni de la web.
+
+Campos extra de propietario, precio, moneda, cantidad o estado se rechazan con
+400; el servidor obtiene identidad de la sesión. Un `offer_id` ausente, no entero,
+booleano o no positivo se rechaza con 400; un entero positivo inexistente o
+inactivo, con 404. El borrado ajeno y el inexistente producen el mismo 404.
+
+#### Criterios de aceptación propuestos
+
+- CA-RF13-01: dado un consumidor sin sesión válida, cuando accede a cualquier
+  endpoint privado de carrito u ofertas, entonces recibe 403 JSON sin datos ni cambios.
+- CA-RF13-02: dada una sesión válida, cuando se intenta escribir sin CSRF válido,
+  entonces recibe 403 JSON sin cambios; con CSRF válido se evalúa la operación.
+- CA-RF13-03: dado un usuario sin carrito o sin líneas, cuando consulta el resumen,
+  entonces recibe 200 con `items=[]`, `total="0.00"` y `currency="EUR"`, sin crear datos.
+- CA-RF13-04: dado un producto disponible, cuando el cliente consulta sus ofertas,
+  entonces obtiene solo IDs y metadatos de ofertas comprables, que puede usar
+  en el alta; un producto no disponible/inexistente devuelve 404 sin rutas privadas.
+- CA-RF13-05: dada una oferta válida, cuando se añade, entonces se crea una línea
+  propia con 201; repetir la misma oferta devuelve 200 y la misma línea, sin duplicarla.
+- CA-RF13-06: dado un producto con dos ofertas de licencia distintas, cuando se
+  añaden ambas, entonces permanecen dos líneas diferentes con cantidad implícita uno.
+- CA-RF13-07: dada entrada malformada, JSON inválido o campos no admitidos, cuando
+  se envía el alta, entonces recibe 400 sin cambios; una oferta inexistente o
+  no disponible responde 404 y no crea carrito ni línea parcial.
+- CA-RF13-08: dados dos clientes con carritos distintos, cuando uno consulta,
+  entonces obtiene exclusivamente sus líneas, campos permitidos y total decimal
+  calculado en el servidor, con el orden definido.
+- CA-RF13-09: dada una línea propia, cuando se elimina con DELETE válido, entonces
+  recibe 204 y cambia solo su carrito; una línea ajena o inexistente responde el
+  mismo 404 y no modifica datos.
+- CA-RF13-10: dado un cambio de precio o disponibilidad, cuando se consulta el
+  carrito, entonces refleja los valores actuales y excluye del total las ofertas
+  no disponibles, sin borrar líneas ni crear snapshots o pedidos.
+- CA-RF13-11: dados datos y operaciones equivalentes por web y API, cuando se
+  añade, repite, consulta o elimina una oferta, entonces coinciden líneas,
+  disponibilidad, total y efectos de negocio mediante servicios/selectores
+  compartidos; esto completa la equivalencia pendiente de CA-RF05-12.
+- CA-RF13-12: dadas una y varias líneas, cuando se serializa el resumen, entonces
+  no crece una consulta por línea; lecturas dejan intactos carrito, pedidos,
+  intentos y derechos. Serializers y errores omiten maestros y campos internos.
+- CA-RF13-13: dada una solicitud con sesión y CSRF válidos, cuando utiliza un
+  método no contratado o cuerpo con tipo distinto de JSON, entonces recibe 405 o
+  415 según el contrato y no hay cambios; HEAD y OPTIONS siguen las reglas auxiliares. La API pública mantiene su conducta previa.
+
+#### Orden y reutilización
+
+01–04: acceso, errores y lectura; 05–07: alta; 08–10: aislamiento y borrado;
+11–13: equivalencia, regresión y eficiencia. La lógica de carrito ya existe en
+`apps/cart/services.py` y `selectors.py`, pero no sus adaptadores privados DRF:
+ningún criterio HTTP completo se etiqueta hoy como «solo pruebas».
+Evidencia prevista: `docs/evidence/RF-13/`.
+
+### RF-14 — Ejecutar checkout, pago y consultas privadas mediante API
+
+#### Metadatos y alcance
+
+- Actor: cliente API autenticado. Prioridad: Must. Versión: v0.7.0.
+- Estado: `Propuesto`. Dependencias: RF-06 a RF-11 y RF-13; RNF-01 a RNF-06,
+  RNF-08 y RNF-10 a RNF-13.
+- Reutiliza autenticación por sesión, CSRF, JSON y errores de RF-13. No crea un
+  segundo sistema de pagos, derechos o almacenamiento.
+- Checkout significa convertir el carrito en pedido pendiente; pagar es otra
+  petición. Repetir checkout con el carrito vacío responde 409, coherente con RF-06.
+
+#### Contrato HTTP y representaciones propuestos
+
+| Operación | Ruta y método | Resultado |
+|---|---|---|
+| Checkout | `POST /api/v1/orders/checkout/` con `{}` | 201 con detalle del nuevo pedido |
+| Listado propio | `GET /api/v1/orders/` | 200 con `results`, vacío o pedidos propios |
+| Detalle propio | `GET /api/v1/orders/{order_id}/` | 200 con pedido y líneas históricas |
+| Pago simulado | `POST /api/v1/orders/{order_id}/payments/simulate/` | 201 nuevo intento; 200 replay de clave compatible |
+| Licencias propias | `GET /api/v1/licenses/` | 200 con `results`, vacío o derechos propios |
+| Detalle de licencia | `GET /api/v1/licenses/{license_id}/` | 200 con derecho propio |
+| Descarga autorizada | `GET /api/v1/licenses/{license_id}/download/` | 200 streaming privado; errores JSON |
+
+El pago recibe únicamente `result` (`approved`/`failed`) e `idempotency_key`.
+Un rechazo simulado válido devuelve 201 con `result=failed`; no se confunde
+con un error HTTP ni cambia el pedido a pagado. Un replay devuelve 200 con el
+mismo intento, resultado, importe y fecha; `order_status` refleja el estado
+actual del pedido. Repetir un fallo anterior después de aprobar conserva
+`result=failed` y `order_status=paid`, sin revertir el pedido. Un fallo técnico revierte la transacción y no crea un intento
+fallido artificial. La descarga exitosa es binaria, no JSON/base64; sus errores
+respetan la política JSON privada y nunca redirigen al login.
+
+Campos permitidos:
+
+- Pedido de lista: `id`, `created_at`, `status`, `total_amount`, `currency`,
+  `detail_url`. Orden por fecha e ID descendentes, como RF-09.
+- Detalle: campos de lista y `items` con `id`, `product_name`, `product_sku`,
+  `license_name`, `terms_version`, `price`, `currency`, ordenados por ID
+  ascendente; `payment_attempts` con ID, resultado, importe, moneda y fecha,
+  ordenados por fecha e ID descendentes. Sin claves de idempotencia o archivo.
+- Resultado de pago: `attempt_id`, `order_id`, `result`, `order_status`,
+  `amount`, `currency` y `created_at` del intento.
+- Licencia: `id`, `order_id`, `order_item_id`, `status`, `issued_at`, nombre/SKU
+  de producto, nombre de licencia y versión de términos históricos,
+  `detail_url` y `download_url`. La URL de descarga apunta a la vista protegida,
+  no al almacenamiento, y vale `null` cuando no hay entrega preparada.
+  El detalle incorpora las condiciones completas históricas, alcance de uso,
+  concedente, titular declarado y estado de documentación conforme a RF-10;
+  sus nombres JSON se concretarán antes de implementar RF-14. Una ausencia
+  histórica se representa explícitamente, sin sustituirla por términos actuales.
+
+Los importes son strings decimales con punto; las fechas ISO 8601 incluyen zona
+horaria. Las URL son relativas de la API. Las colecciones de pedidos y licencias
+usan `results`, sin paginación en este MVP; las licencias siguen el orden de RF-10.
+No se incluyen campos extra por comodidad del serializer ni referencias
+internas de origen/almacenamiento. La cuenta se obtiene siempre de la sesión.
+
+Errores comunes de RF-13 más: 404 `order_not_found`, `license_not_found`,
+`download_not_found`; 409 `empty_cart`, `offer_not_available`,
+`order_already_paid`, `idempotency_conflict`, `asset_unavailable`;
+400 `invalid_request`. Checkout sin maestro preparado devuelve 409
+`asset_unavailable`; aprobar un pedido sin maestro preparado usa ese mismo
+409, sin intento aprobado, cambio de estado ni derechos. Propiedad se valida antes de informar del estado del pedido.
+El archivo ausente o el derecho no válido usa el mismo 404 de descarga.
+Errores técnicos: 500 genérico sin cambios parciales ni información interna.
+
+#### Criterios de aceptación propuestos
+
+- CA-RF14-01: dado un consumidor sin sesión válida o una escritura sin CSRF,
+  cuando solicita estos endpoints, entonces recibe los 403 JSON definidos sin
+  datos ni cambios; la descarga anónima tampoco devuelve bytes ni redirección.
+- CA-RF14-02: dado un carrito propio válido y preparado para entrega, cuando se
+  solicita checkout, entonces recibe 201 con un pedido pendiente y sus snapshots,
+  se vacía únicamente su carrito y no se crea pago ni derecho todavía.
+- CA-RF14-03: dado un carrito vacío, oferta no disponible o maestro no preparado,
+  cuando se solicita checkout, entonces recibe el 409 correspondiente sin
+  pedido parcial; un fallo interno revierte pedido, líneas y vaciado. Repetir
+  tras un checkout exitoso con carrito vacío no duplica el pedido.
+- CA-RF14-04: dados campos no admitidos de propietario, carrito, importes, estado
+  o líneas, cuando se envían a checkout o pago, entonces recibe 400 y ningún
+  valor manipulado gobierna los datos persistidos.
+- CA-RF14-05: dado un cliente con cero o varios pedidos, cuando consulta el
+  listado, entonces recibe 200, solo pedidos propios y el orden fecha/ID definido.
+- CA-RF14-06: dado un pedido propio, cuando se consulta su detalle después de
+  cambios del catálogo, entonces conserva sus valores históricos y solo su
+  historial de intentos; pedido ajeno e inexistente reciben el mismo 404.
+- CA-RF14-07: dado un pedido propio pendiente, cuando se aprueba un pago válido,
+  entonces usa el importe histórico, pasa a pagado y emite un derecho por línea
+  mediante la transición compartida de RF-07/10, sin cambiar el carrito actual;
+  sin maestro preparado recibe 409 `asset_unavailable` sin aprobación, cambio
+  de estado ni derechos.
+- CA-RF14-08: dado un intento fallido o una solicitud repetida, cuando se paga o
+  reintenta por API, entonces conserva historial, claves y estados según RF-07/08;
+  el replay no duplica, un conflicto responde 409 y las carreras no producen
+  dos aprobaciones ni derechos duplicados. Un pedido ajeno/inexistente responde 404.
+- CA-RF14-09: dado un cliente autenticado, cuando consulta listado o detalle de
+  licencias, entonces obtiene solo permisos propios y datos históricos; el detalle
+  conserva las condiciones y el estado de documentación de RF-10. Ajeno e
+  inexistente responden el mismo 404 y ningún GET emite derechos.
+- CA-RF14-10: dado un derecho propio válido, cuando solicita descarga, entonces
+  recibe los mismos bytes autorizados que por web y cabeceras privadas; las
+  denegaciones usan JSON 404 y no exponen rutas o archivos alternativos.
+- CA-RF14-11: dados resultados equivalentes por web y API, cuando se comparan
+  checkout, pagos, reintentos, consulta y descarga, entonces coinciden las
+  transiciones y datos de negocio; ambas interfaces reutilizan servicios y
+  selectores, sin duplicar reglas en serializers.
+- CA-RF14-12: dados uno y varios pedidos, líneas o derechos, cuando se serializan,
+  entonces no aparece una consulta por cada relación; lecturas y descargas
+  conservan registros y valores de pedidos, carrito, intentos y derechos.
+- CA-RF14-13: dados todos los endpoints, cuando se inspeccionan respuestas de
+  éxito/error y métodos no admitidos, entonces respetan campos y códigos del
+  contrato, fechas, decimales y URL relativas, omiten maestros/secretos y
+  responden 405 con autenticación y CSRF válidos cuando corresponda.
+
+#### Orden y evidencias previstas
+
+01 y 05–06: lectura privada; 02–04: checkout; 07–08: pagos; 09–10:
+derechos y descarga; 11–13: equivalencia, rendimiento y contrato completo.
+Los servicios RF-06/09 ya existen. Los de RF-07/08/10/11 deberán estar
+implementados antes de esta fase. La API privada completa no existe todavía.
+Evidencia prevista: `docs/evidence/RF-14/`.
 
 ### RF-15 — Administrar el sistema mediante Django Admin
 
@@ -1944,6 +2492,78 @@ se separarán:
 El acceso al archivo maestro, si se ofrece desde el Admin, requiere una vista
 protegida; mostrar el valor de un campo de archivo no autoriza a publicar su
 directorio de almacenamiento.
+
+#### Delimitación y ampliación propuestas el 2026-09-27
+
+Los CA-RF15-01 a CA-RF15-07 anteriores se conservan sin renumerar ni modificar:
+su estado es `Aprobado`. Los contratos adicionales de esta sección y
+CA-RF15-08 a CA-RF15-12 quedan `Propuesto`; no se consideran aprobados por
+redactarlos. La matriz concreta anterior se propone ahora así:
+
+| Perfil | Acceso y operaciones permitidas |
+|---|---|
+| Anónimo / cliente no staff | Sin acceso a datos administrativos |
+| Staff sin permisos | Puede identificarse en Admin, pero no ver ni modificar modelos sin permiso |
+| Gestor de catálogo | Permisos explícitos de ver, añadir y cambiar categorías, productos, tipos de licencia y ofertas; sin usuarios, pagos ni derechos; retirada por `is_active` |
+| Soporte | Ver pedidos, líneas, intentos y licencias adquiridas; sin añadir, modificar, borrar, pagar ni conceder derechos desde formularios genéricos |
+| Administrador de usuarios | Gestión explícita de cuentas y roles; separada de soporte y catálogo |
+
+Las entidades históricas se presentan solo en lectura en el Admin, incluso si
+un usuario tiene permisos de cambio genéricos. Se elimina el borrado individual
+y masivo de estas entidades y del catálogo en este MVP; se desactiva catálogo.
+No se añaden acciones administrativas para pagar, cancelar, revocar o emitir
+licencias. Las regularizaciones técnicas de RF-10/11 utilizan operaciones
+explícitas y servicios probados, no edición libre de claves o estados.
+Las condiciones de licencia publicadas respetan el versionado de RF-10:
+editar el catálogo no sobrescribe condiciones históricas de compra y cambiar
+su contenido exige una nueva versión. La configuración administrativa concreta
+se definirá al implementar esos criterios, sin edición libre de snapshots.
+
+El campo maestro requiere un control de subida que no intente construir su
+`.url()` privada. Muestra únicamente si hay archivo configurado, sin ruta,
+nombre interno ni enlace al almacenamiento; el reemplazo respeta la conservación
+de archivos referenciados por compras de RF-11. No se incluye una descarga
+administrativa de maestros en el MVP. El nombre local elegido por el gestor
+para subir un archivo no es la clave privada persistida. Contraseñas en claro, claves de
+idempotencia y detalles internos no figuran en listados, búsquedas ni errores.
+
+#### Criterios de aceptación adicionales propuestos
+
+- CA-RF15-08: dados perfiles de catálogo, soporte y gestión de usuarios, cuando
+  acceden al Admin, entonces cada uno puede ejercer solo las operaciones de la
+  matriz; ser staff no concede permisos generales y las URL directas tampoco.
+- CA-RF15-09: dados pedidos, líneas, intentos y licencias adquiridas, cuando
+  soporte o un administrador abre sus pantallas, entonces solo puede consultar;
+  una petición manipulada de alta, cambio o borrado no modifica estados,
+  importes, propiedad, snapshots ni derechos y no ejecuta pagos.
+- CA-RF15-10: dado un producto con maestro, cuando un gestor autorizado abre o
+  guarda el formulario, entonces puede configurar el archivo mediante un control
+  seguro sin generar una URL pública ni revelar la clave persistida o ruta interna; los cambios conservan
+  el archivo asociado a compras anteriores y la retirada usa desactivación.
+- CA-RF15-11: dados uno y varios objetos con relaciones en un listado
+  administrativo, cuando se renderizan las columnas relacionadas, entonces las
+  consultas permanecen acotadas, sin una consulta adicional por cada fila.
+- CA-RF15-12: dados valores inválidos o una operación que vulnera una relación
+  protegida, cuando se guarda desde Admin, entonces se informa del error sin
+  cambios parciales, secretos ni trazas, y no se eluden restricciones del dominio.
+
+#### Orden de implementación y código candidato existente
+
+1. CA01: comprobar primero autenticación y permisos nativos de Django Admin.
+2. CA02, CA04 y CA08: registrar modelos y configurar catálogo y matriz de roles.
+3. CA03 y CA05: comprobar desactivación y lectura sin permiso de cambio.
+4. CA06, CA09 y CA10: protección del histórico, prohibición de escrituras
+   genéricas y almacenamiento privado.
+5. CA07: verificar el `LogEntry` nativo para cambios válidos, con actor, fecha,
+   objeto y acción; no darlo por verificado solo por usar Django Admin.
+6. CA11 y CA12: consultas, validaciones y cierre de regresión.
+
+`apps/users/admin.py` ya registra `UserAdmin`; `apps/catalog/admin.py` y
+`apps/orders/admin.py` están vacíos. CA01 es candidato a pasar con una prueba
+sobre la infraestructura existente. CA05 y CA07 pueden pasar con funciones
+nativas después del registro de modelos. CA03 reutiliza selectores probados,
+pero hoy falta la modificación desde Admin. CA06 no se da por resuelto por
+`PROTECT`: los snapshots actuales no protegen por sí solos la historia comercial.
 
 #### Pruebas previstas
 

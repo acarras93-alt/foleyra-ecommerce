@@ -22,7 +22,11 @@ Entrega exactamente:
 3. archivos que sería necesario leer y posiblemente modificar;
 4. diseño mínimo y decisiones que requieren aprobación;
 5. impacto en PostgreSQL y necesidad o no de migración;
-6. plan de pruebas con estado Red esperado;
+6. lectura del criterio actual en una o dos frases según la
+   [premisa de cierre](../../docs/requirements/mvp-implementation-plan.md#4-premisa-de-trabajo-hasta-el-cierre-del-proyecto):
+   pruebas existentes que reutilizar o ampliar y prueba nueva solo si falta
+   cobertura; Red esperado o Green inicial justificado; profundizar únicamente
+   en ambigüedades que cambian el comportamiento o riesgos concretos;
 7. comandos de verificación;
 8. riesgos de seguridad, permisos y privacidad;
 9. secuencia de commits pequeños, todos en estado válido.

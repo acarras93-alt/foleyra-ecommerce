@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mis licencias</title>
+</head>
+<body>
+    <h1>Mis licencias</h1>
+
+    {% for grant in grants %}
+        <article>
+            <p>Identificador: {{ grant.pk }}</p>
+            <p>Pedido: {{ grant.order_item.order.pk }}</p>
+
+            <h2>{{ grant.order_item.product_name }}</h2>
+            <p>SKU: {{ grant.order_item.product_sku }}</p>
+            <p>Licencia: {{ grant.order_item.license_name }}</p>
+            <p>Términos: {{ grant.order_item.terms_version }}</p>
+            <p>Estado: {{ grant.get_status_display }}</p>
+            <p>Fecha de emisión: {{ grant.issued_at }}</p>
+            <a href="{% url 'license_detail' license_id=grant.pk %}">Ver condiciones de uso</a>
+        </article>
+    {% empty %}
+        <p>Todavía no tienes licencias disponibles.</p>
+    {% endfor %}
+</body>
+</html>

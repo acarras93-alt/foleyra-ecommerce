@@ -5,8 +5,9 @@ con Python, Django, Django REST Framework y PostgreSQL como proyecto final de
 mi formación.
 
 **Estado: MVP en desarrollo.** Ya incluye catálogo web y API pública, cuentas de
-usuario, carrito privado, creación y consulta de pedidos propios y aprobación
-de pagos simulados. El flujo completo de compra y entrega de
+usuario, carrito privado, creación y consulta de pedidos propios, pagos
+simulados aprobados/fallidos y emisión y consulta de permisos de uso.
+RF-10 tiene implementación parcial; el flujo completo de compra y entrega de
 archivos todavía no está terminado.
 
 ## Recorrido del proyecto
@@ -19,6 +20,11 @@ conservando los datos históricos aunque cambie el catálogo. Desde el detalle
 de un pedido pendiente puede simular un pago aprobado sin consumir su carrito
 actual ni efectuar un cobro real.
 
+La aprobación emite un permiso por línea en la misma transacción que el pago.
+«Mis licencias» permite consultar los permisos activos de pedidos pagados y
+abrir sus condiciones históricas. Las compras antiguas sin condiciones completas
+o referencia al producto muestran avisos, sin reconstruir datos desde el catálogo.
+
 El trabajo reúne modelado de datos, autenticación, vistas y formularios Django,
 una API REST de lectura, operaciones atómicas y pruebas con PostgreSQL.
 La separación entre previews públicas y archivos maestros privados es una de
@@ -29,6 +35,7 @@ Para una revisión rápida del portfolio:
 - Catálogo web: `/catalog/` y detalle de cada producto.
 - API pública: `/api/v1/catalog/products/`.
 - Pedidos propios (requieren sesión): `/orders/` y `/orders/{order_id}/`.
+- Permisos propios (requieren sesión): `/licenses/` y `/licenses/{license_id}/`.
 - Código de negocio: `apps/catalog/`, `apps/cart/` y `apps/orders/`.
 - Decisiones y seguimiento: [documentación técnica](#documentación).
 
@@ -40,7 +47,7 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
 - El proyecto es un monolito modular de Django con las aplicaciones de negocio agrupadas bajo `apps`.
 - PostgreSQL 18.6 es la única base de datos admitida y se ejecuta localmente mediante Docker Compose.
 - El modelo de usuario activo es `users.User`, definido antes de la primera migración.
-- RF-04 está `Implementado`: la web ofrece registro, inicio de sesión mediante
+- RF-04 está `Verificado`: la web ofrece registro, inicio de sesión mediante
     `username` y cierre de sesión por formulario `POST` con CSRF en
     `/accounts/register/`, `/accounts/login/` y `/accounts/logout/`. La
     autenticación de API continúa fuera de alcance hasta RF-13.
@@ -76,6 +83,16 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     pedidos ni carritos y la prueba del detalle verifica un número constante y
     acotado de consultas con una y diez líneas. La cobertura de entidades futuras
     y las capturas visuales se detallan en las [evidencias de RF-09](docs/evidence/RF-09/README.md).
+- RF-10 tiene implementación parcial: `LicenseGrant` registra un permiso por
+    línea al aprobar el pago, con unicidad, replay y rollback transaccional.
+    Listado y detalle privados muestran datos históricos, con login, 404
+    uniforme para permisos ajenos/inexistentes y rechazo de escrituras.
+    El checkout captura texto de condiciones, alcance, concedente y titular
+    declarado, y una referencia `source_product` protegida contra borrado.
+    El listado precarga relaciones y tiene una prueba de consultas constantes
+    con uno y cinco permisos. Las garantías pendientes y la evidencia actual
+    se detallan en [RF-10](docs/evidence/RF-10/README.md); el requisito completo
+    no se declara `Implementado` ni `Verificado`.
 - `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
@@ -86,17 +103,24 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
     `Implementado`, no `Verificado`, hasta incorporar sus evidencias. RF-09 también
     queda `Implementado`, con pruebas automatizadas y verificación visual pendiente.
-    Licencias adquiridas, descargas y API privada continúan pendientes.
+    RF-10 está parcialmente desarrollado; descargas y API privada continúan
+    pendientes, igual que la configuración administrativa de RF-15.
 
 ## Pendiente para completar el MVP
 
 El catálogo y la API pública de lectura están implementados. Continúan
-pendientes las licencias adquiridas,
-la entrega autorizada de archivos maestros y la API privada, de acuerdo con los
+pendientes el cierre de RF-10, la entrega autorizada de archivos maestros,
+la API privada y la administración del catálogo y pedidos, de acuerdo con los
 [requisitos funcionales](docs/requirements/functional-requirements.md).
 Los estados de implementación y verificación se registran por separado.
 
 El orden restante es **RF-10 → RF-11 → RF-13 → RF-14 → RF-15**.
+El [plan de cierre y metodología](docs/requirements/mvp-implementation-plan.md)
+recoge los criterios propuestos, el estado observado y la premisa acordada:
+un criterio cada vez, cobertura existente primero y profundización cuando una
+duda o riesgo lo requiera. Las seis preguntas son una guía de apoyo.
+El 1 de octubre deja de ser objetivo de entrega; el cierre se gestiona por
+hitos y una fase de consolidación, sin una nueva fecha comprometida.
 
 ## Requisitos locales
 
@@ -130,8 +154,9 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Abre `http://127.0.0.1:8000/`. La cuenta administrativa permite gestionar el
-catálogo desde `/admin/`. El [manual de instalación](docs/installation.md)
+Abre `http://127.0.0.1:8000/`. La cuenta administrativa permite entrar en
+`/admin/`; la gestión de catálogo aún requiere implementar RF-15. Actualmente
+está registrado `UserAdmin`, no los modelos de catálogo. El [manual de instalación](docs/installation.md)
 contiene contexto adicional; algunas secciones siguen pendientes de completar.
 Estos pasos describen la configuración existente y no certifican un despliegue
 en producción.
@@ -166,12 +191,18 @@ uniforme, conservación del histórico tras cambios del catálogo, ausencia de
 efectos laterales sobre pedidos y carrito y consultas acotadas del detalle.
 RF-07 añade pruebas de aprobación, validación, idempotencia, concurrencia entre
 conexiones PostgreSQL independientes y rollback sin efectos parciales.
+El incremento de RF-10 amplía esta cobertura con emisión y replay de permisos,
+rollback durante la emisión, aislamiento, condiciones históricas, navegación,
+ausencia de escrituras en consultas, detección de N+1 y referencias al producto.
+Los resultados y límites de la revisión actual están en
+[la evidencia parcial de RF-10](docs/evidence/RF-10/README.md).
 
 ## Documentación
 
 - [Stack tecnológico](docs/technology-stack.md)
 - [Requisitos funcionales](docs/requirements/functional-requirements.md)
 - [Requisitos no funcionales](docs/requirements/non-functional-requirements.md)
+- [Plan de cierre del MVP y metodología por criterio](docs/requirements/mvp-implementation-plan.md)
 - [Checkpoint de decisiones del catálogo](docs/requirements/catalog-decision-checkpoint.md)
 - [Flujo manual, Copilot, pruebas y documentación del catálogo](docs/catalog-development-workflow.md)
 - [Decisiones de arquitectura](docs/decisions/)
