@@ -1,25 +1,26 @@
 # Plan de cierre del MVP y metodología por criterio
 
-Fecha de revisión: 2026-10-11. Base de código: `6a0a27c`, con el incremento
-local parcial de RF-10. La revisión y sus comprobaciones se registran en
-[evidencias de RF-10](../evidence/RF-10/README.md), sin cerrar el requisito completo.
+Fecha de revisión: 2026-10-14. Base anterior: `be94cb1`, más el incremento de
+cierre de RF-10. RF-10 queda `Verificado` en el alcance automatizado descrito en
+[las evidencias](../evidence/RF-10/README.md). El siguiente requisito es RF-11.
 
 ## 1. Estado comprobado antes de planificar
 
 La base permite descubrir productos, gestionar una cuenta y un carrito privado,
 crear un pedido, consultar su historia y simular pagos aprobados, rechazos y
 reintentos. Ya emite permisos al aprobar el pago y ofrece listado/detalle
-privados con condiciones capturadas. Todavía no entrega el maestro comprado
-ni completa todos los contratos de RF-10. El cierre inmediato sigue en RF-10/11.
+privados con condiciones capturadas, regularización y prevención de recompra.
+RF-10 tiene cierre documentado. Todavía no entrega el maestro comprado: el
+trabajo funcional inmediato sigue en RF-11.
 
 | Área | Código observado | Qué falta para el recorrido completo |
 |---|---|---|
 | Catálogo y API pública | Modelos, selectores, web, previews y endpoints públicos | Cerrar evidencias pendientes; conservar este contrato |
 | Usuarios | Registro, sesión, logout y `UserAdmin` | Reutilizar sesión en la futura API privada |
 | Carrito | Servicios atómicos, resumen propio y web | Adaptadores DRF privados y equivalencia web/API |
-| Pedidos | Checkout atómico, snapshots ampliados con condiciones y `source_product`, lista/detalle propios | Validación de condiciones, referencia al tipo de licencia y preparación histórica de entrega; cerrar evidencias |
-| Pagos | `PaymentAttempt`, reintentos, idempotencia y emisión de `LicenseGrant` dentro de la aprobación | Preparación de entrega, bloqueo de recompra y condiciones incompletas; conservar RF-07/08 |
-| Licencias adquiridas | Emisión por línea, listado/detalle privados y condiciones históricas | Regularización explícita, prevención de recompra, versionado y validación previa de condiciones |
+| Pedidos | Checkout atómico, condiciones completas, referencias a producto/tipo y consultas propias | Preparación histórica de entrega RF-11; evidencias pendientes de RF-06/09 |
+| Pagos | Intentos, replay, emisión atómica, bloqueo de recompra y rechazo de condiciones/identidades incompletas | Preparación de entrega RF-11; conservar RF-07/08 |
+| Licencias adquiridas | RF-10 verificado: emisión, consultas, regularización, recompra, versionado y condiciones | Conservar las garantías al integrar entrega y futura API privada |
 | Archivos | Maestro privado sin URL pública, separado de previews | Vínculo estable de compra y entrega autorizada RF-11 |
 | API privada | No existen endpoints privados de carrito, pago, pedido o licencia | RF-13 y RF-14 |
 | Administración | `UserAdmin` registrado; Admin de catálogo y pedidos sin configurar | RF-15 |
@@ -34,11 +35,11 @@ Comprobaciones y límites de esta revisión:
   registra **219 pruebas superadas**, controles Django, Ruff y dependencias.
   Son resultados de esa ejecución, no una nueva certificación de este árbol.
 - RF-06 y RF-09 continúan `Implementado`, con evidencias de cierre pendientes.
-  La ausencia de efectos de las consultas deberá cubrir también los permisos
-  cuando existan; RF-08 ya verifica la lectura propia del historial de intentos.
+  RF-10 ya comprueba que consultar listado/detalle no altera pedidos, intentos,
+  carrito ni permisos; RF-08 verifica la lectura propia del historial de intentos.
 - RF-05 mantiene pendiente la equivalencia con RF-13. API privada, descargas y
-  Admin de catálogo no están implementados. RF-10 tiene implementación parcial;
-  sus resultados actuales se consultan en la evidencia enlazada arriba.
+  Admin de catálogo no están implementados. RF-10 queda verificado; sus resultados
+  y límites se consultan en la evidencia enlazada arriba.
 - La revisión de septiembre en `70842ca` era anterior a RF-07/08. Sus resultados
   de 172 pruebas y 114 archivos formateados son históricos, no la línea base
   vigente para planificar este cierre.
@@ -50,7 +51,7 @@ autorizada ni una demo con audios reales.
 ## 2. Alcance y decisiones propuestas
 
 Los criterios completos están en [requisitos funcionales](functional-requirements.md).
-RF-07 y RF-08 están `Verificado`. RF-10, RF-11, RF-13 y RF-14 conservan
+RF-07, RF-08 y RF-10 están `Verificado`. RF-11, RF-13 y RF-14 conservan
 el estado `Propuesto`; priorizarlos no aprueba todos sus contratos técnicos.
 RF-15 conserva sus siete criterios aprobados; sus cinco criterios adicionales
 y la matriz concreta de permisos se presentan como propuestas. Redactar un
@@ -70,7 +71,7 @@ contrato no significa implementarlo ni aprobarlo automáticamente.
 
 Las tres primeras decisiones forman parte de RF-07/08 y la emisión por línea
 ya usa `orders.LicenseGrant`. Las restantes conservan el estado de su RF:
-las condiciones se capturan pero faltan validaciones/versionado, y
+RF-10 captura y valida condiciones y exige nueva versión ante cambios;
 `source_product` no sustituye el vínculo histórico al archivo de RF-11.
 
 RF-10 ya amplía la aprobación de RF-07 con emisión en la misma transacción y
@@ -96,8 +97,8 @@ ese plazo ni convertirlo en una fecha de entrega certificada.
 
 El trabajo inmediato se organiza como **Cierre funcional del MVP**:
 
-1. **Implementación del flujo de adquisición y entrega:** RF-10 y RF-11,
-   con pruebas por comportamiento y un primer sonido real preparado.
+1. **Implementación del flujo de adquisición y entrega:** RF-10 verificado;
+   continuar con RF-11 y un primer sonido real preparado.
 2. **Validación de extremo a extremo con productos sonoros reales:** recorrido
    web integrado con una muestra pequeña, evidencias y corrección de defectos.
 
@@ -255,8 +256,8 @@ todos ahora. Los datos previos se preparan antes de iniciar cada recorrido.
 
 ### RF-10 · Registrar y consultar permisos de uso con condiciones trazables
 
-Orientación acordada el 2026-10-04. Los criterios de implementación permanecen
-propuestos en `functional-requirements.md`; se abordarán uno a uno.
+Orientación acordada el 2026-10-04. Los 16 criterios quedan documentados como
+verificados el 2026-10-14 en `functional-requirements.md` y las evidencias de RF-10.
 
 1. Antes de crear el pedido, el cliente puede consultar las condiciones de la oferta.
 2. El checkout captura versión, texto completo, alcance, concedente y titular
@@ -396,7 +397,8 @@ bloqueantes y la regresión y puerta de calidad aplicables pasan. Cualquier paso
 no ejecutado queda como pendiente. Su cierre no acredita API privada, Admin,
 despliegue ni requisitos fuera del recorrido probado.
 
-Siguiente unidad de trabajo: revisar el contrato propuesto de RF-10 y comenzar
-por un criterio aprobado, preparando un sonido real como apoyo al aprendizaje.
-Esta actualización es documental: no implementa requisitos ni genera
-migraciones, y no realiza commits ni publica cambios.
+Siguiente unidad de trabajo: revisar el contrato de RF-11 y preparar un sonido
+real como apoyo al aprendizaje. La reorganización de los archivos de pruebas
+queda como tarea separada; no se mezcla con el cierre funcional de RF-10.
+El commit de este cierre incorpora el código existente, la migración 0009,
+las pruebas y la documentación; no implica publicación remota.

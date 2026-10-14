@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
+from django.core.exceptions import ValidationError
 from django.db import connection, connections
 from django.http import HttpResponse
 from django.template.defaultfilters import date as format_date
@@ -25,7 +26,11 @@ from apps.orders.models import LicenseGrant, Order, OrderItem, PaymentAttempt
 from apps.orders.services import approve_simulated_payment, create_order_from_cart
 
 
-def create_available_offer():
+def create_available_offer(
+    *,
+    terms_text="Condiciones completas de prueba.",
+    usage_scope="Uso de prueba web",
+):
     category = Category.objects.create(name="Pedidos web", slug="pedidos-web")
     product = Product.objects.create(
         category=category,
@@ -42,14 +47,75 @@ def create_available_offer():
     license_type = LicenseType.objects.create(
         name="Licencia web",
         slug="licencia-web",
-        usage_scope="Uso de prueba web",
+        usage_scope=usage_scope,
         summary="Resumen de licencia de prueba web.",
         terms_version="1.0",
+        terms_text=terms_text,
     )
     return ProductLicenseOffer.objects.create(
         product=product,
         license_type=license_type,
         price=Decimal("12.90"),
+        grantor_name="Concedente de prueba",
+        rights_holder_name="Titular de prueba",
+    )
+
+
+def create_payable_order_item(
+    *,
+    order,
+    product_name,
+    product_sku,
+    license_name,
+    terms_version,
+    price,
+    currency,
+):
+    identifier = uuid4().hex
+    terms_text = "Condiciones completas de la compra de prueba."
+    usage_scope = "Proyectos audiovisuales"
+
+    category, _ = Category.objects.get_or_create(
+        slug="pagos-de-prueba",
+        defaults={"name": "Pagos de prueba"},
+    )
+    product = Product.objects.create(
+        category=category,
+        name=product_name,
+        slug=f"producto-{identifier}",
+        sku=product_sku,
+        summary="Producto de prueba.",
+        description="Producto para comprobar el pago.",
+        duration_ms=1000,
+        audio_format="wav",
+        sample_rate_hz=48000,
+        bit_depth=24,
+    )
+    license_type, _ = LicenseType.objects.get_or_create(
+        name=license_name,
+        defaults={
+            "slug": f"licencia-{identifier}",
+            "usage_scope": usage_scope,
+            "summary": "Licencia para comprobar el pago.",
+            "terms_version": terms_version,
+            "terms_text": terms_text,
+        },
+    )
+
+    return OrderItem.objects.create(
+        order=order,
+        source_product=product,
+        source_license_type=license_type,
+        product_name=product_name,
+        product_sku=product_sku,
+        license_name=license_name,
+        terms_version=terms_version,
+        terms_text=terms_text,
+        usage_scope=usage_scope,
+        grantor_name="Concedente de prueba",
+        rights_holder_name="Titular de prueba",
+        price=price,
+        currency=currency,
     )
 
 
@@ -59,9 +125,16 @@ def documented_purchase(db):
     owner = get_user_model().objects.create_user(
         username="documented-license-owner",
     )
-    offer = create_available_offer()
-
+    offer = create_available_offer(
+        terms_text=(
+            "Permite incorporar el sonido en proyectos audiovisuales comerciales. "
+            "La autorización es mundial, no exclusiva y de duración indefinida. "
+            "No permite revender el sonido como archivo independiente."
+        ),
+        usage_scope="Proyectos audiovisuales comerciales",
+    )
     license_type = offer.license_type
+
     license_type.terms_text = (
         "Permite incorporar el sonido en proyectos audiovisuales comerciales. "
         "La autorización es mundial, no exclusiva y de duración indefinida. "
@@ -100,6 +173,53 @@ def documented_purchase(db):
     grant = LicenseGrant.objects.get(order_item__order=order)
 
     return owner, offer, grant, expected
+
+
+@pytest.fixture
+def prepared_purchase_offer(db):
+    # Prepara:un usuario y una oferta con condiciones completas todavía sin comprar.
+    owner = get_user_model().objects.create_user(
+        username="rf10-prepared-owner",
+    )
+    offer = create_available_offer(
+        terms_text="Condiciones originales completas.",
+    )
+
+    offer.grantor_name = "Concedente original"
+    offer.rights_holder_name = "Titular original"
+    offer.save(update_fields=["grantor_name", "rights_holder_name"])
+
+    return owner, offer
+
+
+def capture_purchase_business_data():
+    # Copiar registros y valores para detectar altas, bajas y modificaciones.
+    return {
+        "orders": list(Order.objects.order_by("pk").values()),
+        "items": list(OrderItem.objects.order_by("pk").values()),
+        "attempts": list(PaymentAttempt.objects.order_by("pk").values()),
+        "grants": list(LicenseGrant.objects.order_by("pk").values()),
+        "carts": list(Cart.objects.order_by("pk").values()),
+        "cart_items": list(CartItem.objects.order_by("pk").values()),
+    }
+
+
+def prepare_pending_order(owner, offer):
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    return create_order_from_cart(owner=owner)
+
+
+def request_payment_approval(client, order, payment_key=None):
+    return client.post(
+        reverse(
+            "orders:simulate_payment",
+            kwargs={"order_id": order.pk},
+        ),
+        {
+            "result": PaymentAttempt.Result.APPROVED,
+            "idempotency_key": str(payment_key or uuid4()),
+        },
+    )
 
 
 @pytest.mark.parametrize(
@@ -894,7 +1014,7 @@ def test_owner_can_approve_simulated_payment_for_pending_order(client):
         currency="EUR",
     )
 
-    OrderItem.objects.create(
+    create_payable_order_item(
         order=order,
         product_name="Impacto cinematográfico",
         product_sku="PED-001",
@@ -1051,7 +1171,7 @@ def test_payment_preserves_cart_content_added_after_order_creation(client):
         currency="EUR",
     )
 
-    OrderItem.objects.create(
+    create_payable_order_item(
         order=order,
         product_name="Impacto cinematográfico",
         product_sku="PED-001",
@@ -1546,7 +1666,7 @@ def test_license_issue_failure_rolls_back_payment_order_and_grants(client, monke
         ("Impacto cinematográfico", "PED-001", "12.90"),
         ("Pasos sobre madera", "PED-002", "8.50"),
     ]:
-        OrderItem.objects.create(
+        create_payable_order_item(
             order=order,
             product_name=name,
             product_sku=sku,
@@ -3141,7 +3261,7 @@ def test_license_list_excludes_unpaid_order_items(client, payment_result):
         currency="EUR",
     )
 
-    OrderItem.objects.create(
+    create_payable_order_item(
         order=paid_order,
         product_name="Impacto cinematográfico",
         product_sku="PED-001",
@@ -3282,7 +3402,7 @@ def test_concurrent_approvals_issue_exactly_one_grant_per_order_item(
         ("Impacto cinematográfico", "PED-001", "12.90"),
         ("Pasos sobre madera", "PED-002", "8.50"),
     ]:
-        OrderItem.objects.create(
+        create_payable_order_item(
             order=order,
             product_name=name,
             product_sku=sku,
@@ -3519,6 +3639,9 @@ def test_license_detail_preserves_captured_conditions_after_catalog_changes(
     owner, offer, grant, expected = documented_purchase
     client.force_login(owner)
 
+    # Preparar: guardar la línea histórica antes de cambiar el catálogo.
+    item_before = OrderItem.objects.filter(pk=grant.order_item.pk).values().get()
+
     # Preparar: modificar el catálogo después de la compra.
     offer.product.name = "Producto modificado posteriormente"
     offer.product.sku = "SKU-POSTERIOR"
@@ -3592,6 +3715,10 @@ def test_license_detail_preserves_captured_conditions_after_catalog_changes(
         "Condiciones históricas pendientes de documentación",
     )
 
+    # Comprobar: ni el cambio de catálogo ni la consulta alteran la línea.
+    item_after = OrderItem.objects.filter(pk=grant.order_item.pk).values().get()
+    assert item_after == item_before
+
 
 @pytest.mark.django_db
 def test_license_detail_does_not_expose_master_paths(
@@ -3639,19 +3766,29 @@ def test_license_detail_does_not_expose_master_paths(
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "missing_fields",
+    [
+        ("terms_text",),
+        (
+            "terms_text",
+            "usage_scope",
+            "grantor_name",
+            "rights_holder_name",
+        ),
+    ],
+    ids=["missing_historical_text", "missing_all_documentation"],
+)
 def test_legacy_license_detail_warns_without_using_current_conditions(
-    client, documented_purchase
+    client, documented_purchase, missing_fields
 ):
     # Preparar: cliente y permiso de una compra existente.
     owner, offer, grant, expected = documented_purchase
     client.force_login(owner)
 
-    # Preparar: representar una línea antigua sin condiciones documentadas.
+    # Preparar: vaciar los campos del caso parametrizado.
     OrderItem.objects.filter(pk=grant.order_item.pk).update(
-        terms_text="",
-        usage_scope="",
-        grantor_name="",
-        rights_holder_name="",
+        **{field: "" for field in missing_fields},
     )
 
     # Preparar: el catálogo sí dispone de condiciones actuales diferentes.
@@ -4055,10 +4192,9 @@ def test_cart_conversion_preserves_product_reference_after_sku_changes(client):
     )
     client.force_login(owner)
 
-    offer = create_available_offer()
-
-    offer.license_type.terms_text = "Condiciones originales de la compra."
-    offer.license_type.save(update_fields=["terms_text"])
+    offer = create_available_offer(
+        terms_text="Condiciones originales de la compra.",
+    )
 
     offer.grantor_name = "Concedente original"
     offer.rights_holder_name = "Titular original"
@@ -4094,6 +4230,9 @@ def test_cart_conversion_preserves_product_reference_after_sku_changes(client):
     assert item.source_product is not None
     assert item.source_product.pk == product_id_before
 
+    assert item.source_license_type is not None
+    assert item.source_license_type.pk == offer.license_type.pk
+
     captured_snapshots = (
         OrderItem.objects.filter(pk=item.pk).values(*expected_snapshots.keys()).get()
     )
@@ -4120,6 +4259,55 @@ def test_cart_conversion_preserves_product_reference_after_sku_changes(client):
     # Comprobar: los valores guardados en la línea no han cambiado.
     item_after = OrderItem.objects.filter(pk=item.pk).values().get()
     assert item_after == item_before
+
+    # Actuar: aprobar el pago del pedido que contiene los datos capturados.
+    payment_response = client.post(
+        reverse(
+            "orders:simulate_payment",
+            kwargs={"order_id": order.pk},
+        ),
+        {
+            "result": PaymentAttempt.Result.APPROVED,
+            "idempotency_key": str(uuid4()),
+        },
+    )
+
+    assert payment_response.status_code == 302
+
+    # Comprobar: el pago no modifica la línea histórica.
+    item_after_payment = OrderItem.objects.filter(pk=item.pk).values().get()
+    assert item_after_payment == item_before
+
+    # Comprobar: el permiso corresponde a esa misma línea.
+    grant = LicenseGrant.objects.get(order_item=item)
+    assert grant.status == LicenseGrant.Status.ACTIVE
+
+    # Actuar: consultar las condiciones del permiso emitido.
+    detail_response = client.get(
+        reverse(
+            "license_detail",
+            kwargs={"license_id": grant.pk},
+        ),
+    )
+
+    # Comprobar: muestra los datos originales capturados desde el servidor.
+    assert detail_response.status_code == 200
+    assert detail_response.context["item"].pk == item.pk
+
+    for field in (
+        "product_name",
+        "product_sku",
+        "license_name",
+        "terms_version",
+        "terms_text",
+        "usage_scope",
+        "grantor_name",
+        "rights_holder_name",
+    ):
+        assertContains(detail_response, expected_snapshots[field])
+
+    # Comprobar: consultar tampoco modifica la captura.
+    assert OrderItem.objects.filter(pk=item.pk).values().get() == item_before
 
 
 @pytest.mark.django_db
@@ -4192,3 +4380,652 @@ def test_unmapped_order_item_remains_readable_and_pending_delivery(client, view_
 
     item_after = OrderItem.objects.filter(pk=item.pk).values().get()
     assert item_after == item_before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("stage", ["cart", "checkout", "payment"])
+@pytest.mark.parametrize(
+    "catalog_change",
+    [
+        "none",
+        "price",
+        "currency",
+        "product_name",
+        "license_name",
+        "sku",
+        "terms_version",
+    ],
+)
+def test_rf10_repurchase_is_rejected_without_business_changes(
+    client, prepared_purchase_offer, stage, catalog_change
+):
+    # Preparar: primera compra pendiente.
+    owner, offer = prepared_purchase_offer
+    client.force_login(owner)
+
+    original_order = prepare_pending_order(owner, offer)
+
+    # Preparar el segundo recorrido antes de adquirir el primer permiso.
+    if stage == "checkout":
+        add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    elif stage == "payment":
+        second_order = prepare_pending_order(owner, offer)
+
+    # Preparar: aprobar la primera compra.
+    approved_response = request_payment_approval(client, original_order)
+    assert approved_response.status_code == 302
+
+    original_grant = LicenseGrant.objects.get(
+        order_item__order=original_order,
+    )
+    assert original_grant.status == LicenseGrant.Status.ACTIVE
+
+    # Preparar: cambiar un dato que no debe alterar la identidad adquirida.
+    if catalog_change == "price":
+        offer.price = Decimal("29.90")
+        offer.save(update_fields=["price"])
+    elif catalog_change == "currency":
+        offer.currency = "USD"
+        offer.save(update_fields=["currency"])
+    elif catalog_change == "product_name":
+        offer.product.name = "Producto renombrado"
+        offer.product.save(update_fields=["name"])
+    elif catalog_change == "license_name":
+        offer.license_type.name = "Tipo de licencia renombrado"
+        offer.license_type.save(update_fields=["name"])
+    elif catalog_change == "sku":
+        offer.product.sku = "SKU-RENOMBRADO"
+        offer.product.save(update_fields=["sku"])
+    elif catalog_change == "terms_version":
+        offer.license_type.terms_version = "2.0"
+        offer.license_type.terms_text = "Condiciones posteriores."
+        offer.license_type.save(
+            update_fields=["terms_version", "terms_text"],
+        )
+
+    before = capture_purchase_business_data()
+
+    # Actuar: intentar adquirir de nuevo la misma combinación.
+    if stage == "cart":
+        response = client.post(
+            reverse("cart:add-item"),
+            {"offer_id": offer.pk},
+        )
+    elif stage == "checkout":
+        response = client.post(reverse("orders:create"))
+    else:
+        response = request_payment_approval(client, second_order)
+
+    # Comprobar: rechazo comprensible.
+    assertContains(
+        response,
+        "Ya tienes un permiso activo para este producto y tipo de licencia.",
+        status_code=409,
+    )
+
+    # Comprobar: no cambia ningún dato de negocio.
+    after = capture_purchase_business_data()
+    assert after == before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "scenario",
+    ["other_customer", "other_product", "other_license_type"],
+)
+def test_rf10_repurchase_rule_allows_distinct_acquisitions(
+    client, prepared_purchase_offer, scenario
+):
+    # Preparar: una combinación ya adquirida por el primer cliente.
+    owner, offer = prepared_purchase_offer
+    original_order = prepare_pending_order(owner, offer)
+
+    client.force_login(owner)
+    assert request_payment_approval(client, original_order).status_code == 302
+
+    buyer = owner
+    candidate_offer = offer
+
+    # Preparar: cambiar únicamente el elemento que permite otra adquisición.
+    if scenario == "other_customer":
+        buyer = get_user_model().objects.create_user(
+            username="rf10-other-customer",
+        )
+
+    elif scenario == "other_product":
+        other_product = Product.objects.create(
+            category=offer.product.category,
+            name="Otro producto",
+            slug="rf10-other-product",
+            sku="RF10-OTHER",
+            summary="Otro sonido",
+            description="Producto diferente para la prueba.",
+            duration_ms=1000,
+            audio_format="wav",
+            sample_rate_hz=48000,
+            bit_depth=24,
+        )
+        candidate_offer = ProductLicenseOffer.objects.create(
+            product=other_product,
+            license_type=offer.license_type,
+            price=Decimal("8.00"),
+            currency="EUR",
+            grantor_name=offer.grantor_name,
+            rights_holder_name=offer.rights_holder_name,
+        )
+
+    else:
+        other_license_type = LicenseType.objects.create(
+            name="Otro tipo de licencia",
+            slug="rf10-other-license",
+            usage_scope="Otro alcance",
+            summary="Otra licencia",
+            terms_version="1.0",
+            terms_text="Condiciones completas de la otra licencia.",
+        )
+        candidate_offer = ProductLicenseOffer.objects.create(
+            product=offer.product,
+            license_type=other_license_type,
+            price=Decimal("8.00"),
+            currency="EUR",
+            grantor_name=offer.grantor_name,
+            rights_holder_name=offer.rights_holder_name,
+        )
+
+    client.force_login(buyer)
+
+    # Actuar y comprobar: puede añadir la oferta.
+    add_response = client.post(
+        reverse("cart:add-item"),
+        {"offer_id": candidate_offer.pk},
+    )
+    assert add_response.status_code == 302
+    assert CartItem.objects.filter(
+        cart__owner=buyer,
+        offer=candidate_offer,
+    ).exists()
+
+    # Actuar y comprobar: puede convertir el carrito.
+    checkout_response = client.post(reverse("orders:create"))
+    assert checkout_response.status_code == 302
+
+    new_order = Order.objects.get(
+        owner=buyer,
+        status=Order.Status.PENDING_PAYMENT,
+    )
+
+    # Actuar y comprobar: puede pagar y obtener su permiso.
+    payment_response = request_payment_approval(client, new_order)
+    assert payment_response.status_code == 302
+
+    new_order.refresh_from_db(from_queryset=None)
+    assert new_order.status == Order.Status.PAID
+
+    grant = LicenseGrant.objects.get(order_item__order=new_order)
+    assert grant.status == LicenseGrant.Status.ACTIVE
+    assert grant.order_item.order.owner.pk == buyer.pk
+
+    assert LicenseGrant.objects.count() == 2
+
+
+@pytest.mark.django_db
+def test_rf10_original_payment_replay_preserves_success(
+    client, prepared_purchase_offer
+):
+    # Preparar: compra aprobada con una clave conocida.
+    owner, offer = prepared_purchase_offer
+    client.force_login(owner)
+
+    order = prepare_pending_order(owner, offer)
+    payment_key = uuid4()
+
+    first_response = request_payment_approval(client, order, payment_key)
+    assert first_response.status_code == 302
+    assert LicenseGrant.objects.filter(order_item__order=order).count() == 1
+
+    before = capture_purchase_business_data()
+
+    # Actuar: repetir el mismo pago, aunque ya exista el permiso.
+    repeated_response = request_payment_approval(client, order, payment_key)
+
+    # Comprobar: conserva el éxito sin ejecutar otra adquisición.
+    assert repeated_response.status_code == 302
+    assert repeated_response["Location"] == reverse(
+        "orders:detail",
+        kwargs={"order_id": order.pk},
+    )
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db(transaction=True)
+def test_rf10_concurrent_orders_cannot_acquire_same_combination_twice(
+    prepared_purchase_offer,
+):
+    # Preparar: dos pedidos pendientes del mismo cliente y combinación.
+    owner, offer = prepared_purchase_offer
+    first_order = prepare_pending_order(owner, offer)
+    second_order = prepare_pending_order(owner, offer)
+
+    start = Barrier(2)
+
+    def approve_order(order):
+        try:
+            thread_client = Client()
+            thread_client.force_login(owner)
+
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_backend_pid()")
+                backend_pid = cursor.fetchone()[0]
+                cursor.execute("SET lock_timeout = '5s'")
+                cursor.execute("SET statement_timeout = '10s'")
+
+            start.wait(timeout=10)
+            response = request_payment_approval(thread_client, order)
+
+            return order.pk, response.status_code, backend_pid
+        finally:
+            connections.close_all()
+
+    # Actuar: intentar aprobar ambas compras concurrentemente.
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first_future = executor.submit(approve_order, first_order)
+        second_future = executor.submit(approve_order, second_order)
+
+        results = [
+            first_future.result(timeout=30),
+            second_future.result(timeout=30),
+        ]
+
+    # Comprobar: participaron conexiones diferentes y solo una tuvo éxito.
+    assert len({backend_pid for _, _, backend_pid in results}) == 2
+    assert sorted(status for _, status, _ in results) == [302, 409]
+
+    # Comprobar: quien gana queda pagado con intento y permiso.
+    # Quien pierde queda pendiente sin intento ni permiso.
+    for order_id, status, _ in results:
+        order = Order.objects.get(pk=order_id)
+
+        if status == 302:
+            assert order.status == Order.Status.PAID
+
+            attempt = PaymentAttempt.objects.get(order=order)
+            assert attempt.result == PaymentAttempt.Result.APPROVED
+
+            grant = LicenseGrant.objects.get(order_item__order=order)
+            assert grant.status == LicenseGrant.Status.ACTIVE
+        else:
+            assert order.status == Order.Status.PENDING_PAYMENT
+            assert not PaymentAttempt.objects.filter(order=order).exists()
+            assert not LicenseGrant.objects.filter(
+                order_item__order=order,
+            ).exists()
+
+    assert PaymentAttempt.objects.count() == 1
+    assert LicenseGrant.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_rf10_pending_order_preserves_conditions_through_payment(
+    client, prepared_purchase_offer
+):
+    # Preparar: pedido pendiente que ya ha capturado condiciones.
+    owner, offer = prepared_purchase_offer
+    client.force_login(owner)
+
+    order = prepare_pending_order(owner, offer)
+    item = OrderItem.objects.get(order=order)
+
+    item_before = OrderItem.objects.filter(pk=item.pk).values().get()
+
+    original_conditions = {
+        "terms_version": item.terms_version,
+        "terms_text": item.terms_text,
+        "usage_scope": item.usage_scope,
+        "grantor_name": item.grantor_name,
+        "rights_holder_name": item.rights_holder_name,
+    }
+
+    # Preparar: publicar condiciones diferentes después de crear el pedido.
+    license_type = offer.license_type
+    license_type.terms_version = "2.0"
+    license_type.terms_text = "Texto posterior del catálogo."
+    license_type.usage_scope = "Alcance posterior del catálogo"
+    license_type.save(
+        update_fields=["terms_version", "terms_text", "usage_scope"],
+    )
+
+    offer.grantor_name = "Concedente posterior"
+    offer.rights_holder_name = "Titular posterior"
+    offer.save(update_fields=["grantor_name", "rights_holder_name"])
+
+    # Actuar: consultar el pedido todavía pendiente.
+    pending_response = client.get(
+        reverse("orders:detail", kwargs={"order_id": order.pk}),
+    )
+
+    assert pending_response.status_code == 200
+    assertContains(pending_response, "Términos: 1.0")
+    assert OrderItem.objects.filter(pk=item.pk).values().get() == item_before
+
+    # Actuar: aprobar el pago después del cambio de catálogo.
+    payment_response = request_payment_approval(client, order)
+    assert payment_response.status_code == 302
+
+    grant = LicenseGrant.objects.get(order_item=item)
+
+    # Actuar: consultar las condiciones del permiso emitido.
+    detail_response = client.get(
+        reverse("license_detail", kwargs={"license_id": grant.pk}),
+    )
+
+    # Comprobar: el permiso muestra exactamente lo capturado al crear el pedido.
+    assert detail_response.status_code == 200
+
+    for value in original_conditions.values():
+        assertContains(detail_response, value)
+
+    assertNotContains(detail_response, license_type.terms_text)
+    assertNotContains(detail_response, license_type.usage_scope)
+    assertNotContains(detail_response, offer.grantor_name)
+    assertNotContains(detail_response, offer.rights_holder_name)
+
+    assert OrderItem.objects.filter(pk=item.pk).values().get() == item_before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("field", "new_value"),
+    [
+        ("terms_text", "Texto cambiado sin nueva versión."),
+        ("usage_scope", "Alcance cambiado sin nueva versión"),
+    ],
+)
+def test_rf10_license_content_change_requires_new_version(
+    prepared_purchase_offer, field, new_value
+):
+    # Preparar: condiciones ya capturadas en un pedido.
+    owner, offer = prepared_purchase_offer
+    prepare_pending_order(owner, offer)
+
+    license_type = offer.license_type
+    catalog_before = (
+        LicenseType.objects.filter(
+            pk=license_type.pk,
+        )
+        .values()
+        .get()
+    )
+    business_before = capture_purchase_business_data()
+
+    setattr(license_type, field, new_value)
+
+    # Actuar y comprobar: guardar contenido distinto con la misma versión falla.
+    with pytest.raises(ValidationError):
+        license_type.save(update_fields=[field])
+
+    # Comprobar: ni el catálogo ni las compras históricas se sobrescriben.
+    catalog_after = (
+        LicenseType.objects.filter(
+            pk=license_type.pk,
+        )
+        .values()
+        .get()
+    )
+
+    assert catalog_after == catalog_before
+    assert capture_purchase_business_data() == business_before
+
+
+@pytest.mark.django_db
+def test_rf10_customer_can_read_conditions_before_creating_order(
+    client, prepared_purchase_offer
+):
+    # Preparar: cliente y oferta disponible, sin pedido.
+    owner, offer = prepared_purchase_offer
+    client.force_login(owner)
+
+    assert not Order.objects.filter(owner=owner).exists()
+    before = capture_purchase_business_data()
+
+    # Actuar: abrir la página desde la que se selecciona la oferta.
+    response = client.get(
+        reverse(
+            "catalog:product-detail",
+            kwargs={"slug": offer.product.slug},
+        ),
+    )
+
+    # Comprobar: texto completo y versión disponibles antes del pedido.
+    assert response.status_code == 200
+    assertContains(response, offer.license_type.terms_text)
+    assertContains(response, offer.license_type.terms_version)
+
+    # Comprobar: la consulta no crea ni modifica datos de compra.
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("stage", ["checkout", "payment"])
+@pytest.mark.parametrize(
+    "missing_field",
+    [
+        "terms_version",
+        "terms_text",
+        "usage_scope",
+        "grantor_name",
+        "rights_holder_name",
+    ],
+)
+@pytest.mark.parametrize("empty_value", ["", "   "], ids=["empty", "spaces"])
+def test_rf10_incomplete_conditions_reject_operation_without_changes(
+    client, prepared_purchase_offer, stage, missing_field, empty_value
+):
+    # Preparar: usuario autenticado y oferta inicialmente completa.
+    owner, offer = prepared_purchase_offer
+    client.force_login(owner)
+
+    if stage == "checkout":
+        add_offer_to_cart(owner=owner, offer_id=offer.pk)
+
+        # Simular documentación incompleta en los datos del catálogo.
+        if missing_field in ("grantor_name", "rights_holder_name"):
+            ProductLicenseOffer.objects.filter(pk=offer.pk).update(
+                **{missing_field: empty_value},
+            )
+        else:
+            LicenseType.objects.filter(pk=offer.license_type.pk).update(
+                **{missing_field: empty_value},
+            )
+    else:
+        order = prepare_pending_order(owner, offer)
+
+        # Simular un pedido pendiente con documentación histórica incompleta.
+        OrderItem.objects.filter(order=order).update(
+            **{missing_field: empty_value},
+        )
+
+    # Guardar el estado una vez preparado el defecto.
+    before = capture_purchase_business_data()
+
+    # Actuar: intentar convertir el carrito o aprobar el pedido incompleto.
+    if stage == "checkout":
+        response = client.post(reverse("orders:create"))
+    else:
+        response = request_payment_approval(client, order)
+
+    # Comprobar: rechazo sin efectos parciales.
+    assert response.status_code == 409
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("stage", ["cart", "checkout", "payment"])
+@pytest.mark.parametrize(
+    "missing_reference",
+    ["product", "license_type", "both"],
+)
+def test_unresolved_previous_purchase_blocks_possible_repurchase(
+    client,
+    prepared_purchase_offer,
+    stage,
+    missing_reference,
+):
+    # Preparar: cliente autenticado y oferta con condiciones completas.
+    owner, offer = prepared_purchase_offer
+    client.force_login(owner)
+
+    # Preparar: dejar listo el recorrido antes de introducir la compra antigua.
+    pending_order = None
+
+    if stage == "checkout":
+        add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    elif stage == "payment":
+        pending_order = prepare_pending_order(owner, offer)
+
+    # Preparar: compra antigua pagada con una identidad incompleta.
+    legacy_order = Order.objects.create(
+        owner=owner,
+        status=Order.Status.PAID,
+        total_amount=Decimal("12.90"),
+        currency="EUR",
+    )
+    legacy_item = OrderItem.objects.create(
+        order=legacy_order,
+        source_product=(
+            None if missing_reference in ("product", "both") else offer.product
+        ),
+        source_license_type=(
+            None
+            if missing_reference in ("license_type", "both")
+            else offer.license_type
+        ),
+        product_name="Nombre histórico del producto",
+        product_sku="SKU-HISTORICO",
+        license_name="Nombre histórico de la licencia",
+        terms_version="1.0",
+        price=Decimal("12.90"),
+        currency="EUR",
+    )
+    LicenseGrant.objects.create(
+        order_item=legacy_item,
+        status=LicenseGrant.Status.ACTIVE,
+    )
+
+    # Preparar: guardar todos los datos de negocio antes de la solicitud.
+    before = capture_purchase_business_data()
+
+    # Actuar: intentar adquirir una combinación que podría estar comprada.
+    if stage == "cart":
+        response = client.post(
+            reverse("cart:add-item"),
+            {"offer_id": offer.pk},
+        )
+    elif stage == "checkout":
+        response = client.post(reverse("orders:create"))
+    else:
+        assert pending_order is not None
+        response = request_payment_approval(client, pending_order)
+
+    # Comprobar: rechazo comprensible por identidad pendiente de revisión.
+    assertContains(
+        response,
+        "Una compra anterior necesita revisión antes de adquirir esta licencia.",
+        status_code=409,
+    )
+
+    # Comprobar: no se modifica ningún dato ni se inventan referencias.
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "missing_fields",
+    [
+        ("source_product",),
+        ("source_license_type",),
+        ("source_product", "source_license_type"),
+    ],
+    ids=["missing_product", "missing_license_type", "missing_both"],
+)
+def test_payment_rejects_pending_order_with_unresolved_identity(
+    client,
+    prepared_purchase_offer,
+    missing_fields,
+):
+    # Preparar: cliente autenticado y pedido con condiciones completas.
+    owner, offer = prepared_purchase_offer
+    client.force_login(owner)
+    order = prepare_pending_order(owner, offer)
+
+    # Preparar: representar un pedido pendiente con referencias sin resolver.
+    OrderItem.objects.filter(order=order).update(
+        **{field: None for field in missing_fields},
+    )
+
+    # Preparar: guardar los datos antes de intentar el pago.
+    before = capture_purchase_business_data()
+
+    # Actuar: solicitar la aprobación.
+    response = request_payment_approval(client, order)
+
+    # Comprobar: rechazo comprensible por identidad incompleta.
+    assertContains(
+        response,
+        "El pedido necesita revisión: contiene líneas sin identificar.",
+        status_code=409,
+    )
+
+    # Comprobar: no hay intento, cambio de estado ni permisos nuevos.
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+def test_license_detail_query_count_does_not_grow_with_owned_grants(
+    client, documented_purchase
+):
+    # Preparar: propietario con un permiso y un detalle propio consultable.
+    owner, _, first_grant, expected = documented_purchase
+    client.force_login(owner)
+    detail_url = reverse("license_detail", kwargs={"license_id": first_grant.pk})
+
+    # Actuar: medir la consulta del detalle con un único permiso propio.
+    with CaptureQueriesContext(connection) as queries_with_one:
+        first_response = client.get(detail_url)
+
+    assert first_response.status_code == 200
+    assertContains(first_response, expected["terms_text"])
+
+    # Preparar: añadir cuatro compras fuera del bloque de medición.
+    for number in range(2, 6):
+        order = Order.objects.create(
+            owner=owner,
+            status=Order.Status.PAID,
+            total_amount=Decimal("12.90"),
+            currency="EUR",
+        )
+        item = OrderItem.objects.create(
+            order=order,
+            product_name=f"Sonido adicional {number}",
+            product_sku=f"DETAIL-{number}",
+            license_name=expected["license_name"],
+            terms_version=expected["terms_version"],
+            terms_text=expected["terms_text"],
+            usage_scope=expected["usage_scope"],
+            grantor_name=expected["grantor_name"],
+            rights_holder_name=expected["rights_holder_name"],
+            price=Decimal("12.90"),
+            currency="EUR",
+        )
+        LicenseGrant.objects.create(order_item=item)
+
+    assert LicenseGrant.objects.filter(order_item__order__owner=owner).count() == 5
+
+    # Actuar: medir el mismo detalle cuando el propietario ya tiene cinco permisos.
+    with CaptureQueriesContext(connection) as queries_with_five:
+        second_response = client.get(detail_url)
+
+    # Comprobar: sigue mostrando el permiso solicitado con consultas constantes.
+    assert second_response.status_code == 200
+    assert second_response.context["grant"].pk == first_grant.pk
+    assertContains(second_response, expected["terms_text"])
+    assert len(queries_with_five) == len(queries_with_one)

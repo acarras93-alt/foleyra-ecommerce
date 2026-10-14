@@ -86,6 +86,8 @@ def product_detail(request, slug):
                 "name": offer.license_type.name,
                 "usage_scope": offer.license_type.usage_scope,
                 "summary": offer.license_type.summary,
+                "terms_version": offer.license_type.terms_version,
+                "terms_text": offer.license_type.terms_text,
                 "price": offer.price,
                 "currency": offer.currency,
             }

@@ -20,12 +20,12 @@ Las instrucciones globales se cargan automáticamente. Los archivos
 `.instructions.md` se aplican cuando coinciden con los archivos de trabajo. Los
 prompts se invocan manualmente para mantener cada responsabilidad separada.
 
-## Situación actual al 2026-10-11
+## Situación actual al 2026-10-14
 
 Catálogo, API pública, autenticación, carrito y consulta de pedidos ya tienen
-implementación. RF-07/08 tienen cierre documentado y RF-10 está parcialmente
-desarrollado: emisión, consulta privada, condiciones capturadas y referencia
-al producto. Continúan RF-10, RF-11, RF-13, RF-14 y RF-15. Sus contratos,
+implementación. RF-07/08/10 tienen cierre documentado: emisión, consulta privada,
+condiciones capturadas, referencias estables, regularización y bloqueo de recompra.
+Continúan RF-11, RF-13, RF-14 y RF-15. Sus contratos,
 pendientes y resultados se consultan en requisitos y evidencias; una nueva
 redacción no implica aprobación ni ejecución.
 

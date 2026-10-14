@@ -7,8 +7,8 @@ mi formación.
 **Estado: MVP en desarrollo.** Ya incluye catálogo web y API pública, cuentas de
 usuario, carrito privado, creación y consulta de pedidos propios, pagos
 simulados aprobados/fallidos y emisión y consulta de permisos de uso.
-RF-10 tiene implementación parcial; el flujo completo de compra y entrega de
-archivos todavía no está terminado.
+RF-10 queda **Verificado el 2026-10-14** para el contrato web, servicios y
+persistencia comprobados. La entrega autorizada del archivo sigue en RF-11.
 
 ## Recorrido del proyecto
 
@@ -83,16 +83,17 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     pedidos ni carritos y la prueba del detalle verifica un número constante y
     acotado de consultas con una y diez líneas. La cobertura de entidades futuras
     y las capturas visuales se detallan en las [evidencias de RF-09](docs/evidence/RF-09/README.md).
-- RF-10 tiene implementación parcial: `LicenseGrant` registra un permiso por
-    línea al aprobar el pago, con unicidad, replay y rollback transaccional.
-    Listado y detalle privados muestran datos históricos, con login, 404
-    uniforme para permisos ajenos/inexistentes y rechazo de escrituras.
-    El checkout captura texto de condiciones, alcance, concedente y titular
-    declarado, y una referencia `source_product` protegida contra borrado.
-    El listado precarga relaciones y tiene una prueba de consultas constantes
-    con uno y cinco permisos. Las garantías pendientes y la evidencia actual
-    se detallan en [RF-10](docs/evidence/RF-10/README.md); el requisito completo
-    no se declara `Implementado` ni `Verificado`.
+- RF-10 está `Verificado`: `LicenseGrant` registra un permiso por línea al
+    aprobar el pago, con unicidad, replay y rollback transaccional. Listado y
+    detalle privados muestran condiciones históricas, con login, 404 uniforme,
+    rechazo de escrituras y consultas constantes. El checkout captura las
+    referencias estables de producto y tipo de licencia y las condiciones
+    completas. Carrito, checkout y pago rechazan recompras y posibles coincidencias
+    con derechos antiguos sin identificar; la aprobación también rechaza líneas
+    propias sin referencias. Las condiciones incompletas impiden checkout/pago.
+    Dos servicios explícitos regularizan permisos faltantes y documentación
+    histórica revisada. La matriz CA01–CA16 y los límites están en
+    [RF-10](docs/evidence/RF-10/README.md).
 - `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
@@ -103,18 +104,18 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
     `Implementado`, no `Verificado`, hasta incorporar sus evidencias. RF-09 también
     queda `Implementado`, con pruebas automatizadas y verificación visual pendiente.
-    RF-10 está parcialmente desarrollado; descargas y API privada continúan
-    pendientes, igual que la configuración administrativa de RF-15.
+    RF-10 queda `Verificado` en su alcance automatizado. Descargas y API privada
+    continúan pendientes, igual que la configuración administrativa de RF-15.
 
 ## Pendiente para completar el MVP
 
 El catálogo y la API pública de lectura están implementados. Continúan
-pendientes el cierre de RF-10, la entrega autorizada de archivos maestros,
+pendientes la entrega autorizada de archivos maestros,
 la API privada y la administración del catálogo y pedidos, de acuerdo con los
 [requisitos funcionales](docs/requirements/functional-requirements.md).
 Los estados de implementación y verificación se registran por separado.
 
-El orden restante es **RF-10 → RF-11 → RF-13 → RF-14 → RF-15**.
+El orden restante es **RF-11 → RF-13 → RF-14 → RF-15**.
 El [plan de cierre y metodología](docs/requirements/mvp-implementation-plan.md)
 recoge los criterios propuestos, el estado observado y la premisa acordada:
 un criterio cada vez, cobertura existente primero y profundización cuando una
@@ -193,9 +194,9 @@ RF-07 añade pruebas de aprobación, validación, idempotencia, concurrencia ent
 conexiones PostgreSQL independientes y rollback sin efectos parciales.
 El incremento de RF-10 amplía esta cobertura con emisión y replay de permisos,
 rollback durante la emisión, aislamiento, condiciones históricas, navegación,
-ausencia de escrituras en consultas, detección de N+1 y referencias al producto.
-Los resultados y límites de la revisión actual están en
-[la evidencia parcial de RF-10](docs/evidence/RF-10/README.md).
+ausencia de escrituras en consultas, detección de N+1, referencias estables,
+recompra, regularización y validación de condiciones. Los resultados y límites
+están en [la evidencia de cierre de RF-10](docs/evidence/RF-10/README.md).
 
 ## Documentación
 

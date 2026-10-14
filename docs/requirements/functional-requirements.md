@@ -31,7 +31,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-07 | Simular un pago aprobado de forma independiente | Cliente autenticado | Must | v0.5.0 | Verificado |
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Verificado |
 | RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Implementado |
-| RF-10 | Registrar y consultar permisos de uso con condiciones trazables | Cliente autenticado | Must | v0.6.0 | Propuesto |
+| RF-10 | Registrar y consultar permisos de uso con condiciones trazables | Cliente autenticado | Must | v0.6.0 | Verificado |
 | RF-11 | Descargar un archivo autorizado | Cliente autenticado | Must | v0.6.0 | Propuesto |
 | RF-12 | Consultar el catálogo mediante una API pública | Consumidor de la API | Must | v0.2.0 | Verificado |
 | RF-13 | Gestionar el carrito mediante una API autenticada | Cliente de la API autenticado | Must | v0.3.0 | Propuesto |
@@ -42,9 +42,10 @@ Las decisiones transversales que deben aprobarse antes de crear el módulo se
 encuentran en el
 [checkpoint de decisiones del catálogo](catalog-decision-checkpoint.md).
 
-RF-07 queda verificado el 2026-10-02 y RF-08 el 2026-10-03. El orden restante es
-**RF-10 → RF-11 → RF-13 → RF-14 → RF-15**. El [plan de cierre y metodología](mvp-implementation-plan.md)
-registra el estado observado el 2026-10-11, incluido el avance parcial de RF-10,
+RF-07 queda verificado el 2026-10-02, RF-08 el 2026-10-03 y RF-10 el 2026-10-14.
+El orden restante es **RF-11 → RF-13 → RF-14 → RF-15**. El
+[plan de cierre y metodología](mvp-implementation-plan.md) registra el cierre
+automatizado de RF-10
 y la premisa de revisar cobertura existente y profundizar según dudas o riesgos.
 Los seis requisitos antes vacíos se desarrollan como propuestas; RF-15 conserva
 CA01–CA07 aprobados y separa expresamente sus ampliaciones propuestas.
@@ -1590,7 +1591,8 @@ No se implementan API privada, pagos, licencias adquiridas ni descargas.
 #### Metadatos y alcance
 
 - Actor: cliente autenticado. Prioridad: Must. Versión: v0.6.0.
-- Estado: `Propuesto`. Dependencias: RF-06 a RF-09; RNF-01 a RNF-06,
+- Estado: `Verificado` el 2026-10-14 para HTTP/HTML, servicios y persistencia
+  comprobados con PostgreSQL. Dependencias: RF-06 a RF-09; RNF-01 a RNF-06,
   RNF-08 y RNF-10 a RNF-13.
 - Una licencia adquirida representa el permiso de uso registrado para el
   cliente de una línea pagada; no es el modelo de catálogo `LicenseType` ni
@@ -1660,7 +1662,7 @@ desde la interfaz del cliente. Un aviso de copyright puede identificar al titula
 declarado; no sustituye las condiciones ni se presenta como certificado de
 titularidad. La entrega privada del archivo continúa en RF-11.
 
-#### Contrato e integración propuestos
+#### Contrato e integración verificados
 
 `GET /licenses/` lista derechos propios por emisión e ID descendentes.
 `GET /licenses/{license_id}/` muestra un derecho propio y referencia a su pedido.
@@ -1713,7 +1715,7 @@ incremento; no modifica importes, propiedad ni textos históricos de RF-06/09.
   estos casos es condición de cierre de la regla, sin inventar asociaciones ni
   sobrescribir los snapshots históricos.
 
-#### Criterios de aceptación propuestos
+#### Criterios de aceptación verificados
 
 - CA-RF10-01: dado un pago aprobado para un pedido con varias líneas, cuando se
   confirma la transición, entonces existe exactamente un derecho activo por
@@ -1791,9 +1793,9 @@ evidencias en `docs/evidence/RF-10/`.
 
 #### Avance parcial observado el 2026-10-11
 
-El requisito conserva `Propuesto` para los contratos todavía pendientes; su
-implementación parcial no acredita el cierre de todos los criterios ni aprueba
-automáticamente nuevas decisiones. La evidencia del árbol publicado se recoge
+En esa revisión el requisito conservaba `Propuesto` para los contratos
+pendientes. Este apartado conserva la evidencia histórica; el cierre posterior
+se registra a continuación. La evidencia del árbol publicado se recoge
 en [RF-10](../evidence/RF-10/README.md).
 
 - `LicenseGrant` existe y se emite por línea en la aprobación transaccional.
@@ -1813,6 +1815,32 @@ en [RF-10](../evidence/RF-10/README.md).
 
 Los tests de estas partes se identifican en la evidencia parcial. Una prueba
 vacía con `pass` no acredita cobertura, aunque pytest la contabilice.
+
+#### Cierre verificado del 2026-10-14
+
+Por solicitud expresa del desarrollador, RF-10 pasa a `Verificado` para el
+contrato web, servicios y persistencia del MVP. La matriz de los 16 criterios y
+los límites están en [las evidencias de cierre](../evidence/RF-10/README.md);
+los comandos reproducibles figuran en la
+[puerta de calidad](../evidence/RF-10/quality-gate-2026-10-14.md).
+
+El incremento incorpora `source_license_type` con PROTECT y nulo para datos
+anteriores, reglas compartidas de documentación/recompra, bloqueo por propietario
+en pagos concurrentes y validación del versionado de condiciones. Las consultas
+conservan los snapshots y nunca regularizan datos automáticamente.
+
+`regularize_paid_order_grants(order_ids=...)` crea solo permisos faltantes de
+pedidos pagados. `regularize_legacy_order_item(order_item_id=..., mappings=...)`
+exige una correspondencia única revisada, completa únicamente datos ausentes y
+rechaza contradicciones. Son servicios internos para una operación administrativa
+controlada; no hay un endpoint público ni una interfaz de regularización en Admin.
+El revisor declarado no autentica al ejecutor ni representa aceptación del cliente.
+Los metadatos de revisión se validan como entrada y aún no forman un registro de
+auditoría persistente; su referencia documental debe conservarla el operador.
+
+La verificación automatizada no acredita revisión visual, instalación limpia,
+audios reales, despliegue, firma ni autenticidad jurídica del respaldo histórico.
+Descargas, API privada y administración continúan en RF-11, RF-13/14 y RF-15.
 
 ### RF-11 — Descargar un archivo autorizado
 

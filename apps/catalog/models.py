@@ -1,8 +1,9 @@
 # apps/catalog/models.py
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, router, transaction
 from django.db.models import Q
 
 from apps.catalog.storage import PreviewStorage, PrivateMasterStorage
@@ -76,6 +77,68 @@ class LicenseType(models.Model):
 
     class Meta:
         ordering = ["name", "pk"]  # noqa: RUF012
+
+    def save(
+        self,
+        *,
+        force_insert=False,
+        force_update=False,
+        using=None,
+        update_fields=None,
+    ):
+        database = using or router.db_for_write(type(self), instance=self)
+
+        if update_fields is not None:
+            update_fields = frozenset(update_fields)
+            if not update_fields:
+                return
+
+        with transaction.atomic(using=database):
+            previous = None
+
+            if self.pk is not None:
+                previous = (
+                    type(self)
+                    .objects.using(database)
+                    .select_for_update()
+                    .filter(pk=self.pk)
+                    .values("terms_text", "usage_scope", "terms_version")
+                    .first()
+                )
+
+            if previous is not None:
+                # Comparar únicamente los campos que se van a guardar.
+                content_changed = any(
+                    (update_fields is None or field in update_fields)
+                    and getattr(self, field) != previous[field]
+                    for field in ("terms_text", "usage_scope")
+                )
+
+                # Cambiar la versión en memoria no basta:
+                # también debe incluirse entre los campos guardados.
+                saved_version = previous["terms_version"]
+                if update_fields is None or "terms_version" in update_fields:
+                    saved_version = self.terms_version
+
+                if content_changed and (
+                    not saved_version.strip()
+                    or saved_version.strip() == previous["terms_version"].strip()
+                ):
+                    raise ValidationError(
+                        {
+                            "terms_version": (
+                                "Debes indicar una nueva versión al cambiar "
+                                "el texto o el alcance de las condiciones."
+                            )
+                        }
+                    )
+
+            return super().save(
+                force_insert=force_insert,
+                force_update=force_update,
+                using=database,
+                update_fields=update_fields,
+            )
 
     def __str__(self):
         return f"{self.name} (v{self.terms_version})"

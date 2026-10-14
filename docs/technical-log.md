@@ -2704,3 +2704,43 @@ Esta actualización documenta un estado de desarrollo, no una instalación limpi
 validación visual, cierre académico ni despliegue en producción. La publicación
 se comprueba por separado contra el remoto; el commit del incremento se consulta
 con `git log -1 -- docs/evidence/RF-10/README.md`.
+
+## 2026-10-14 — RF-10 verificado y cierre documental
+
+Por solicitud expresa de Álvaro, RF-10 pasa a `Verificado` para el contrato web,
+servicios y persistencia comprobados con PostgreSQL. El incremento existente
+sobre `be94cb1` incorpora referencias estables al tipo de licencia, políticas
+compartidas de recompra/documentación, bloqueo por propietario en pagos,
+versionado y consulta previa de condiciones, regularización de permisos y
+correspondencias históricas revisadas. Se preservan los datos y reglas de los
+requisitos anteriores; la entrega del maestro sigue en RF-11.
+
+La regresión anterior de 49 fallos se debía a preparaciones de compras válidas
+que aún omitían documentación o referencias. Se corrigieron helpers y llamadas
+específicas, conservando los casos antiguos/incompletos deliberados y el alcance
+de sus asserts. Se restauraron nombres/SKU históricos del helper de servicios y
+se corrigió el total de un pedido de tres líneas a 31,30 EUR. Álvaro confirmó la
+puerta completa con 314 pruebas satisfactorias.
+
+La revisión final añadió siete casos de rechazo CA15 —correspondencia ausente,
+ambigua, de otra línea, sin revisor administrativo válido y conflictos de versión,
+alcance o referencia— y una prueba de consultas constantes del detalle CA09.
+No fue necesario cambiar producción durante esta revisión. Green inicial de
+estas comprobaciones; batería final: **322 passed in 45.49s**. Django, detección
+y estado de migraciones, Ruff, formato de 123 archivos, dependencias y diff
+correctos. Las migraciones ya estaban aplicadas hasta catalog.0003/orders.0009;
+no se ejecutó migrate sobre desarrollo. pip deshabilitó su caché por permisos,
+sin afectar la comprobación de dependencias.
+
+Se actualizan README, requisitos, plan, instalación, flujo de trabajo y la matriz
+CA01–CA16. La nueva puerta queda en
+`docs/evidence/RF-10/quality-gate-2026-10-14.md`; la evidencia parcial del día 11
+se conserva como histórica. La siguiente unidad funcional es RF-11. La
+reorganización de los archivos de pruebas queda separada de este cierre.
+
+Los servicios de regularización requieren ejecución administrativa controlada.
+Validan los datos de revisión suministrados, pero no autentican al ejecutor ni
+persisten una auditoría documental; no inventan aceptación del cliente. El cierre
+no acredita interfaz Admin, revisión visual, documentos jurídicos auténticos,
+sonidos reales, instalación limpia, API privada ni despliegue. El commit reúne
+el incremento y esta evidencia, sin secretos ni medios y sin push remoto.

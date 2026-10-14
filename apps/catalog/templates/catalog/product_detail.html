@@ -25,6 +25,11 @@
                 {{ offer.usage_scope }}
                 {{ offer.summary }}
                 {{ offer.price|unlocalize }} {{ offer.currency }}
+                <section>
+                    <h2>Condiciones de uso</h2>
+                    <p>Versión: {{ offer.terms_version }}</p>
+                    <div>{{ offer.terms_text|linebreaksbr }}</div>
+                </section>
                 {% if user.is_authenticated %}
                     <form method="post" action="{% url 'cart:add-item' %}">
                         {% csrf_token %}

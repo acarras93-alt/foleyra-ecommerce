@@ -39,6 +39,13 @@ class OrderItem(models.Model):
         null=True,
         blank=True,
     )
+    source_license_type = models.ForeignKey(
+        "catalog.LicenseType",
+        on_delete=models.PROTECT,
+        related_name="order_items",
+        null=True,
+        blank=True,
+    )
     product_sku = models.CharField(max_length=40)
     product_name = models.CharField(max_length=140)
     license_name = models.CharField(max_length=120)

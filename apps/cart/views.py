@@ -2,7 +2,7 @@ from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -13,6 +13,10 @@ from apps.cart.services import (
     OfferNotAvailable,
     add_offer_to_cart,
     remove_cart_item,
+)
+from apps.orders.policies import (
+    LicenseAlreadyOwned,
+    UnresolvedLicenseIdentity,
 )
 
 
@@ -51,10 +55,17 @@ def add_item(request):
         offer_id = int(request.POST.get("offer_id"))
     except (TypeError, ValueError):
         return HttpResponseBadRequest("offer_id no válido.")
+
     try:
-        _, created = add_offer_to_cart(owner=request.user, offer_id=offer_id)
+        _, created = add_offer_to_cart(
+            owner=request.user,
+            offer_id=offer_id,
+        )
     except OfferNotAvailable:
         raise Http404 from None
+    except (LicenseAlreadyOwned, UnresolvedLicenseIdentity) as error:
+        return HttpResponse(str(error), status=409)
+
     if created:
         messages.success(request, "Oferta añadida al carrito.")
     else:

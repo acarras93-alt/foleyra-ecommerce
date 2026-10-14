@@ -3,6 +3,7 @@ from django.db import IntegrityError, transaction
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import ProductLicenseOffer
 from apps.catalog.selectors import get_available_offers
+from apps.orders.policies import ensure_license_not_owned
 
 
 class OfferNotAvailable(Exception):
@@ -26,6 +27,20 @@ def add_offer_to_cart(*, owner, offer_id: int) -> tuple[CartItem, bool]:
         offer = get_available_offers().get(pk=offer_id)
     except ProductLicenseOffer.DoesNotExist:
         raise OfferNotAvailable from None
+
+    try:
+        offer = get_available_offers().get(pk=offer_id)
+    except ProductLicenseOffer.DoesNotExist:
+        raise OfferNotAvailable from None
+
+    # Rechazar una combinación para la que ya existe un permiso activo.
+    ensure_license_not_owned(
+        owner=owner,
+        product=offer.product,
+        license_type=offer.license_type,
+    )
+
+    cart, _ = Cart.objects.get_or_create(owner=owner)
 
     cart, _ = Cart.objects.get_or_create(owner=owner)
     cart = Cart.objects.select_for_update().get(pk=cart.pk)

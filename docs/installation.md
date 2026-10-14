@@ -114,8 +114,11 @@ histórica de esa migración, no del esquema completo actual.
 La versión actual incorpora además pedidos, intentos de pago y permisos:
 `catalog.0003` añade las condiciones e identidades declaradas;
 `orders.0006` crea `LicenseGrant`; `orders.0007` amplía los datos históricos;
-`orders.0008` añade `source_product` protegido contra borrado. Esta última
-relación permite nulo para compras antiguas y no realiza un mapeo automático.
+`orders.0008` añade `source_product` y `orders.0009` añade
+`source_license_type`, ambos protegidos contra borrado. Las relaciones admiten
+nulo para compras antiguas y no realizan un mapeo automático. Las compras
+antiguas se regularizan mediante operaciones explícitas, descritas en
+[las evidencias de RF-10](evidence/RF-10/README.md).
 
 Tras preparar la base de datos:
 
@@ -159,7 +162,7 @@ El prompt empleado durante esta inicialización y el alcance real de la
 asistencia de IA se registran en
 [`docs/ai-assisted-development.md`](ai-assisted-development.md).
 
-La revisión del 2026-10-11 y sus límites figuran en
-[evidencias parciales de RF-10](evidence/RF-10/README.md). Los pasos anteriores
+La revisión del 2026-10-14 y sus límites figuran en
+[las evidencias de RF-10](evidence/RF-10/README.md). Los pasos anteriores
 documentan la configuración reproducible; esta revisión no certifica una
 instalación en una máquina limpia ni una demo con productos sonoros reales.

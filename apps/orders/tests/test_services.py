@@ -8,17 +8,26 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.db import close_old_connections
 from django.urls import reverse
+from django.utils import timezone
 from pytest_django.asserts import assertContains
 
 from apps.cart.models import CartItem
 from apps.cart.services import add_offer_to_cart
 from apps.catalog.models import Category, LicenseType, Product, ProductLicenseOffer
+from apps.orders import services as order_services
 from apps.orders.models import LicenseGrant, Order, OrderItem, PaymentAttempt
 from apps.orders.services import EmptyCart, OfferNotAvailable, create_order_from_cart
 
 
-def create_available_offer():
-    category = Category.objects.create(name="Pedidos", slug="pedidos")
+def create_available_offer(
+    *,
+    terms_text="Condiciones completas de prueba.",
+    usage_scope="Uso de prueba",
+):
+    category = Category.objects.create(
+        name="Pedidos",
+        slug="pedidos",
+    )
     product = Product.objects.create(
         category=category,
         name="Impacto cinematográfico",
@@ -34,14 +43,75 @@ def create_available_offer():
     license_type = LicenseType.objects.create(
         name="Licencia de pedido",
         slug="licencia-pedido",
-        usage_scope="Uso de prueba",
+        usage_scope=usage_scope,
         summary="Resumen de licencia de prueba.",
         terms_version="1.0",
+        terms_text=terms_text,
     )
     return ProductLicenseOffer.objects.create(
         product=product,
         license_type=license_type,
         price=Decimal("12.90"),
+        grantor_name="Concedente de prueba",
+        rights_holder_name="Titular de prueba",
+    )
+
+
+def create_payable_order_item(
+    *,
+    order,
+    product_name,
+    product_sku,
+    license_name,
+    terms_version,
+    price,
+    currency,
+):
+    identifier = uuid4().hex
+    terms_text = "Condiciones completas de la compra de prueba."
+    usage_scope = "Proyectos audiovisuales"
+
+    category, _ = Category.objects.get_or_create(
+        slug="pagos-de-prueba",
+        defaults={"name": "Pagos de prueba"},
+    )
+    product = Product.objects.create(
+        category=category,
+        name=product_name,
+        slug=f"producto-{identifier}",
+        sku=product_sku,
+        summary="Producto de prueba.",
+        description="Producto para comprobar el pago.",
+        duration_ms=1000,
+        audio_format="wav",
+        sample_rate_hz=48000,
+        bit_depth=24,
+    )
+    license_type, _ = LicenseType.objects.get_or_create(
+        name=license_name,
+        defaults={
+            "slug": f"licencia-{identifier}",
+            "usage_scope": usage_scope,
+            "summary": "Licencia para comprobar el pago.",
+            "terms_version": terms_version,
+            "terms_text": terms_text,
+        },
+    )
+
+    return OrderItem.objects.create(
+        order=order,
+        source_product=product,
+        source_license_type=license_type,
+        product_name=product_name,
+        product_sku=product_sku,
+        license_name=license_name,
+        terms_version=terms_version,
+        terms_text=terms_text,
+        usage_scope=usage_scope,
+        grantor_name="Concedente de prueba",
+        rights_holder_name="Titular de prueba",
+        price=price,
+        currency=currency,
     )
 
 
@@ -213,11 +283,11 @@ def test_approved_payment_issues_one_permission_per_order_item(client):
     order = Order.objects.create(
         owner=owner,
         status=Order.Status.PENDING_PAYMENT,
-        total_amount=Decimal("12.90"),
+        total_amount=Decimal("31.30"),
         currency="EUR",
     )
 
-    first_item = OrderItem.objects.create(
+    first_item = create_payable_order_item(
         order=order,
         product_name="Impacto cinematográfico",
         product_sku="PED-001",
@@ -227,7 +297,7 @@ def test_approved_payment_issues_one_permission_per_order_item(client):
         currency="EUR",
     )
 
-    second_item = OrderItem.objects.create(
+    second_item = create_payable_order_item(
         order=order,
         product_name="Pasos sobre madera",
         product_sku="PED-002",
@@ -237,7 +307,7 @@ def test_approved_payment_issues_one_permission_per_order_item(client):
         currency="EUR",
     )
 
-    third_item = OrderItem.objects.create(
+    third_item = create_payable_order_item(
         order=order,
         product_name="Lluvia exterior",
         product_sku="PED-003",
@@ -280,7 +350,7 @@ def test_approved_payment_issues_one_permission_per_order_item(client):
 
     assert order.status == Order.Status.PAID
     assert order.owner == owner
-    assert order.total_amount == Decimal("12.90")
+    assert order.total_amount == Decimal("31.30")
     assert order.currency == "EUR"
 
     # Crear: exactamente un intento aprobado con los datos esperados.
@@ -290,7 +360,7 @@ def test_approved_payment_issues_one_permission_per_order_item(client):
     attempt = attempts.get()
     assert attempt.result == "approved"
     assert attempt.idempotency_key == payment_key
-    assert attempt.amount == Decimal("12.90")
+    assert attempt.amount == Decimal("31.30")
     assert attempt.currency == "EUR"
     assert attempt.created_at is not None
 
@@ -349,7 +419,7 @@ def test_payment_replay_with_same_key_preserves_existing_license_grants(client):
         currency="EUR",
     )
 
-    OrderItem.objects.create(
+    create_payable_order_item(
         order=order,
         product_name="Impacto cinematográfico",
         product_sku="PED-001",
@@ -359,7 +429,7 @@ def test_payment_replay_with_same_key_preserves_existing_license_grants(client):
         currency="EUR",
     )
 
-    OrderItem.objects.create(
+    create_payable_order_item(
         order=order,
         product_name="Pasos sobre madera",
         product_sku="PED-002",
@@ -437,5 +507,335 @@ def test_payment_replay_with_same_key_preserves_existing_license_grants(client):
 
 
 @pytest.mark.django_db
-def test_order_preserves_license_conditions_after_catalog_changes(client):
-    pass
+def test_regularization_creates_only_missing_grants_for_paid_orders():
+    # Preparar: propietario de las compras antiguas.
+    owner = get_user_model().objects.create_user(
+        username="legacy-orders-owner",
+    )
+
+    # Preparar: pedido pagado con dos líneas y pedido pendiente con una.
+    paid_order = Order.objects.create(
+        owner=owner,
+        status=Order.Status.PAID,
+        total_amount=Decimal("25.80"),
+        currency="EUR",
+    )
+    pending_order = Order.objects.create(
+        owner=owner,
+        status=Order.Status.PENDING_PAYMENT,
+        total_amount=Decimal("12.90"),
+        currency="EUR",
+    )
+
+    items = []
+    for order, sku in [
+        (paid_order, "LEGACY-001"),
+        (paid_order, "LEGACY-002"),
+        (pending_order, "LEGACY-003"),
+    ]:
+        items.append(
+            OrderItem.objects.create(
+                order=order,
+                product_sku=sku,
+                product_name=f"Producto {sku}",
+                license_name="Licencia comercial",
+                terms_version="1.0",
+                price=Decimal("12.90"),
+                currency="EUR",
+            )
+        )
+
+    existing_item, missing_item, pending_item = items
+
+    # Preparar: un permiso ya existente que debe conservarse.
+    existing_grant = LicenseGrant.objects.create(
+        order_item=existing_item,
+        status=LicenseGrant.Status.ACTIVE,
+    )
+
+    # Preparar: intento aprobado histórico que no debe modificarse.
+    PaymentAttempt.objects.create(
+        order=paid_order,
+        idempotency_key=uuid4(),
+        result=PaymentAttempt.Result.APPROVED,
+        amount=paid_order.total_amount,
+        currency=paid_order.currency,
+    )
+
+    # Preparar: guardar pedidos, intentos y líneas, incluida su falta de texto.
+    business_before = {
+        model.__name__: list(model.objects.order_by("pk").values())
+        for model in (Order, OrderItem, PaymentAttempt)
+    }
+    existing_grant_before = (
+        LicenseGrant.objects.filter(pk=existing_grant.pk).values().get()
+    )
+
+    assert missing_item.terms_text == ""
+    selected_order_ids = [paid_order.pk, pending_order.pk]
+
+    # Actuar: regularizar explícitamente los pedidos seleccionados.
+    created_count = order_services.regularize_paid_order_grants(
+        order_ids=selected_order_ids,
+    )
+
+    # Comprobar: se crea únicamente el permiso faltante del pedido pagado.
+    assert created_count == 1
+    assert LicenseGrant.objects.count() == 2
+
+    new_grant = LicenseGrant.objects.get(order_item=missing_item)
+    assert new_grant.status == LicenseGrant.Status.ACTIVE
+    assert new_grant.issued_at is not None
+    assert not LicenseGrant.objects.filter(order_item=pending_item).exists()
+
+    # Comprobar: el permiso existente conserva todos sus valores.
+    assert (
+        LicenseGrant.objects.filter(pk=existing_grant.pk).values().get()
+        == existing_grant_before
+    )
+
+    # Comprobar: no se alteran pedidos, intentos ni condiciones históricas.
+    business_after = {
+        model.__name__: list(model.objects.order_by("pk").values())
+        for model in (Order, OrderItem, PaymentAttempt)
+    }
+    assert business_after == business_before
+
+    # Preparar: conservar los permisos tras la primera regularización.
+    grants_before_replay = list(LicenseGrant.objects.order_by("pk").values())
+
+    # Actuar: repetir la misma operación.
+    replay_count = order_services.regularize_paid_order_grants(
+        order_ids=selected_order_ids,
+    )
+
+    # Comprobar: no crea permisos ni modifica los existentes.
+    assert replay_count == 0
+    assert list(LicenseGrant.objects.order_by("pk").values()) == grants_before_replay
+
+    # Comprobar: la repetición tampoco altera los datos históricos.
+    business_after_replay = {
+        model.__name__: list(model.objects.order_by("pk").values())
+        for model in (Order, OrderItem, PaymentAttempt)
+    }
+    assert business_after_replay == business_before
+
+
+@pytest.mark.django_db
+def test_legacy_documentation_fills_missing_data_and_preserves_snapshots():
+    # Preparar: cliente y administrador que revisó la documentación.
+    owner = get_user_model().objects.create_user(
+        username="legacy-documentation-owner",
+    )
+    reviewer = get_user_model().objects.create_user(
+        username="legacy-documentation-reviewer",
+        is_staff=True,
+    )
+
+    # Preparar: el catálogo actual ya contiene otras condiciones.
+    offer = create_available_offer(
+        terms_text="Condiciones actuales de la versión 2.0.",
+        usage_scope="Alcance actual del catálogo",
+    )
+    offer.license_type.terms_version = "2.0"
+    offer.license_type.save(update_fields=["terms_version"])
+
+    offer.grantor_name = "Concedente actual"
+    offer.rights_holder_name = "Titular actual"
+    offer.save(update_fields=["grantor_name", "rights_holder_name"])
+
+    # Preparar: compra antigua con algunos datos históricos conocidos.
+    order = Order.objects.create(
+        owner=owner,
+        status=Order.Status.PAID,
+        total_amount=Decimal("8.50"),
+        currency="EUR",
+    )
+    item = OrderItem.objects.create(
+        order=order,
+        product_sku="SKU-HISTORICO",
+        product_name="Nombre histórico del sonido",
+        license_name="Licencia histórica",
+        terms_version="1.0",
+        usage_scope="Proyectos audiovisuales",
+        price=Decimal("8.50"),
+        currency="EUR",
+    )
+    LicenseGrant.objects.create(order_item=item)
+
+    # Preparar: correspondencia explícita respaldada por un documento revisado.
+    mapping = {
+        "order_item_id": item.pk,
+        "source_product_id": offer.product.pk,
+        "source_license_type_id": offer.license_type.pk,
+        "terms_version": "1.0",
+        "terms_text": "Texto histórico completo de la versión 1.0.",
+        "usage_scope": "Proyectos audiovisuales",
+        "grantor_name": "Concedente histórico",
+        "rights_holder_name": "Titular histórico",
+        "evidence_reference": "archivo-historico/condiciones-v1-documento-001",
+        "reviewed_by_id": reviewer.pk,
+        "reviewed_at": timezone.now(),
+    }
+
+    # Preparar: conservar la línea y los registros ajenos a la documentación.
+    item_before = OrderItem.objects.filter(pk=item.pk).values().get()
+    unchanged_models = (
+        Order,
+        PaymentAttempt,
+        LicenseGrant,
+        Product,
+        LicenseType,
+        ProductLicenseOffer,
+    )
+    business_before = {
+        model.__name__: list(model.objects.order_by("pk").values())
+        for model in unchanged_models
+    }
+
+    # Actuar: aplicar la correspondencia histórica revisada.
+    order_services.regularize_legacy_order_item(
+        order_item_id=item.pk,
+        mappings=[mapping],
+    )
+
+    # Comprobar: únicamente se completan los campos que estaban ausentes.
+    expected_item = {
+        **item_before,
+        "source_product_id": offer.product.pk,
+        "source_license_type_id": offer.license_type.pk,
+        "terms_text": mapping["terms_text"],
+        "grantor_name": mapping["grantor_name"],
+        "rights_holder_name": mapping["rights_holder_name"],
+    }
+    item_after = OrderItem.objects.filter(pk=item.pk).values().get()
+
+    assert item_after == expected_item
+
+    # Comprobar: se conserva la versión comprada y no se usa el texto actual.
+    assert item_after["terms_version"] == "1.0"
+    assert item_after["terms_text"] != offer.license_type.terms_text
+
+    # Comprobar: no se alteran pedidos, pagos, permisos ni catálogo.
+    business_after = {
+        model.__name__: list(model.objects.order_by("pk").values())
+        for model in unchanged_models
+    }
+    assert business_after == business_before
+
+    # Actuar: repetir exactamente la misma regularización.
+    order_services.regularize_legacy_order_item(
+        order_item_id=item.pk,
+        mappings=[mapping],
+    )
+
+    # Comprobar: la repetición no modifica la línea ni los demás registros.
+    assert OrderItem.objects.filter(pk=item.pk).values().get() == item_after
+
+    business_after_replay = {
+        model.__name__: list(model.objects.order_by("pk").values())
+        for model in unchanged_models
+    }
+    assert business_after_replay == business_before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "absent",
+        "ambiguous",
+        "wrong_item",
+        "unreviewed",
+        "version_conflict",
+        "scope_conflict",
+        "reference_conflict",
+    ],
+)
+def test_legacy_documentation_rejects_invalid_mapping_without_changes(scenario):
+    # Preparar: una compra pagada con datos conocidos y texto aún ausente.
+    owner = get_user_model().objects.create_user(username="legacy-invalid-owner")
+    reviewer = get_user_model().objects.create_user(
+        username="legacy-invalid-reviewer", is_staff=True
+    )
+    offer = create_available_offer()
+    order = Order.objects.create(
+        owner=owner,
+        status=Order.Status.PAID,
+        total_amount=Decimal("12.90"),
+        currency="EUR",
+    )
+    item = OrderItem.objects.create(
+        order=order,
+        source_product=offer.product,
+        product_sku="LEGACY-INVALID",
+        product_name="Producto histórico",
+        license_name="Licencia histórica",
+        terms_version="1.0",
+        usage_scope="Alcance histórico",
+        price=Decimal("12.90"),
+        currency="EUR",
+    )
+    LicenseGrant.objects.create(order_item=item)
+    mapping = {
+        "order_item_id": item.pk,
+        "source_product_id": offer.product.pk,
+        "source_license_type_id": offer.license_type.pk,
+        "terms_version": "1.0",
+        "terms_text": "Texto histórico documentado.",
+        "usage_scope": "Alcance histórico",
+        "grantor_name": "Concedente histórico",
+        "rights_holder_name": "Titular histórico",
+        "evidence_reference": "archivo-historico/revision-001",
+        "reviewed_by_id": reviewer.pk,
+        "reviewed_at": timezone.now(),
+    }
+    mappings = [mapping]
+
+    # Preparar: introducir únicamente la incompatibilidad bajo prueba.
+    if scenario == "absent":
+        mappings = []
+    elif scenario == "ambiguous":
+        mappings = [mapping, dict(mapping)]
+    elif scenario == "wrong_item":
+        mapping["order_item_id"] = item.pk + 1
+    elif scenario == "unreviewed":
+        mapping["reviewed_by_id"] = owner.pk
+    elif scenario == "version_conflict":
+        mapping["terms_version"] = "2.0"
+    elif scenario == "scope_conflict":
+        mapping["usage_scope"] = "Otro alcance"
+    elif scenario == "reference_conflict":
+        other_type = LicenseType.objects.create(
+            name="Otro tipo histórico",
+            slug="otro-tipo-historico",
+            usage_scope="Otro alcance",
+            summary="Tipo distinto al propuesto por la correspondencia.",
+            terms_version="1.0",
+        )
+        item.source_license_type = other_type
+        item.save(update_fields=["source_license_type"])
+
+    models = (
+        Order,
+        OrderItem,
+        PaymentAttempt,
+        LicenseGrant,
+        Product,
+        LicenseType,
+        ProductLicenseOffer,
+    )
+    before = {
+        model.__name__: list(model.objects.order_by("pk").values()) for model in models
+    }
+
+    # Actuar y comprobar: rechazar sin completar parcialmente la documentación.
+    with pytest.raises(order_services.LegacyDocumentationConflict):
+        order_services.regularize_legacy_order_item(
+            order_item_id=item.pk, mappings=mappings
+        )
+
+    after = {
+        model.__name__: list(model.objects.order_by("pk").values()) for model in models
+    }
+    assert after == before

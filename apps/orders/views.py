@@ -9,6 +9,11 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.orders.models import LicenseGrant, Order, PaymentAttempt
+from apps.orders.policies import (
+    IncompleteLicenseConditions,
+    LicenseAlreadyOwned,
+    UnresolvedLicenseIdentity,
+)
 from apps.orders.selectors import get_order_for_owner, get_orders_for_owner
 from apps.orders.services import (
     EmptyCart,
@@ -77,6 +82,13 @@ def create_order(request):
         create_order_from_cart(owner=request.user)
     except (EmptyCart, OfferNotAvailable):
         return HttpResponse(status=409)
+    except (
+        LicenseAlreadyOwned,
+        IncompleteLicenseConditions,
+        UnresolvedLicenseIdentity,
+    ) as error:
+        return HttpResponse(str(error), status=409)
+
     messages.success(request, "Pedido creado.")
     return redirect("cart:detail")
 
@@ -114,6 +126,12 @@ def simulate_payment(request, order_id):
         return HttpResponse(status=400)
     except PaymentConflict:
         return HttpResponse(status=409)
+    except (
+        LicenseAlreadyOwned,
+        IncompleteLicenseConditions,
+        UnresolvedLicenseIdentity,
+    ) as error:
+        return HttpResponse(str(error), status=409)
 
     if attempt.result == PaymentAttempt.Result.APPROVED:
         messages.success(request, "Pago simulado aprobado.")
