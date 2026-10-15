@@ -72,8 +72,8 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     aprobar el pago conservando los intentos anteriores. El detalle muestra el
     historial propio ordenado con resultado y fecha; su consulta no modifica datos.
     Las pruebas cubren seguridad, idempotencia, concurrencia y rollback.
-    El rechazo se comprueba mediante POST; el formulario visible mantiene la
-    aprobación y el reintento con clave nueva. Véanse las
+    El formulario del pedido pendiente permite elegir aprobación o rechazo
+    simulado. Tras un rechazo se puede reintentar con una clave nueva. Véanse las
     [evidencias de RF-08](docs/evidence/RF-08/README.md).
 - RF-09 está `Implementado`: `/orders/` muestra únicamente los pedidos propios,
     ordenados por fecha de creación e ID descendentes, con fecha y enlace al
@@ -94,7 +94,14 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     Dos servicios explícitos regularizan permisos faltantes y documentación
     histórica revisada. La matriz CA01–CA16 y los límites están en
     [RF-10](docs/evidence/RF-10/README.md).
-- `apps.core` proporciona una página de inicio pública en `/`, con enrutamiento y renderizado de plantillas verificados.
+- `apps.core` proporciona una página de inicio pública en `/`, con la marca
+    Foleyra, la presentación «Biblioteca de sonidos para proyectos audiovisuales»,
+    acceso al catálogo y una indicación del carácter académico y simulado de las compras.
+- El recorrido web incluye navegación compartida según autenticación,
+    previews y selección de ofertas desde el catálogo, retorno al catálogo desde
+    el carrito y navegación entre licencias y sus pedidos. Son avances parciales
+    de RF-17; no acreditan el cierre del recorrido completo. RF-16, clasificación
+    por familias y subfamilias, continúa propuesto y sin implementar.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
 - La API pública de solo lectura `/api/v1/catalog/products/` y `/api/v1/catalog/products/{slug}/` ofrece la misma selección disponible en web, filtros y ordenación aprobados, paginación de 12 elementos, detalle con previews y ofertas públicas, y errores JSON contractuales. No expone archivos maestros ni campos administrativos.

@@ -2,8 +2,8 @@
 
 ## 1. Propósito
 
-Este documento define las capacidades funcionales incluidas en el MVP
-de Foleyra. Constituye la fuente de verdad para la planificación,
+Este documento define las capacidades funcionales del MVP de Foleyra y sus
+ampliaciones posteriores, diferenciadas por alcance y estado. Constituye la fuente de verdad para la planificación,
 las pruebas, la implementación y las evidencias académicas.
 
 ## 2. Convenciones
@@ -38,12 +38,31 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-14 | Ejecutar checkout, pago y consultas privadas mediante API | Cliente de la API autenticado | Must | v0.7.0 | Propuesto |
 | RF-15 | Administrar el sistema mediante Django Admin | Administrador | Must | v0.9.0 | Aprobado |
 
+### Ampliaciones solicitadas el 2026-10-14
+
+Estas propuestas amplían el alcance original. Sus criterios se redactan para
+revisión e implementación por pasos; no se consideran implementados ni
+verificados por incorporarlos a este documento. Los estados y evidencias de
+RF-01 a RF-15 conservan su alcance anterior.
+
+| ID | Título | Actor principal | Prioridad | Versión | Estado |
+|---|---|---|---|---|---|
+| RF-16 | Explorar el catálogo por familias y subfamilias sonoras | Visitante o cliente | Should | Evolución; por asignar | Propuesto |
+| RF-17 | Completar el recorrido web mediante navegación visible | Visitante o cliente | Must | Evolución; por asignar | Propuesto |
+
+La prioridad de RF-17 corresponde al bloqueo observado en el recorrido manual.
+La numeración identifica requisitos; no determina el orden de implementación.
+El [plan por etapas](mvp-implementation-plan.md#7-evolución-del-catálogo-y-recorrido-web-2026-10-14)
+prioriza navegación, datos coherentes y evidencias antes de ampliar la jerarquía.
+
 Las decisiones transversales que deben aprobarse antes de crear el módulo se
 encuentran en el
 [checkpoint de decisiones del catálogo](catalog-decision-checkpoint.md).
 
 RF-07 queda verificado el 2026-10-02, RF-08 el 2026-10-03 y RF-10 el 2026-10-14.
-El orden restante es **RF-11 → RF-13 → RF-14 → RF-15**. El
+El orden funcional restante del alcance original es
+**RF-11 → RF-13 → RF-14 → RF-15**. Antes de retomarlo, el recorrido manual y
+las evidencias se atienden según el plan por etapas enlazado arriba. El
 [plan de cierre y metodología](mvp-implementation-plan.md) registra el cierre
 automatizado de RF-10
 y la premisa de revisar cobertura existente y profundizar según dudas o riesgos.
@@ -499,7 +518,9 @@ El visitante envía uno o varios parámetros desde los controles del catálogo.
 #### Fuera de alcance
 
 - Autocompletado, tolerancia a errores ortográficos y búsqueda semántica.
-- Etiquetas múltiples, géneros jerárquicos y recomendaciones.
+- Etiquetas múltiples, géneros jerárquicos y recomendaciones. La propuesta de
+  familias y subfamilias se especifica separadamente en RF-16; no forma parte
+  del contrato verificado original de RF-03.
 - Filtros por formato, frecuencia de muestreo y profundidad de bits.
 - Ordenación por popularidad o comportamiento del usuario.
 - Tamaño de página configurable por el consumidor.
@@ -2627,3 +2648,145 @@ pero hoy falta la modificación desde Admin. CA06 no se da por resuelto por
 | Matriz de permisos | Pendiente de aprobación |
 | Evidencia | Pendiente |
 | Commit | Pendiente |
+
+
+### RF-16 — Explorar el catálogo por familias y subfamilias sonoras
+
+#### Metadatos
+
+| Campo | Valor |
+|---|---|
+| Actor principal | Visitante o cliente |
+| Prioridad | Should |
+| Versión objetivo | Evolución; por asignar |
+| Estado | Propuesto |
+| Dependencias | RF-01, RF-02, RF-03, RF-12; coherencia histórica con RF-06 y RF-10 |
+
+#### Objetivo y límites
+
+Permitir encontrar sonidos mediante dos niveles de clasificación comprensibles.
+Una familia agrupa sonidos y una subfamilia concreta ese grupo. Por ejemplo:
+Impactos → Distortion Wave → Distortion Wave 01. Los nombres y agrupaciones de
+MotionPulse son referencias de preparación; no se copian automáticamente todas
+sus carpetas ni se asume que una estructura de disco define el catálogo final.
+
+Cada producto pertenece a una familia y, opcionalmente, a una subfamilia de esa
+familia. Una subfamilia pertenece a una sola familia. No se contemplan niveles
+adicionales, ciclos ni varias familias por producto en este incremento.
+La familia describe el sonido; el tipo de licencia define condiciones de uso;
+la oferta relaciona producto, licencia y precio. Se mantiene esa separación.
+
+#### Comportamiento propuesto
+
+- La interfaz permite elegir familia y, dentro de ella, subfamilia; ofrece una
+  opción para consultar todas las subfamilias de la familia seleccionada.
+- La búsqueda por nombre, resumen y descripción se combina con familia,
+  subfamilia y licencia. Nombre y precio siguen siendo opciones de ordenación.
+- Se conservan las reglas vigentes de precio mínimo global, disponibilidad,
+  paginación estable y ausencia de datos privados.
+- Una familia inactiva excluye sus productos y subfamilias del catálogo público;
+  una subfamilia inactiva excluye sus productos. Una combinación de filtros
+  conocida inválida responde 400; una combinación válida sin resultados, 200.
+- La preparación inicial utiliza una muestra revisada de varias familias,
+  productos y ofertas. Su nombre y metadatos describen el original seleccionado;
+  la preview es un archivo separado. Los precios son datos de demostración,
+  asociados a cada oferta, sin atribuirles una valoración comercial real.
+
+#### Criterios de aceptación propuestos
+
+- CA-RF16-01: dados productos de dos familias y dos subfamilias de una familia,
+  al seleccionar esa familia aparecen sus productos disponibles; al elegir una
+  subfamilia solo aparecen los pertenecientes a ella. Un producto asignado
+  directamente a la familia aparece al consultar toda la familia.
+- CA-RF16-02: una subfamilia de otra familia o un identificador inexistente o
+  inactivo responde 400. Una consulta válida sin coincidencias responde 200
+  y conserva visibles los controles y la selección.
+- CA-RF16-03: búsqueda, clasificación y licencia se combinan sin recuperar
+  productos no disponibles. Al ordenar y paginar se conservan los filtros y
+  el desempate estable, con el precio mínimo global previsto en RF-03.
+- CA-RF16-04: el listado muestra controles etiquetados «Buscar sonido»,
+  «Familia sonora», «Subfamilia», «Tipo de licencia» y «Ordenar por». El detalle
+  permite reconocer la clasificación del producto y volver al catálogo.
+- CA-RF16-05: web y API obtienen el mismo conjunto de productos disponibles
+  mediante consultas compartidas, con relaciones cargadas de forma acotada.
+  El contrato vigente de RF-03/RF-12 conserva compatibilidad o requiere una
+  evolución explícitamente documentada antes de sustituirse.
+- CA-RF16-06: reclasificar o renombrar un producto no modifica los datos
+  históricos de pedidos ni condiciones o permisos emitidos. Los productos
+  existentes conservan una clasificación válida tras la adaptación del modelo.
+
+#### Preparación técnica y comprobación
+
+Antes de implementar, concretar cómo representar los dos niveles a partir de
+`Category`, revisar datos existentes y definir la compatibilidad de parámetros
+y respuestas de RF-03/RF-12. La migración se genera, revisa y autoriza en ese
+paso; este texto no autoriza su aplicación. No hace falta una dependencia nueva
+por el mero hecho de incorporar dos niveles.
+
+Reutilizar y ampliar pruebas de selectores, vistas y API de catálogo. Añadir
+solo escenarios que distingan familia de subfamilia y protejan las garantías
+nuevas. La muestra manual debe permitir ver una exclusión real al filtrar.
+Las pruebas automáticas crean sus datos y no dependen de la biblioteca personal.
+
+No se incluyen importación de toda la colección, clasificador automático,
+búsqueda semántica, favoritos, suscripciones ni formas de onda interactivas.
+Las tarjetas visuales por familia pueden añadirse después de comprobar los
+filtros; usarán recursos propios y la misma consulta de catálogo.
+
+Pruebas, migración, capturas y commit de esta ampliación: pendientes.
+
+### RF-17 — Completar el recorrido web mediante navegación visible
+
+#### Metadatos
+
+| Campo | Valor |
+|---|---|
+| Actor principal | Visitante o cliente |
+| Prioridad | Must para el recorrido manual |
+| Versión objetivo | Evolución; por asignar |
+| Estado | Propuesto |
+| Dependencias | RF-01, RF-02, RF-04 a RF-10 |
+
+#### Objetivo
+
+Permitir completar el recorrido de compra y consulta mediante enlaces y
+acciones visibles, sin recordar rutas ni escribirlas en la barra del navegador.
+Se reutilizan las operaciones existentes y sus controles de autorización.
+
+#### Criterios de aceptación propuestos
+
+- CA-RF17-01: Inicio permite entrar en Catálogo; un visitante puede abrir un
+  producto, escuchar su preview y volver. Un cliente autenticado dispone de
+  accesos visibles a Inicio, Catálogo, Carrito, Mis pedidos y Mis licencias en
+  las páginas de ese recorrido, incluidos los detalles de permisos.
+- CA-RF17-02: después de añadir una oferta, el cliente puede revisar Carrito y
+  seguir comprando mediante una acción visible que vuelve al catálogo. Esa
+  acción también existe con el carrito vacío y permite preparar una compra
+  de dos ofertas sin perder la selección anterior.
+- CA-RF17-03: tras crear un pedido, una confirmación visible permite localizar
+  el pedido recién creado y abrirlo. Desde Mis pedidos se abre su detalle y
+  se puede aprobar el pago simulado. Tras pagarlo, se puede abrir Mis licencias,
+  consultar un permiso emitido y volver al pedido del que procede.
+- CA-RF17-04: los enlaces de consulta utilizan GET y no crean ni alteran
+  registros. Añadir, eliminar, crear pedido y simular pago conservan POST,
+  CSRF, autenticación, propiedad e idempotencia según su contrato existente.
+  La navegación no permite acceder a compras o permisos ajenos.
+
+#### Comprobación y evidencia
+
+Recorrer con una cuenta de prueba los seis pasos: Inicio → Catálogo → producto
+con oferta → Carrito con dos ofertas → pedido y pago → permiso y pedido de
+origen. Revisar primero la cobertura existente; ampliar donde falte una
+transición observable o una garantía de autorización.
+
+Los cambios locales de acceso al catálogo, enlaces de producto y reproductores
+son avances parciales, no el cierre de RF-17. Las capturas de este recorrido
+pueden referenciarse desde las evidencias de RF-07 a RF-10, indicando qué
+comportamiento acredita cada una. Los cambios de presentación no invalidan
+resultados históricos, pero una captura nueva debe identificar su versión y
+cambios locales relevantes.
+
+El cierre de RF-17 no exige entregar maestros ni implementar RF-11. Un diseño
+visual completo y la navegación jerárquica del catálogo se desarrollan por
+separado. Pruebas específicas, capturas del recorrido completo y cierre:
+pendientes.

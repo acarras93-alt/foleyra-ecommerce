@@ -14,4 +14,7 @@ def test_home_is_public_and_returns_success(client):
 def test_home_displays_its_public_heading(client):
     response = client.get(reverse("core:home"))
 
-    assert "Paquetes sonoros para proyectos audiovisuales" in response.content.decode()
+    assert (
+        "Biblioteca de sonidos para proyectos audiovisuales"
+        in response.content.decode()
+    )

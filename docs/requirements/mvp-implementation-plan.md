@@ -2,7 +2,9 @@
 
 Fecha de revisión: 2026-10-14. Base anterior: `be94cb1`, más el incremento de
 cierre de RF-10. RF-10 queda `Verificado` en el alcance automatizado descrito en
-[las evidencias](../evidence/RF-10/README.md). El siguiente requisito es RF-11.
+[las evidencias](../evidence/RF-10/README.md). El siguiente requisito del alcance
+original es RF-11. La actualización de la sección 7 intercala el recorrido web
+y las evidencias solicitadas el 2026-10-14.
 
 ## 1. Estado comprobado antes de planificar
 
@@ -10,8 +12,9 @@ La base permite descubrir productos, gestionar una cuenta y un carrito privado,
 crear un pedido, consultar su historia y simular pagos aprobados, rechazos y
 reintentos. Ya emite permisos al aprobar el pago y ofrece listado/detalle
 privados con condiciones capturadas, regularización y prevención de recompra.
-RF-10 tiene cierre documentado. Todavía no entrega el maestro comprado: el
-trabajo funcional inmediato sigue en RF-11.
+RF-10 tiene cierre documentado. Todavía no entrega el maestro comprado: la
+siguiente ampliación funcional de adquisición sigue en RF-11; antes se atiende
+el recorrido de navegación y las evidencias conforme a la sección 7.
 
 | Área | Código observado | Qué falta para el recorrido completo |
 |---|---|---|
@@ -397,8 +400,59 @@ bloqueantes y la regresión y puerta de calidad aplicables pasan. Cualquier paso
 no ejecutado queda como pendiente. Su cierre no acredita API privada, Admin,
 despliegue ni requisitos fuera del recorrido probado.
 
-Siguiente unidad de trabajo: revisar el contrato de RF-11 y preparar un sonido
-real como apoyo al aprendizaje. La reorganización de los archivos de pruebas
+Siguiente unidad de adquisición tras el recorrido y las evidencias de la
+sección 7: revisar el contrato de RF-11 y preparar un sonido real como apoyo
+al aprendizaje. La reorganización de los archivos de pruebas
 queda como tarea separada; no se mezcla con el cierre funcional de RF-10.
 El commit de este cierre incorpora el código existente, la migración 0009,
 las pruebas y la documentación; no implica publicación remota.
+
+
+## 7. Evolución del catálogo y recorrido web (2026-10-14)
+
+Se documentan RF-16 (familias y subfamilias) y RF-17
+(navegación visible) como propuestas con criterios propios, conservando el
+contrato y las evidencias anteriores. Documentar no equivale a implementar o
+verificar; tampoco convierte los cambios ya realizados en cobertura completa.
+
+La prioridad inmediata sigue siendo completar el recorrido que permite tomar
+las evidencias de RF-07, RF-08, RF-09 y RF-10. La clasificación jerárquica es una
+unidad posterior con impacto en modelo, consultas y API; no es condición para
+aprobar un pago simulado ni para consultar permisos propios.
+
+| Paso | Trabajo | Cómo se comprueba y cuándo termina |
+|---|---|---|
+| 1 · Definir | Registrar RF-16/RF-17 y este orden | Criterios, dependencias y límites explícitos; sin cambiar producción en este paso |
+| 2 · Conectar | Completar las transiciones pendientes de RF-17, una cada vez | Recorrer los seis pasos desde la interfaz sin introducir URLs manualmente; conservar los controles HTTP y de propiedad |
+| 3 · Preparar datos | Revisar dos productos distintos con ofertas completas: nombres, descripciones, metadatos del original, previews, condiciones, identidades y precios de oferta | Ambos se pueden seleccionar y comprar; una copia de referencia identifica cada original; no se reconstruyen compras antiguas con el catálogo actual |
+| 4 · Registrar evidencias | Retomar RF-07 → RF-08 → RF-09 → RF-10 con esos datos | Capturas legibles, consultas persistidas y pruebas pertinentes; misma compra trazable cuando los escenarios lo permitan |
+| 5 · Clasificar | Concretar y aprobar el contrato técnico de RF-16; implementar primero familia/subfamilia y después filtros web/API | Una muestra de dos familias y dos subfamilias distingue inclusión/exclusión; migración revisada, compatibilidad y regresión comprobadas |
+| 6 · Presentar | Mejorar etiquetas, distribución y tarjetas de familias sobre las consultas ya comprobadas | Selección clara, uso por teclado y revisión visual en escritorio y móvil; las tarjetas usan recursos propios |
+
+En el paso 3, el catálogo comercial describe los sonidos, mientras que los casos
+negativos deliberados se mantienen identificados en una preparación separada.
+Los nombres de prueba «Evidencias RF-03» no deben presentarse como familias de
+sonido en las capturas finales. Revisar licencias significa comprobar sus
+condiciones y versión; una familia nueva no crea un derecho de uso nuevo.
+Los precios son decisiones explícitas de las ofertas de demostración y se
+expresan en EUR; no se inventa una tarifa de mercado.
+
+La preparación del 14 de octubre incorporó quince previews WAV de seis
+segundos y corrigió títulos, pero no revisó toda la documentación de compra ni
+los metadatos originales. Además, D-CAT-05 prescribe MP3 con marca audible;
+los WAV locales actuales no acreditan esa política. Antes de presentar su
+preparación como conforme, producir muestras que la cumplan o registrar una
+revisión expresa de la decisión. Las pruebas de entrega HTTP no demuestran
+marca audible ni coherencia documental.
+
+Las referencias visuales orientan la clasificación y la legibilidad; no implican
+copiar toda la interfaz ni importar los 733 archivos. Se amplía la muestra de
+datos cuando sea necesaria para demostrar el comportamiento de un paso.
+No se mezclan en una misma tarea navegación, migración, nuevas licencias,
+procesamiento de audio y rediseño completo.
+
+Cada paso reutiliza cobertura, se verifica y deja una nota de resultado antes
+de continuar. RF-11 sigue siendo el siguiente requisito de adquisición después
+de este recorrido; ni RF-16 ni RF-17 autorizan implementar descargas. Las nuevas
+capturas complementan las evidencias existentes con fecha, versión y estado de
+los cambios locales, sin atribuirles una puerta completa que no se haya ejecutado.

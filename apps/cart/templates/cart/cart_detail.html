@@ -31,4 +31,7 @@
     {% else %}
         <p>Tu carrito está vacío.</p>
     {% endif %}
+    <form method="get" action="{% url 'catalog:product-list' %}">
+        <button type="submit">Seguir comprando</button>
+    </form>
 {% endblock %}

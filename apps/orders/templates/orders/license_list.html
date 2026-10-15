@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Mis licencias</title>
-</head>
-<body>
-    <h1>Mis licencias</h1>
+{% extends "base.html" %}
+
+{% block title %}Licencias | SoundMarket{% endblock %}
+
+{% block content %}
+    <h1>Licencias</h1>
 
     {% for grant in grants %}
         <article>
@@ -23,5 +21,4 @@
     {% empty %}
         <p>Todavía no tienes licencias disponibles.</p>
     {% endfor %}
-</body>
-</html>
+{% endblock %}

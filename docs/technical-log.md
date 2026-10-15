@@ -2744,3 +2744,382 @@ persisten una auditoría documental; no inventan aceptación del cliente. El cie
 no acredita interfaz Admin, revisión visual, documentos jurídicos auténticos,
 sonidos reales, instalación limpia, API privada ni despliegue. El commit reúne
 el incremento y esta evidencia, sin secretos ni medios y sin push remoto.
+
+## 2026-10-14 — Acceso visible desde Inicio al catálogo
+
+Durante el recorrido manual previo a las capturas de RF-07, Álvaro detecta que
+Inicio carece de una acción para entrar en el catálogo. Se añade el botón
+«Explorar catálogo» bajo la presentación de `apps/core/templates/home.html`,
+mediante un formulario GET cuya acción utiliza la ruta nombrada
+`catalog:product-list`. El acceso está disponible para clientes autenticados y
+visitantes, conforme al carácter público de RF-01.
+
+La comparación de las plantillas renderizadas confirma la ausencia inicial y
+la presencia del botón propuesto para ambos estados de autenticación, con
+destino GET `/catalog/`. La verificación HTTP posterior sobre el servidor local
+confirma Home con 200 y el nuevo botón, y su destino con 200 y el encabezado del
+catálogo. No se presenta esta comprobación HTTP como una inspección visual.
+
+Las pruebas existentes de Home obtienen **3 passed in 0.09s** con
+`.venv/bin/python -B -m pytest apps/core/test_views.py -q --tb=short -p no:cacheprovider`.
+`manage.py check` no detecta incidencias. Este cambio queda limitado a la entrada
+desde Inicio; la revisión del resto del recorrido de compra continúa pendiente.
+
+## 2026-10-14 — Selección de productos desde el catálogo
+
+Álvaro continúa el recorrido de usuario y detecta que los nombres del listado
+son texto sin enlace. Se actualiza
+`apps/catalog/templates/catalog/product_list.html` para que cada nombre permita
+abrir su detalle mediante `catalog:product-detail` y el slug del producto.
+La corrección conecta el catálogo de RF-01 con el detalle existente de RF-02.
+
+La comparación de las plantillas renderizadas confirma que el enlace faltaba
+y que la propuesta resuelve la ruta del producto seleccionado, conservando su
+nombre y precio. Después de guardar, la comprobación HTTP del servidor local
+encuentra los doce enlaces de la primera página; sus doce destinos responden
+200 y muestran el encabezado del producto correspondiente. Se verifica el HTML
+y los destinos HTTP, sin atribuir una inspección visual del navegador.
+
+La regresión de catálogo obtiene **32 passed in 1.17s** mediante
+`.venv/bin/python -B -m pytest apps/catalog/tests/test_views.py -q --tb=short -x -p no:cacheprovider`.
+`manage.py check` termina sin incidencias. La revisión manual del recorrido
+continúa desde el detalle del producto.
+
+## 2026-10-14 — Escucha de previews desde el listado
+
+Durante el recorrido manual, Álvaro solicita escuchar muestras desde el propio
+catálogo y facilita su biblioteca MotionPulse como material de demostración.
+Con asistencia de Codex, se incorpora un reproductor HTML nativo junto a cada
+producto con preview en `apps/catalog/templates/catalog/product_list.html`.
+Incluye controles, etiqueta accesible y `preload="none"` para evitar cargar los
+audios al abrir el listado. Conserva los enlaces al detalle y el aviso cuando
+falta una preview. Reutiliza el archivo público previsto en RF-02, sin recurrir
+al maestro privado ni modificar el contrato de la API.
+
+Como preparación del entorno local, se generan quince fragmentos de ambientes
+de seis segundos, WAV PCM de 16 bits, estéreo y 44,1 kHz, con entrada y salida
+suavizadas. Se guardan en `media/previews/demo-motionpulse/` y se asignan
+únicamente al campo `preview_file` de los quince productos disponibles cuyos
+slugs empiezan por `rf03-`. Esta actualización se realiza en una transacción;
+no cambia precios, condiciones, pedidos ni permisos. Los hashes de los quince
+originales se conservan y el ejemplo deliberado `rf02-sin-preview` permanece
+sin muestra. Los medios están excluidos de Git: esta preparación corresponde
+a datos locales de demostración, no a una carga reproducible incluida en el
+repositorio ni a un proceso automático de transcodificación de la aplicación.
+El manifiesto local conserva la correspondencia entre producto, fragmento y
+archivo de origen, junto con el valor anterior de `preview_file`.
+
+La comprobación HTTP encuentra doce reproductores en la primera página y
+cuatro en la segunda, incluida la preview preexistente de RF-02. Los quince
+WAV nuevos responden 200 con tipo de contenido de audio y se decodifican como
+PCM de seis segundos. Sus quince detalles referencian la misma muestra pública;
+el detalle sin preview conserva su aviso. En el navegador se comprueban Play
+y pausa de la primera muestra: duración de seis segundos, avance de la
+reproducción y ausencia de error multimedia. Se guarda una captura local del
+listado; no se atribuye una escucha subjetiva ni reproducción manual de los
+quince archivos.
+
+La regresión existente obtiene **32 passed in 1.29s** con
+`.venv/bin/python -B -m pytest apps/catalog/tests/test_views.py -q --tb=short -x -p no:cacheprovider`.
+`manage.py check` y `git diff --check` terminan sin incidencias. No se añaden
+dependencias ni migraciones. La puerta completa no se repite por este cambio
+de presentación; la comprobación del recorrido de compra continúa pendiente.
+
+## 2026-10-14 — Títulos del catálogo vinculados a las muestras reales
+
+Álvaro detecta que los títulos ficticios de RF-03 no identifican los sonidos
+incorporados durante el recorrido manual. Con asistencia de Codex, se actualiza
+únicamente `Product.name` en los quince productos asociados a las nuevas
+previews locales. Cada título procede del nombre del archivo original, sin
+extensión y sustituyendo guiones bajos por espacios: por ejemplo,
+`Atmospheric_Eerie_01.wav` se presenta como `Atmospheric Eerie 01`. Se conserva
+la numeración de las variantes y se verifica la correspondencia con los hashes
+del manifiesto de preparación de las muestras.
+
+La actualización es transaccional y conserva los demás campos de producto,
+incluidos identificadores, slugs, SKU, previews y referencias a maestros. No
+modifica líneas históricas de pedidos. El registro local
+`product-title-changes.json`, junto al manifiesto de previews, conserva los
+nombres anteriores y nuevos para revisión o restauración. Esta operación
+actualiza datos locales de demostración; no incorpora una migración ni un
+proceso de importación al repositorio.
+
+Se comprueban mediante HTTP los quince títulos del catálogo y sus quince
+detalles, todos con respuesta 200 y con la misma preview asociada. La búsqueda
+por `Atmospheric Eerie 01` devuelve el producto correspondiente. La inspección
+del navegador confirma los títulos actualizados en la primera página y se
+guarda una captura local. No cambia código de ejecución ni se repite la batería
+automatizada para este ajuste de datos. `git diff --check` termina sin incidencias.
+
+
+## 2026-10-14 — Plan de evolución del catálogo y navegación
+
+Por solicitud de Álvaro, Codex documenta dos ampliaciones en los requisitos
+funcionales: RF-16 para familias/subfamilias y RF-17 para navegación visible.
+Se redactan como propuestas con criterios de aceptación; los estados y
+resultados anteriores conservan su alcance. Se actualiza el plan para
+intercalar navegación, preparación de una compra representativa y evidencias
+RF-07 a RF-10 antes de ampliar la jerarquía y la presentación del catálogo.
+
+La revisión confirma que Category es plana y que el recorrido todavía carece
+de accesos y retornos en varias pantallas. El modelo físico de jerarquía, la
+migración y la compatibilidad con RF-03/RF-12 deben concretarse antes de
+implementar RF-16. Se mantiene la separación producto/clasificación, licencia,
+oferta y precio, junto con las garantías históricas de RF-06/RF-10.
+
+Se registra también una diferencia real de preparación: las quince previews
+locales WAV del día 14 no cumplen la codificación MP3 y marca audible prescritas
+por D-CAT-05. La reproducción comprobada no acredita esa política. Queda pendiente
+preparar muestras conformes o aprobar una revisión expresa; esta anotación no
+modifica retrospectivamente la decisión ni declara las muestras conformes.
+
+Este paso modifica únicamente documentación, preservando los cambios locales
+previos. No aplica migraciones, modifica datos, implementa RF-16/RF-17 ni
+adelanta RF-11. Se revisan identificadores nuevos, referencias locales y diff;
+se confirman 17 identificadores RF únicos, diez criterios nuevos y el enlace
+al plan. `git diff --check` termina sin incidencias. No se ejecutan pruebas
+de aplicación para este cambio exclusivamente documental.
+
+
+## 2026-10-14 — Botón Seguir comprando desde el carrito
+
+Por solicitud expresa de Álvaro, Codex añade «Seguir comprando» en
+`apps/cart/templates/cart/cart_detail.html`. El formulario GET utiliza la ruta
+nombrada `catalog:product-list` y aparece tanto con ofertas como con el carrito
+vacío. Permite volver al catálogo después de añadir una oferta, conservando la
+selección. Es un incremento acotado relacionado con CA-RF17-02; no declara
+completado ese criterio ni aprueba o implementa el resto de RF-17.
+
+Se comprueba el renderizado de la plantilla guardada en ambos estados, con un
+único botón y destino GET `/catalog/`; el destino responde HTTP 200 en el
+servidor local. La regresión existente de vistas del carrito obtiene
+**21 passed in 4.36s** mediante
+`.venv/bin/python -B -m pytest apps/cart/tests/test_views.py -q --tb=short -x -p no:cacheprovider`.
+`manage.py check` no detecta incidencias. No se realiza una inspección visual
+del navegador ni se repite la puerta completa para este cambio de presentación.
+No hay cambios de modelos, migraciones ni servicios; se conservan los cambios
+locales anteriores y no se crea un commit.
+
+
+## 2026-10-14 — Jerarquía visual del precio en catálogo
+
+Álvaro solicita mejorar la presentación del precio. Codex separa título y
+reproductor del bloque de precio, alineado a la derecha, con «Desde» secundario
+e importe destacado. El listado utiliza formato español con dos decimales y
+símbolo euro mediante `floatformat:"2g"`. El importe sigue siendo el mínimo
+global de ofertas públicas; no cambia la regla, los valores ni la API.
+
+Los estilos se limitan a las filas del catálogo y se incorporan desde su
+plantilla mediante un bloque `extra_css` en la cabecera de `templates/base.html`.
+Se mantiene el reproductor nativo y los enlaces al detalle. La prueba existente
+de precio mínimo conserva dos ofertas de distinto precio y se adapta para
+comprobar el texto visible localizado, independientemente de las etiquetas.
+No se añaden pruebas que reproduzcan las reglas CSS.
+
+La prueba adaptada falla inicialmente porque aún se muestra `12.90 EUR`.
+Tras el cambio, la regresión de vistas de catálogo, carrito e inicio obtiene
+**56 passed in 4.92s**. `manage.py check` no detecta incidencias; Ruff check
+y format --check del archivo de pruebas terminan correctamente. Se comprueba
+el resultado en el navegador de escritorio: doce precios sin solaparse con
+los títulos y doce reproductores presentes. Se guarda una captura local.
+No se atribuye revisión visual móvil ni una nueva puerta completa.
+
+Archivos modificados en este incremento: plantilla de catálogo, plantilla
+base, prueba existente y esta bitácora. Se conservan los cambios locales
+anteriores. No se modifican datos, modelos, migraciones ni dependencias;
+`git diff --check` termina sin incidencias.
+
+
+## 2026-10-14 — Compra desde catálogo y cabecera compartida
+
+Por solicitud expresa de Álvaro, Codex incorpora selección de licencia y botón
+«Añadir al carrito» en cada producto del catálogo para clientes autenticados.
+El selector obligatorio muestra las ofertas públicas precargadas y sus precios;
+no elige automáticamente una licencia. El formulario envía `offer_id` por POST
+a la vista existente con CSRF y conserva el enlace «Ver condiciones». El precio
+«Desde» mantiene su significado de mínimo global. Para visitantes se ofrece
+iniciar sesión con retorno al detalle del producto. No se duplican servicios
+ni se cambian reglas de disponibilidad, propiedad o recompra.
+
+La cabecera compartida utiliza una barra blanca redondeada, enlaces uniformes
+a Inicio, Catálogo, Carrito, Pedidos y Licencias según autenticación, indicador
+de sección activa y acciones de cuenta separadas. Se sustituyen las etiquetas
+«Mis pedidos» y «Mis licencias» por «Pedidos» y «Licencias». Listado y detalle
+de licencias pasan a extender `base.html`, conservando datos y condiciones
+históricas, para mantener la navegación en todo el recorrido. Los estilos
+incluyen adaptación de la cabecera a pantallas estrechas y foco visible; no se
+atribuye una inspección visual móvil en esta comprobación.
+
+Se añaden dos pruebas de integración: selección de la oferta concreta entre
+varias, exclusión de una licencia inactiva, ausencia de escrituras al consultar,
+rechazo sin CSRF y alta correcta con token; y acceso anónimo con retorno al
+producto sin formulario privado ni líneas nuevas. Ambas fallan antes del cambio
+por ausencia del comportamiento. Se actualizan únicamente las etiquetas
+esperadas en las dos pruebas existentes de navegación.
+
+La regresión de vistas de catálogo, carrito, inicio y pedidos obtiene
+**214 passed in 28.29s** mediante
+`.venv/bin/python -B -m pytest apps/catalog/tests/test_views.py apps/cart/tests/test_views.py apps/core/test_views.py apps/orders/tests/test_views.py -q --tb=short -x -p no:cacheprovider`.
+`manage.py check`, Ruff check y format --check de los dos archivos de pruebas
+terminan correctamente. En Safari, con la sesión ya abierta del cliente, se
+recarga el catálogo y se observan los doce selectores y botones, los enlaces a
+condiciones y la nueva cabecera autenticada; se guarda una captura local. No se
+añaden ofertas al carrito personal durante esta inspección.
+
+Este incremento desarrolla parte de la navegación propuesta en RF-17; no
+declara cerrado el recorrido completo ni implementa la taxonomía de RF-16. No
+modifica datos locales, modelos, migraciones, dependencias ni API; se conservan
+los cambios anteriores. `git diff --check` termina sin incidencias. No se
+ejecuta la puerta completa ni se crea un commit.
+
+
+## 2026-10-15 — Marca Foleyra en la cabecera
+
+Por solicitud de Álvaro, Codex sustituye el texto visible SoundMarket por
+Foleyra en el enlace de marca de `templates/base.html`. Se conserva el destino
+a Inicio y el diseño de la cabecera. El renderizado confirma el nombre nuevo
+para visitantes y clientes autenticados. Este ajuste se limita a la marca de
+la cabecera; los títulos de pestaña no forman parte del cambio solicitado.
+No se modifican datos ni reglas de negocio y no se repite la batería por este
+ajuste de texto. `git diff --check` termina sin incidencias.
+
+
+## 2026-10-15 — Preparación de condiciones para la compra simulada
+
+Durante los pasos 4 y 5 del recorrido, Álvaro encuentra un 409 al crear el
+pedido. El diagnóstico de Codex confirma que la oferta del carrito carece de
+`terms_text`, `grantor_name` y `rights_holder_name`. RF-10 rechaza correctamente
+esa documentación incompleta; no es un fallo de la aprobación de RF-07. El
+pedido #1 es histórico, conserva nombres antiguos y carece además de referencias
+a producto/tipo de licencia. No se reconstruyen sus condiciones con el catálogo.
+
+Se preparan únicamente las quince ofertas disponibles asociadas a las previews
+de la demo: concedente «Foleyra Demo — entidad ficticia», titular «Titular
+ficticio — demostración académica» y texto explícitamente académico en los dos
+tipos de licencia afectados. Se conserva el alcance descriptivo anterior y se
+guarda la nueva versión `demo-2026.10.15` mediante la validación de versionado
+existente. El texto indica que no concede una licencia real sobre los archivos
+ni acredita titularidad. No se modifican precios, nombres, referencias, estados
+de disponibilidad ni audio. El manifiesto local
+`outputs/checkout-demo-2026-10-15/catalog-documentation-changes.json` de la
+carpeta de revisión conserva los valores anteriores y nuevos. Esta preparación
+actualiza datos locales; no constituye una fixture versionada ni una nueva
+validación jurídica de los sonidos de la biblioteca.
+
+Se comparan pedidos, líneas históricas, intentos, permisos y líneas de carrito
+antes y después: permanecen iguales. Una comprobación transaccional con la
+selección real del carrito crea un pedido pendiente de 5,90 EUR, aprueba un
+intento y emite un permiso ligado a su línea. Se revierte esa comprobación y
+se confirma que el carrito y la historia conservan sus valores iniciales. Las
+secuencias de identificadores pueden avanzar pese a la reversión. También se
+confirma que intentar aprobar el pedido antiguo sigue rechazándose sin cambios.
+El cliente conserva la acción de crear y pagar su nuevo pedido desde la web.
+
+Las pruebas existentes de condiciones incompletas, conservación hasta el pago,
+snapshots y emisión de permisos obtienen **23 passed in 2.48s**. `manage.py check`
+no detecta incidencias. El detalle público del producto responde 200 y muestra
+la versión y el texto nuevos antes del checkout. No se alteran políticas,
+servicios, vistas, modelos, migraciones ni dependencias; no se repite la puerta
+completa para este ajuste de datos y no se crea un commit.
+`git diff --check` termina sin incidencias.
+
+
+## 2026-10-15 — Acceso visual al rechazo simulado de RF-08
+
+Al retomar las evidencias de RF-08, Codex confirma que el backend ya admite
+`failed`, pero el detalle solo ofrece aprobación. Se añade «Simular pago
+rechazado» al mismo formulario POST, junto a «Simular pago aprobado». Cada
+botón envía su propio `result`; se elimina el resultado oculto fijo. Ambos
+conservan CSRF y la clave del formulario. Después de un rechazo, la redirección
+al detalle obtiene una clave nueva para el reintento; mientras el pedido esté
+pagado no se muestra ninguno de los botones. No cambian vista, servicio, modelos
+ni reglas de pago. La ausencia de botón descrita en el cierre histórico del
+2026-10-03 corresponde a aquel estado; este incremento habilita el recorrido
+manual desde la web.
+
+Se adapta la prueba existente del formulario para comprobar POST, CSRF, UUID,
+los dos resultados explícitos y ausencia de un resultado oculto incompatible.
+Red inicial por el formulario antiguo; tras cambiar la plantilla, la regresión
+de vistas de pedidos obtiene **156 passed in 25.28s** con
+`.venv/bin/python -B -m pytest apps/orders/tests/test_views.py -q --tb=short -x -p no:cacheprovider`.
+Se comprueba además el renderizado: ambos botones en pendiente y ninguno en
+pagado. `manage.py check`, Ruff check y format --check del archivo de pruebas
+terminan correctamente. No se atribuyen todavía capturas manuales de rechazo
+y reintento ni se ejecutan pagos sobre los pedidos locales para esta revisión.
+Se conserva el resto de cambios y no se crea un commit.
+`git diff --check` termina sin incidencias.
+
+
+## 2026-10-15 — Acciones del detalle de permiso
+
+Por solicitud de Álvaro durante las evidencias de RF-10, Codex agrupa «Ver
+pedido» y «Volver a licencias» en una zona de navegación separada de las
+condiciones mediante espacio y una línea discreta. Se presentan como botones
+redondeados coherentes con la cabecera: principal negro y secundario con borde.
+El CSS queda limitado a esta plantilla, permite envolver las acciones y ofrece
+foco visible y una altura mínima de 44 px. Se conservan los enlaces GET, sus
+textos y destinos; no cambian condiciones, permisos ni datos históricos.
+
+La primera comprobación detecta que añadir una clase al enlace rompe una
+aserción HTML existente. Se conserva su marcado y se aplica el estilo principal
+por posición dentro del grupo, sin modificar las pruebas. La regresión existente
+con `.venv/bin/python -B -m pytest apps/orders/tests/test_views.py -k 'license_detail' -q --tb=short -x -p no:cacheprovider`
+obtiene **7 passed, 149 deselected in 1.52s**. `manage.py check` no detecta
+incidencias. En Safari se revisa visualmente el permiso #4 y se recorren ambos
+enlaces: pedido #6 y listado de licencias; se deja abierto el permiso. No se
+repite la puerta completa por este ajuste de presentación ni se crea un commit.
+
+## 2026-10-15 — Presentación de la biblioteca y título Foleyra
+
+Por solicitud de Álvaro, Codex actualiza `apps/core/templates/home.html` con
+«Biblioteca de sonidos para proyectos audiovisuales». La descripción explica
+las previews, la elección del tipo de licencia y la consulta de licencias
+adquiridas con las condiciones de cada compra. Una nota secundaria identifica
+el proyecto académico y los pagos y compras simulados. Se conserva el acceso
+GET «Explorar catálogo». El título de Inicio y el valor predeterminado de
+`templates/base.html` sustituyen SoundMarket por Foleyra; los títulos que otras
+plantillas sobrescriben quedan fuera de este ajuste.
+
+Se actualiza la expectativa del encabezado en la prueba existente, sin añadir
+casos ni cambiar reglas de negocio. Las tres pruebas de inicio terminan
+correctamente. Esa ejecución avisa de que no puede escribir la caché de pytest;
+la comprobación completa posterior la deshabilita. Ruff exige dividir la nueva
+aserción en varias líneas y se aplica únicamente ese formato. No cambian datos,
+modelos, migraciones, dependencias ni destinos de navegación.
+
+## 2026-10-15 — Consolidación del recorrido web antes de publicación
+
+Álvaro solicita crear un commit y publicar el estado actual. Codex revisa los
+cambios pendientes de plantillas, pruebas y documentación: navegación compartida,
+previews y selección de oferta desde catálogo, retorno desde carrito,
+licencias integradas en la plantilla base, acciones del detalle, selección
+visible de pago aprobado/rechazado y portada Foleyra. El README se actualiza
+para describir el formulario de pago y los avances parciales de navegación.
+RF-16 y RF-17 mantienen su estado Propuesto; la jerarquía de catálogo no está
+implementada y el recorrido completo de RF-17 no se declara verificado.
+
+La puerta se ejecuta con Python del entorno virtual y PostgreSQL. Se deshabilita
+la generación de bytecode y las cachés de pytest y Ruff durante la revisión.
+Los resultados ejecutados son:
+
+| Comando | Resultado |
+|---|---|
+| `.venv/bin/python -B manage.py check --database default` | Sin incidencias |
+| `.venv/bin/python -B manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `.venv/bin/python -B manage.py migrate --check` | Código 0, sin migraciones pendientes |
+| `.venv/bin/python -B -m pytest -q -p no:cacheprovider` | **324 passed in 41.88s** |
+| `.venv/bin/python -B -m ruff check --no-cache .` | `All checks passed!` |
+| `.venv/bin/python -B -m ruff format --no-cache --check .` | `124 files already formatted` tras el ajuste del encabezado |
+| `.venv/bin/python -B -m pip --disable-pip-version-check --no-cache-dir check` | `No broken requirements found` |
+| `git diff --check` | Sin incidencias |
+
+Se conserva el commit anterior `4079399` de cierre de RF-10, pendiente de
+publicación al comenzar esta revisión. El nuevo commit consolida los quince
+archivos modificados de código, pruebas y documentación. La publicación pedida
+incluye ambos commits; su resultado se verifica contra el remoto después del
+push. Esta entrada registra las comprobaciones previas, no anticipa su éxito.
+No se incorporan `.env`, credenciales, bases de datos, archivos de audio ni
+capturas temporales. Los datos y previews locales de demostración siguen sin
+constituir una preparación reproducible versionada. Tampoco se acredita con
+esta puerta instalación limpia, recorrido manual completo, RF-11, API privada,
+administración completa o despliegue de producción.

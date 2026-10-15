@@ -1,7 +1,141 @@
 {% extends "base.html" %}
-{% load l10n %}
 
 {% block title %}Catálogo | SoundMarket{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .catalog-products {
+            display: grid;
+            gap: 12px;
+            max-width: 800px;
+            padding: 0;
+            margin: 20px 0;
+            list-style: none;
+            font-family: system-ui, sans-serif;
+        }
+
+        .catalog-product {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 20px;
+            padding: 16px;
+            border: 1px solid #dce2e8;
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .catalog-product-name {
+            color: #182533;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            overflow-wrap: anywhere;
+        }
+
+        .catalog-product-name:hover {
+            text-decoration: underline;
+        }
+
+        .catalog-product-preview {
+            margin-top: 10px;
+        }
+
+        .catalog-product-preview audio {
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            height: 36px;
+        }
+
+        .catalog-price {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin: 0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: #f1f5f9;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .catalog-price-label {
+            color: #526171;
+            font-size: 0.75rem;
+        }
+
+        .catalog-price-value {
+            color: #182533;
+            font-size: 1.25rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .catalog-add-form {
+            display: flex;
+            align-items: end;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .catalog-license-choice {
+            display: grid;
+            gap: 5px;
+            min-width: 0;
+            max-width: 100%;
+            font-size: 0.8rem;
+            color: #526171;
+        }
+        .catalog-license-choice select {
+            max-width: 100%;
+            min-height: 40px;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            color: #182533;
+            font: inherit;
+        }
+        .catalog-add-button {
+            display: inline-block;
+            padding: 11px 14px;
+            border: 0;
+            border-radius: 8px;
+            background: #182533;
+            color: #fff;
+            font: 600 0.8rem system-ui, sans-serif;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .catalog-add-button:focus-visible,
+        .catalog-license-choice select:focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 3px;
+        }
+        .catalog-conditions {
+            display: inline-block;
+            margin-top: 10px;
+            color: #526171;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 480px) {
+            .catalog-product {
+                gap: 12px;
+                padding: 12px;
+            }
+
+            .catalog-price {
+                padding: 10px;
+            }
+
+            .catalog-price-value {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+{% endblock %}
 
 {% block content %}
     <h1>Catálogo</h1>
@@ -28,9 +162,46 @@
         </select>
         <button type="submit">Filtrar</button>
     </form>
-    <ul>
+    <ul class="catalog-products">
         {% for product in products %}
-            <li>{{ product.name }}: Desde {{ product.minimum_price|unlocalize }} EUR</li>
+            <li class="catalog-product">
+                <div class="catalog-product-body">
+                    <a class="catalog-product-name" href="{% url 'catalog:product-detail' slug=product.slug %}">{{ product.name }}</a>
+                    {% if product.preview_file %}
+                        <div class="catalog-product-preview">
+                            <audio controls preload="none"
+                                   src="{{ product.preview_file.url }}"
+                                   aria-label="Escuchar muestra de {{ product.name }}">
+                                Tu navegador no admite la reproducción de audio.
+                            </audio>
+                        </div>
+                    {% else %}
+                        <p>Preview no disponible.</p>
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                        <form class="catalog-add-form" method="post" action="{% url 'cart:add-item' %}">
+                            {% csrf_token %}
+                            <label class="catalog-license-choice" for="catalog-offer-{{ product.pk }}">
+                                Licencia
+                                <select id="catalog-offer-{{ product.pk }}" name="offer_id" required>
+                                    <option value="">Selecciona una licencia</option>
+                                    {% for offer in product.license_offers.all %}
+                                        <option value="{{ offer.pk }}">{{ offer.license_type.name }} · {{ offer.price|floatformat:"2g" }} €</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <button class="catalog-add-button" type="submit">Añadir al carrito</button>
+                        </form>
+                    {% else %}
+                        <p><a class="catalog-add-button" href="{% url 'users:login' %}?next={% url 'catalog:product-detail' slug=product.slug %}">Iniciar sesión para comprar</a></p>
+                    {% endif %}
+                    <a class="catalog-conditions" href="{% url 'catalog:product-detail' slug=product.slug %}">Ver condiciones</a>
+                </div>
+                <p class="catalog-price">
+                    <span class="catalog-price-label">Desde</span>
+                    <strong class="catalog-price-value">{{ product.minimum_price|floatformat:"2g" }} €</strong>
+                </p>
+            </li>
         {% empty %}
             <li>No hay productos disponibles en este momento.</li>
         {% endfor %}

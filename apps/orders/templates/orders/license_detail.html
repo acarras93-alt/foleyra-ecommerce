@@ -1,10 +1,47 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Detalle del permiso</title>
-</head>
-<body>
+{% extends "base.html" %}
+
+{% block title %}Detalle del permiso | SoundMarket{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .license-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .license-actions a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-sizing: border-box;
+            min-height: 44px;
+            padding: 12px 20px;
+            border: 1px solid #d1d5db;
+            border-radius: 999px;
+            background: #fff;
+            color: #242424;
+            font: 600 0.875rem system-ui, sans-serif;
+            text-decoration: none;
+        }
+        .license-actions a:first-child {
+            border-color: #111;
+            background: #111;
+            color: #fff;
+        }
+        .license-actions a:hover { background: #f0f1f3; }
+        .license-actions a:first-child:hover { background: #333; }
+        .license-actions a:focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 3px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
     <h1>Detalle del permiso</h1>
 
     <article>
@@ -34,9 +71,10 @@
             <p>Condiciones históricas pendientes de documentación</p>
         {% endif %}
 
-        <a href="{% url 'orders:detail' order_id=item.order.pk %}">Ver pedido</a>
     </article>
 
-    <a href="{% url 'license_list' %}">Volver a Mis licencias</a>
-</body>
-</html>
+    <nav class="license-actions" aria-label="Acciones del permiso">
+        <a href="{% url 'orders:detail' order_id=item.order.pk %}">Ver pedido</a>
+        <a href="{% url 'license_list' %}">Volver a licencias</a>
+    </nav>
+{% endblock %}

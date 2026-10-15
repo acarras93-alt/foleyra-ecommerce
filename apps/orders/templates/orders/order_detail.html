@@ -14,8 +14,8 @@
         action="{% url 'orders:simulate_payment' order_id=order.pk %}">
         {% csrf_token %}
         <input type="hidden" name="idempotency_key" value="{{ payment_key }}">
-        <input type="hidden" name="result" value="approved">
-        <button type="submit">Simular pago aprobado</button>
+        <button type="submit" name="result" value="approved">Simular pago aprobado</button>
+        <button type="submit" name="result" value="failed">Simular pago rechazado</button>
     </form>
 {% endif %}
 

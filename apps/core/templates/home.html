@@ -1,14 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Inicio | SoundMarket{% endblock %}
+{% block title %}Inicio | Foleyra{% endblock %}
 
 {% block content %}
 <section class="hero">
-    <p class="eyebrow">Proyecto demostrativo</p>
-    <h1>Paquetes sonoros para proyectos audiovisuales</h1>
+    <h1>Biblioteca de sonidos para proyectos audiovisuales</h1>
     <p>
-        Catálogo ficticio creado para demostrar el funcionamiento técnico
-        de un comercio electrónico de productos digitales.
+        Explora el catálogo, escucha las previews y elige el tipo de licencia
+        según las condiciones de uso de tu proyecto. Consulta tus licencias
+        adquiridas y las condiciones asociadas a cada compra desde tu cuenta.
     </p>
+    <p class="eyebrow">
+        Proyecto académico en desarrollo. Las compras y los pagos son simulados.
+    </p>
+    <form method="get" action="{% url 'catalog:product-list' %}">
+        <button type="submit">Explorar catálogo</button>
+    </form>
 </section>
 {% endblock %}

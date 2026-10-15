@@ -6,10 +6,13 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
-from django.test import override_settings
-from django.urls import clear_url_caches
+from django.test import Client, override_settings
+from django.urls import clear_url_caches, reverse
+from django.utils.html import strip_tags
 
+from apps.cart.models import CartItem
 from apps.catalog.models import Category, LicenseType, Product, ProductLicenseOffer
 from config import urls as project_urls
 
@@ -269,8 +272,9 @@ def test_catalog_displays_the_minimum_price_for_multiple_active_offers(client):
     content = response.content.decode()
 
     assert response.status_code == 200
-    assert "Desde 12.90 EUR" in content
-    assert "Desde 29.90 EUR" not in content
+    visible_text = " ".join(html.unescape(strip_tags(content)).split())
+    assert "Desde 12,90 €" in visible_text
+    assert "Desde 29,90 €" not in visible_text
 
 
 @pytest.mark.django_db
@@ -1197,3 +1201,84 @@ def test_anonymous_visitor_receives_the_public_preview_file(
     finally:
         clear_url_caches()
         importlib.reload(project_urls)
+
+
+@pytest.mark.django_db
+def test_catalog_form_adds_the_selected_public_offer_with_csrf_protection():
+    _create_available_products(1)
+    product = Product.objects.get()
+    first_offer = product.license_offers.get()
+    second_license = LicenseType.objects.create(
+        name="Publicidad",
+        slug="publicidad",
+        usage_scope="Una campaña",
+        summary="Uso publicitario.",
+        terms_version="1.0",
+    )
+    second_offer = ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=second_license,
+        price=Decimal("29.90"),
+    )
+    hidden_license = LicenseType.objects.create(
+        name="Retirada",
+        slug="retirada",
+        usage_scope="Retirada",
+        summary="Oferta no disponible.",
+        terms_version="1.0",
+        is_active=False,
+    )
+    hidden_offer = ProductLicenseOffer.objects.create(
+        product=product,
+        license_type=hidden_license,
+        price=Decimal("1.00"),
+    )
+    owner = get_user_model().objects.create_user(username="catalog-cart-owner")
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(owner)
+
+    response = client.get(reverse("catalog:product-list"))
+    assert response.status_code == 200
+    forms = re.findall(r"<form\b[^>]*>.*?</form>", response.content.decode(), re.DOTALL)
+    add_url = reverse("cart:add-item")
+    form = next(form for form in forms if f'action="{add_url}"' in form)
+    assert 'method="post"' in form
+    assert 'name="offer_id" required' in form
+    assert f'value="{first_offer.pk}"' in form
+    assert f'value="{second_offer.pk}"' in form
+    assert f'value="{hidden_offer.pk}"' not in form
+    assert not CartItem.objects.filter(cart__owner=owner).exists()
+    token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', form).group(1)
+
+    rejected = client.post(add_url, {"offer_id": second_offer.pk})
+    assert rejected.status_code == 403
+    assert not CartItem.objects.filter(cart__owner=owner).exists()
+
+    added = client.post(
+        add_url,
+        {
+            "offer_id": second_offer.pk,
+            "csrfmiddlewaretoken": token,
+        },
+    )
+    assert added.status_code == 302
+    assert added.url == reverse("cart:detail")
+    assert list(
+        CartItem.objects.filter(cart__owner=owner).values_list(
+            "offer_id",
+            flat=True,
+        )
+    ) == [second_offer.pk]
+
+
+@pytest.mark.django_db
+def test_anonymous_catalog_offers_login_before_cart_addition(client):
+    _create_available_products(1)
+    product = Product.objects.get()
+    response = client.get(reverse("catalog:product-list"))
+    content = response.content.decode()
+    detail_url = reverse("catalog:product-detail", kwargs={"slug": product.slug})
+    assert response.status_code == 200
+    assert f"{reverse('users:login')}?next={detail_url}" in content
+    assert 'action="' + reverse("cart:add-item") + '"' not in content
+    assert not CartItem.objects.exists()

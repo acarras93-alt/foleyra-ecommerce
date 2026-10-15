@@ -732,7 +732,7 @@ def test_authenticated_user_sees_orders_link_in_main_navigation(client):
 
     assert response.status_code == 200
 
-    expected_link = f'<a href="{reverse("orders:list")}">Mis pedidos</a>'
+    expected_link = f'<a href="{reverse("orders:list")}">Pedidos</a>'
     assertContains(response, expected_link, html=True)
 
 
@@ -835,8 +835,17 @@ def test_pending_order_detail_shows_payment_form_without_business_changues(clien
     assert hidden_value("csrfmiddlewaretoken")
     UUID(hidden_value("idempotency_key"))
 
-    # El formulario solicita una aprobación simulada.
-    assert hidden_value("result") == "approved"
+    # El botón pulsado elige el resultado; no hay un resultado oculto fijo.
+    assert not any(re.search(r"""name=["']result["']""", tag) for tag in inputs)
+    buttons = re.findall(r"<button\b[^>]*>", content, re.IGNORECASE)
+    result_values = []
+    for button in buttons:
+        assert re.search(r"""type=["']submit["']""", button)
+        assert re.search(r"""name=["']result["']""", button)
+        value = re.search(r"""value=["']([^"']+)["']""", button)
+        assert value
+        result_values.append(value.group(1))
+    assert sorted(result_values) == ["approved", "failed"]
 
 
 @pytest.mark.parametrize(
@@ -4003,7 +4012,7 @@ def test_authenticated_user_can_navigate_to_own_license_detail(
     assert home_response.status_code == 200
     assertContains(
         home_response,
-        f'<a href="{list_url}">Mis licencias</a>',
+        f'<a href="{list_url}">Licencias</a>',
         html=True,
     )
 
