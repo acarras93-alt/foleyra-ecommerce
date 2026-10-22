@@ -38,7 +38,13 @@ python -m pip check
 ```
 
 Se utilizan los ficheros bloqueados existentes. No es necesario regenerarlos
-ni actualizar dependencias para instalar esta versión.
+ni actualizar dependencias para instalar esta versión. Los bloqueos incorporan
+`soundfile==0.13.1` y sus dependencias para inspeccionar FLAC/AIFF. Tras instalar,
+puedes comprobar el lector de audio con:
+
+```bash
+python -c "import soundfile; print(soundfile.__version__, soundfile.__libsndfile_version__)"
+```
 
 ## 4. Configuración de variables de entorno
 
@@ -119,6 +125,16 @@ La versión actual incorpora además pedidos, intentos de pago y permisos:
 nulo para compras antiguas y no realizan un mapeo automático. Las compras
 antiguas se regularizan mediante operaciones explícitas, descritas en
 [las evidencias de RF-10](evidence/RF-10/README.md).
+
+`catalog.0004` crea `MasterAudioPreparation` y `catalog.0005` conserva su fecha
+de creación. `orders.0010` añade `OrderItem.master_preparation` con `PROTECT` y
+nulo para líneas anteriores, sin asociar automáticamente sus archivos. El
+avance y sus límites están en [RF-11](evidence/RF-11/README.md).
+
+Las previews y los maestros se guardan en `media/` y `private_media/`. El
+maestro no tiene URL pública. Deben respaldarse tanto PostgreSQL como sus
+archivos privados. La carga mediante interfaz administrativa y la descarga
+protegida siguen pendientes; las pruebas usan archivos y carpetas temporales.
 
 Tras preparar la base de datos:
 

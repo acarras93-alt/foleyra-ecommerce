@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections
 from django.urls import reverse
 from django.utils import timezone
@@ -13,16 +14,26 @@ from pytest_django.asserts import assertContains
 
 from apps.cart.models import CartItem
 from apps.cart.services import add_offer_to_cart
-from apps.catalog.models import Category, LicenseType, Product, ProductLicenseOffer
+from apps.catalog.models import (
+    Category,
+    LicenseType,
+    MasterAudioPreparation,
+    Product,
+    ProductLicenseOffer,
+    private_master_storage,
+)
+from apps.catalog.services import set_product_master_audio
 from apps.orders import services as order_services
 from apps.orders.models import LicenseGrant, Order, OrderItem, PaymentAttempt
 from apps.orders.services import EmptyCart, OfferNotAvailable, create_order_from_cart
+from apps.orders.tests.helpers import create_master_wav_bytes, prepare_product_master
 
 
 def create_available_offer(
     *,
     terms_text="Condiciones completas de prueba.",
     usage_scope="Uso de prueba",
+    with_master=True,
 ):
     category = Category.objects.create(
         name="Pedidos",
@@ -40,6 +51,9 @@ def create_available_offer(
         sample_rate_hz=48_000,
         bit_depth=24,
     )
+    if with_master:
+        prepare_product_master(product)
+
     license_type = LicenseType.objects.create(
         name="Licencia de pedido",
         slug="licencia-pedido",
@@ -97,11 +111,13 @@ def create_payable_order_item(
             "terms_text": terms_text,
         },
     )
+    preparation = prepare_product_master(product)
 
     return OrderItem.objects.create(
         order=order,
         source_product=product,
         source_license_type=license_type,
+        master_preparation=preparation,
         product_name=product_name,
         product_sku=product_sku,
         license_name=license_name,
@@ -813,8 +829,10 @@ def test_legacy_documentation_rejects_invalid_mapping_without_changes(scenario):
             summary="Tipo distinto al propuesto por la correspondencia.",
             terms_version="1.0",
         )
-        item.source_license_type = other_type
-        item.save(update_fields=["source_license_type"])
+        OrderItem.objects.filter(pk=item.pk).update(
+            source_license_type_id=other_type.pk,
+        )
+        item.refresh_from_db()
 
     models = (
         Order,
@@ -839,3 +857,144 @@ def test_legacy_documentation_rejects_invalid_mapping_without_changes(scenario):
         model.__name__: list(model.objects.order_by("pk").values()) for model in models
     }
     assert after == before
+
+
+@pytest.mark.django_db
+def test_create_order_from_cart_captures_prepared_master_for_order_item(
+    tmp_path,
+    monkeypatch,
+):
+    # Preparar: aislar los archivos en almacenamiento temporal.
+    monkeypatch.setattr(
+        private_master_storage,
+        "location",
+        str(tmp_path / "private_media"),
+    )
+
+    owner = get_user_model().objects.create_user(
+        username="prepared-master-buyer",
+    )
+    offer = create_available_offer(with_master=False)
+    product = offer.product
+    master_bytes = create_master_wav_bytes(sample_value=1)
+
+    # Preparar: el servicio de carga recibe y prepara el archivo.
+    preparation = set_product_master_audio(
+        product_id=product.pk,
+        uploaded_file=SimpleUploadedFile(
+            "impacto.wav",
+            master_bytes,
+            content_type="audio/wav",
+        ),
+        declared_format="wav",
+        declared_sample_rate_hz=48_000,
+        declared_bit_depth=24,
+    )
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+
+    # Actuar: crear el pedido desde el carrito.
+    order = create_order_from_cart(owner=owner)
+
+    # Comprobar: repcuperar los datos persistidos
+    order.refresh_from_db()
+    product.refresh_from_db()
+    order_item = OrderItem.objects.get(order=order)
+    captured_preparation = order_item.master_preparation
+
+    assert captured_preparation is not None
+    assert captured_preparation.pk == preparation.pk
+    assert captured_preparation.storage_key == product.master_file.name
+    assert MasterAudioPreparation.objects.count() == 1
+
+    # La captura ocurre antes del pago y de la emisión del derecho.
+    assert order.status == Order.Status.PENDING_PAYMENT
+    assert not LicenseGrant.objects.filter(order_item=order_item).exists()
+
+
+@pytest.mark.django_db
+def test_order_item_preserves_captured_master_after_catalog_replacement(
+    tmp_path,
+    monkeypatch,
+):
+    # Preparar: aislar los archivos en almacenamiento temporal.
+    monkeypatch.setattr(
+        private_master_storage,
+        "location",
+        str(tmp_path / "private_media"),
+    )
+
+    owner = get_user_model().objects.create_user(username="historical-master-buyer")
+    offer = create_available_offer(with_master=False)
+    product = offer.product
+
+    original_bytes = create_master_wav_bytes(sample_value=1)
+    replacement_bytes = create_master_wav_bytes(sample_value=2)
+
+    assert original_bytes != replacement_bytes
+
+    # Preparar: asignar el maestro original
+    original_preparation = set_product_master_audio(
+        product_id=product.pk,
+        uploaded_file=SimpleUploadedFile(
+            "impacto.wav",
+            original_bytes,
+            content_type="audio/wav",
+        ),
+        declared_format="wav",
+        declared_sample_rate_hz=48_000,
+        declared_bit_depth=24,
+    )
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+
+    # Preparar: crear el pedido que captura ese maestro.
+    order = create_order_from_cart(owner=owner)
+    order_item = OrderItem.objects.get(order=order)
+
+    assert order_item.master_preparation == original_preparation
+
+    original_line_values = OrderItem.objects.values().get(
+        pk=order_item.pk,
+    )
+
+    # Actuar: sustituir el maestro del catálogo mediante el servicio.
+    replacement_preparation = set_product_master_audio(
+        product_id=product.pk,
+        uploaded_file=SimpleUploadedFile(
+            "impacto.wav",
+            replacement_bytes,
+            content_type="audio/wav",
+        ),
+        declared_format="wav",
+        declared_sample_rate_hz=48_000,
+        declared_bit_depth=24,
+    )
+
+    # Comprobar: el producto apunta al nuevo maestro.
+    product.refresh_from_db()
+    order_item.refresh_from_db()
+
+    assert product.master_file.name == replacement_preparation.storage_key
+    assert replacement_preparation.pk != original_preparation.pk
+    assert replacement_preparation.storage_key != original_preparation.storage_key
+    assert MasterAudioPreparation.objects.count() == 2
+
+    # Comprobar: la línea conserva su vínculo y todos sus datos históricos.
+    assert order_item.master_preparation == original_preparation
+    assert OrderItem.objects.values().get(pk=order_item.pk) == original_line_values
+
+    # Comprobar: desde la línea seguimos llegando a los bytes originales.
+    captured_preparation = order_item.master_preparation
+    assert captured_preparation is not None
+
+    with private_master_storage.open(
+        captured_preparation.storage_key,
+        "rb",
+    ) as stored:
+        assert stored.read() == original_bytes
+
+    # El maestro actual del catálogo consitene los bytes de sustitución
+    with private_master_storage.open(
+        product.master_file.name,
+        "rb",
+    ) as stored:
+        assert stored.read() == replacement_bytes

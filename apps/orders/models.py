@@ -46,6 +46,14 @@ class OrderItem(models.Model):
         null=True,
         blank=True,
     )
+    master_preparation = models.ForeignKey(
+        "catalog.MasterAudioPreparation",
+        on_delete=models.PROTECT,
+        related_name="order_items",
+        null=True,
+        blank=True,
+    )
+
     product_sku = models.CharField(max_length=40)
     product_name = models.CharField(max_length=140)
     license_name = models.CharField(max_length=120)

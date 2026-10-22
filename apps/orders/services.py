@@ -7,7 +7,12 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.cart.models import Cart, CartItem
-from apps.catalog.models import LicenseType, Product
+from apps.catalog.models import (
+    LicenseType,
+    MasterAudioPreparation,
+    Product,
+    private_master_storage,
+)
 from apps.catalog.selectors import is_offer_available
 from apps.orders.models import LicenseGrant, Order, OrderItem, PaymentAttempt
 from apps.orders.policies import (
@@ -34,6 +39,10 @@ class PaymentConflict(Exception):
 
 
 class LegacyDocumentationConflict(Exception):
+    pass
+
+
+class MasterNotPrepared(Exception):
     pass
 
 
@@ -66,6 +75,28 @@ def create_order_from_cart(*, owner) -> Order:
             product=item.offer.product,
             license_type=item.offer.license_type,
         )
+    storage_keys = {
+        item.offer.product.master_file.name
+        for item in cart_items
+        if item.offer.product.master_file.name
+    }
+    preparations_by_key = MasterAudioPreparation.objects.filter(
+        storage_key__in=storage_keys,
+    ).in_bulk(field_name="storage_key")
+
+    if any(
+        item.offer.product.master_file.name not in preparations_by_key
+        for item in cart_items
+    ):
+        raise MasterNotPrepared
+
+    for item in cart_items:
+        master_file = item.offer.product.master_file
+        preparation = preparations_by_key[master_file.name]
+
+        if not master_file.storage.exists(preparation.storage_key):
+            raise MasterNotPrepared
+
     total_amount = sum((item.offer.price for item in cart_items), Decimal("0.00"))
     order = Order.objects.create(
         owner=owner,
@@ -78,6 +109,9 @@ def create_order_from_cart(*, owner) -> Order:
                 order=order,
                 source_product=item.offer.product,
                 source_license_type=item.offer.license_type,
+                master_preparation=preparations_by_key[
+                    item.offer.product.master_file.name
+                ],
                 product_sku=item.offer.product.sku,
                 product_name=item.offer.product.name,
                 license_name=item.offer.license_type.name,
@@ -144,6 +178,7 @@ def approve_simulated_payment(
         order_items = OrderItem.objects.filter(order=order).select_related(
             "source_product",
             "source_license_type",
+            "master_preparation",
         )
 
         for item in order_items:
@@ -167,6 +202,13 @@ def approve_simulated_payment(
                 product=item.source_product,
                 license_type=item.source_license_type,
             )
+            preparation = item.master_preparation
+
+            if preparation is None:
+                raise MasterNotPrepared
+
+            if not private_master_storage.exists(preparation.storage_key):
+                raise MasterNotPrepared
 
     # Registrar el resultado con el importe y moneda históricos.
     attempt = PaymentAttempt.objects.create(

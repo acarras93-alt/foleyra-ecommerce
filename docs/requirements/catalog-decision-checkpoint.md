@@ -112,20 +112,36 @@ modificación del esquema.
 
 ### D-CAT-04 — Características del archivo adquirido
 
-**Estado:** aprobada el 2026-08-25.
+**Estado:** aprobada el 2026-08-25; mínimo técnico actualizado y aprobado por
+el desarrollador el 2026-10-16 junto con RF-11.
 
 **Decisión:** guardar en el producto:
 
 - `duration_ms`, como entero para evitar imprecisión con efectos cortos;
 - `audio_format`, inicialmente WAV, FLAC o AIFF;
-- `sample_rate_hz`, por ejemplo 44100, 48000 o 96000;
-- `bit_depth`, por ejemplo 16, 24 o 32 bits.
+- `sample_rate_hz`, como mínimo 48000 Hz;
+- `bit_depth`, como mínimo 24 bits por muestra.
 
 Estos campos describen el maestro adquirido. La preview puede usar otro formato
-y calidad, que no deben confundirse con lo comprado. El MVP admite WAV, FLAC y
-AIFF; los valores iniciales de frecuencia son 44100, 48000 o 96000 Hz y las
-profundidades iniciales son 16, 24 o 32 bits. La fixture de demostración partirá
-de WAV, 48000 Hz y 24 bits.
+y calidad, que no deben confundirse con lo comprado. El MVP admite WAV/BWF y
+AIFF con audio PCM lineal sin compresión, y FLAC sin pérdida. BWF mantiene la
+extensión `.wav` y la opción `wav` del catálogo. Todos los maestros deben cumplir
+ambos mínimos de 48000 Hz y 24 bits; se admiten valores superiores compatibles.
+La fixture de demostración partirá de WAV, 48000 Hz y 24 bits.
+
+La actualización sustituye la admisión inicial de maestros a 44100 Hz o 16 bits.
+La preparación valida las propiedades reales del archivo y su coherencia con
+los metadatos; aumentar artificialmente la resolución de una fuente inferior
+no acredita calidad. Las grabaciones de campo toman como referencia IASA-TC 04;
+Foleyra convierte el mínimo en una regla obligatoria y mantiene FLAC/AIFF como
+decisión propia. Reglas, fuentes, tratamiento de compras antiguas y criterios
+aprobados están en
+[RF-11](functional-requirements.md#rf-11--descargar-un-archivo-autorizado).
+Avance del 2026-10-22: los servicios de RF-11 ya inspeccionan el archivo real,
+persisten su evidencia y coordinan carga/sustitución con otra clave privada.
+Los mínimos están protegidos en `MasterAudioPreparation`; la entrega y la
+asociación de compras antiguas siguen pendientes. Véase
+[la evidencia incremental](../evidence/RF-11/README.md).
 
 ### D-CAT-05 — Política de preview
 

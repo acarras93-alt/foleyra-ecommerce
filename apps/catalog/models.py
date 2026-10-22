@@ -66,6 +66,39 @@ class Product(models.Model):
         return f"{self.name} ({self.sku})"
 
 
+class MasterAudioPreparation(models.Model):
+    storage_key = models.CharField(max_length=500, unique=True)
+    sha256 = models.CharField(max_length=64)
+    size_bytes = models.PositiveBigIntegerField()
+    audio_format = models.CharField(
+        max_length=8,
+        choices=Product.AudioFormat.choices,
+    )
+    sample_rate_hz = models.PositiveIntegerField()
+    bit_depth = models.PositiveSmallIntegerField()
+    prepared_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [  # noqa: RUF012
+            models.CheckConstraint(
+                condition=Q(sample_rate_hz__gte=48_000),
+                name="prepared_master_min_sample_rate",
+            ),
+            models.CheckConstraint(
+                condition=Q(bit_depth__gte=24),
+                name="prepared_master_min_bit_depth",
+            ),
+            models.CheckConstraint(
+                condition=Q(size_bytes__gt=0),
+                name="prepared_master_nonempty_file",
+            ),
+            models.CheckConstraint(
+                condition=Q(audio_format__in=Product.AudioFormat.values),
+                name="prepared_master_allowed_format",
+            ),
+        ]
+
+
 class LicenseType(models.Model):
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=130, unique=True)

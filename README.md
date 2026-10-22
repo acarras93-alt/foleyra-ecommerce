@@ -8,7 +8,15 @@ mi formación.
 usuario, carrito privado, creación y consulta de pedidos propios, pagos
 simulados aprobados/fallidos y emisión y consulta de permisos de uso.
 RF-10 queda **Verificado el 2026-10-14** para el contrato web, servicios y
-persistencia comprobados. La entrega autorizada del archivo sigue en RF-11.
+persistencia comprobados. RF-11 incorpora preparación del maestro y protección
+del checkout y pago; la descarga autorizada continúa pendiente. El avance y
+sus límites se registran en [RF-11](docs/evidence/RF-11/README.md).
+
+**Alcance de entrega confirmado con el instructor, registrado el 2026-10-21:**
+el cierre requiere RF-11, RF-15 y el recorrido web completo, con evidencias y
+una instalación reproducible. La API privada (RF-13 y RF-14) y la clasificación
+jerárquica del catálogo (RF-16) quedan como evolutivos posteriores a la entrega.
+Esta delimitación no declara implementado ni verificado ningún requisito.
 
 ## Recorrido del proyecto
 
@@ -55,12 +63,12 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     su carrito privado, añadir ofertas disponibles y eliminar líneas propias con
     `POST` y CSRF. El carrito usa precios actuales, conserva las líneas que dejan
     de estar disponibles fuera del total y no mantiene historial. La equivalencia
-    con una API autenticada queda pendiente de RF-13.
+    con una API autenticada queda como evolutivo de RF-13.
 - RF-06 está `Implementado`: un cliente autenticado puede convertir su carrito
     de ofertas disponibles en un pedido histórico `pending_payment` mediante
     `POST /orders/create/`. La operación captura los datos de compra, calcula el
     total en EUR, vacía el carrito de forma atómica y rechaza carritos vacíos u
-    ofertas no disponibles. La API privada permanece pendiente de RF-14.
+    ofertas no disponibles. La API privada queda como evolutivo de RF-14.
 - RF-07 está `Verificado`: el propietario puede simular una aprobación mediante
     `POST /orders/{order_id}/payments/simulate/`. Pedido e intento se guardan en
     una transacción; el replay no duplica pagos y un pedido pagado con otra clave
@@ -94,6 +102,15 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     Dos servicios explícitos regularizan permisos faltantes y documentación
     histórica revisada. La matriz CA01–CA16 y los límites están en
     [RF-10](docs/evidence/RF-10/README.md).
+- RF-11 continúa `Aprobado`, con implementación parcial: `MasterAudioPreparation`
+    conserva clave, SHA-256, tamaño y propiedades reales. Los servicios validan
+    WAV/BWF, FLAC y AIFF de al menos 48 kHz y 24 bits sin convertirlos. Carga y
+    sustitución escriben otra clave privada y conservan los archivos anteriores.
+    El checkout captura la preparación en cada línea; checkout y aprobación
+    rechazan preparación ausente o archivo desaparecido con 409 sin efectos
+    parciales. El pago consulta el maestro histórico de la línea. Faltan casos
+    específicos de prueba, asociación de compras antiguas, descarga protegida
+    y enlace. La carga sigue disponible mediante servicios, sin interfaz Admin.
 - `apps.core` proporciona una página de inicio pública en `/`, con la marca
     Foleyra, la presentación «Biblioteca de sonidos para proyectos audiovisuales»,
     acceso al catálogo y una indicación del carácter académico y simulado de las compras.
@@ -101,34 +118,53 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     previews y selección de ofertas desde el catálogo, retorno al catálogo desde
     el carrito y navegación entre licencias y sus pedidos. Son avances parciales
     de RF-17; no acreditan el cierre del recorrido completo. RF-16, clasificación
-    por familias y subfamilias, continúa propuesto y sin implementar.
+    por familias y subfamilias, continúa propuesto y sin implementar, como
+    evolutivo posterior a la entrega.
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
 - La API pública de solo lectura `/api/v1/catalog/products/` y `/api/v1/catalog/products/{slug}/` ofrece la misma selección disponible en web, filtros y ordenación aprobados, paginación de 12 elementos, detalle con previews y ofertas públicas, y errores JSON contractuales. No expone archivos maestros ni campos administrativos.
-- Las previews usan una raíz pública independiente y pueden obtenerse mediante `/media/` en desarrollo con `DEBUG=True`. Los archivos maestros permanecen en almacenamiento privado sin URL pública, y su nombre, ruta y contenido no se incluyen en el HTML ni en el contexto público. La entrega autorizada del maestro corresponde a RF-11 y continúa fuera del alcance implementado.
+- Las previews usan una raíz pública independiente y pueden obtenerse mediante `/media/` en desarrollo con `DEBUG=True`. Los archivos maestros permanecen en almacenamiento privado sin URL pública, y su nombre, ruta y contenido no se incluyen en el HTML ni en el contexto público. La preparación y captura histórica del maestro están implementadas parcialmente en RF-11; su descarga autorizada sigue pendiente.
 - RF-01, RF-02 y RF-15 están `Aprobado`; RF-03 y RF-12 están `Verificado`.
     Sus evidencias de pruebas y puertas de calidad están disponibles en
     `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
     `Implementado`, no `Verificado`, hasta incorporar sus evidencias. RF-09 también
     queda `Implementado`, con pruebas automatizadas y verificación visual pendiente.
-    RF-10 queda `Verificado` en su alcance automatizado. Descargas y API privada
-    continúan pendientes, igual que la configuración administrativa de RF-15.
+    RF-10 queda `Verificado` en su alcance automatizado. Descargas y configuración
+    administrativa de RF-15 continúan pendientes para el cierre; la API privada
+    se reserva para una evolución posterior.
 
 ## Pendiente para completar el MVP
 
-El catálogo y la API pública de lectura están implementados. Continúan
-pendientes la entrega autorizada de archivos maestros,
-la API privada y la administración del catálogo y pedidos, de acuerdo con los
-[requisitos funcionales](docs/requirements/functional-requirements.md).
-Los estados de implementación y verificación se registran por separado.
+El catálogo y la API pública de lectura están implementados. El cierre acordado
+requiere completar la entrega autorizada de archivos maestros (RF-11) y la
+administración del catálogo y pedidos (RF-15), además de comprobar el recorrido
+principal de extremo a extremo. Los contratos se consultan en los
+[requisitos funcionales](docs/requirements/functional-requirements.md); los
+estados de implementación y verificación se registran por separado.
 
-El orden restante es **RF-11 → RF-13 → RF-14 → RF-15**.
+El orden restante es **RF-11 → RF-15 → validación y entrega**.
 El [plan de cierre y metodología](docs/requirements/mvp-implementation-plan.md)
-recoge los criterios propuestos, el estado observado y la premisa acordada:
+registra la confirmación del instructor, los criterios y la premisa acordada:
 un criterio cada vez, cobertura existente primero y profundización cuando una
 duda o riesgo lo requiera. Las seis preguntas son una guía de apoyo.
-El 1 de octubre deja de ser objetivo de entrega; el cierre se gestiona por
-hitos y una fase de consolidación, sin una nueva fecha comprometida.
+
+La consolidación incluye capturas del recorrido y de los datos persistidos
+(pedido, intento de pago y licencia), un manual de instalación desde cero con
+dependencias, entorno virtual, migraciones y datos/cuenta de demostración, y
+una muestra pequeña de sonidos cortos que cumplan los requisitos técnicos.
+El ZIP se entrega sin entorno virtual y con un único PDF de la memoria. El
+cierre se gestiona por hitos, sin una nueva fecha comprometida.
+
+## Evolutivos posteriores a la entrega
+
+- **RF-13 y RF-14 · API privada:** gestionar carrito, checkout, pagos simulados,
+  pedidos y licencias desde otros clientes, reutilizando las reglas de la web.
+- **RF-16 · Clasificación jerárquica:** ampliar el catálogo mediante familias
+  y subfamilias sonoras y sus consultas asociadas.
+
+Estos requisitos conservan su estado `Propuesto` y sus contratos como referencia
+para futuras versiones. No bloquean la entrega acordada con el instructor y
+deben identificarse como evolutivos en las conclusiones y la memoria.
 
 ## Requisitos locales
 

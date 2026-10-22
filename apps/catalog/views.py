@@ -42,6 +42,40 @@ def product_list(request):
         products = paginator.page(request.GET.get("page", 1))
     except (EmptyPage, PageNotAnInteger) as error:
         raise Http404 from error
+
+    public_products = {
+        "object_list": [
+            {
+                "pk": product.pk,
+                "name": product.name,
+                "slug": product.slug,
+                "minimum_price": product.minimum_price,  # pyright: ignore[reportAttributeAccessIssue]
+                "preview_file": (
+                    {"url": product.preview_file.url} if product.preview_file else None
+                ),
+                "license_offers": [
+                    {
+                        "pk": offer.pk,
+                        "license_type": {
+                            "name": offer.license_type.name,
+                        },
+                        "price": offer.price,
+                    }
+                    for offer in product.license_offers.all()  # pyright: ignore[reportAttributeAccessIssue]
+                ],
+            }
+            for product in products
+        ],
+        "has_previous": products.has_previous(),
+        "has_next": products.has_next(),
+        "previous_page_number": (
+            products.previous_page_number() if products.has_previous() else None
+        ),
+        "next_page_number": (
+            products.next_page_number() if products.has_next() else None
+        ),
+    }
+
     # Only q, category, license and ordering survive a page change.
     preserved_params = {}
     if search_query:
@@ -56,7 +90,7 @@ def product_list(request):
         request,
         "catalog/product_list.html",
         {
-            "products": products,
+            "products": public_products,
             "preserved_query_string": urlencode(preserved_params),
             "search_query": search_query,
             "category_slug": category_slug,

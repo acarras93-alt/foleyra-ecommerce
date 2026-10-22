@@ -1,10 +1,25 @@
 # Plan de cierre del MVP y metodología por criterio
 
-Fecha de revisión: 2026-10-14. Base anterior: `be94cb1`, más el incremento de
-cierre de RF-10. RF-10 queda `Verificado` en el alcance automatizado descrito en
-[las evidencias](../evidence/RF-10/README.md). El siguiente requisito del alcance
-original es RF-11. La actualización de la sección 7 intercala el recorrido web
-y las evidencias solicitadas el 2026-10-14.
+Fecha de revisión: 2026-10-22. Base Git: `09877c8`, más el incremento parcial
+de RF-11. RF-10 conserva su cierre automatizado. RF-11 dispone de preparación,
+captura histórica y comprobaciones de checkout/pago; la entrega sigue pendiente.
+El estado y sus límites están en [la evidencia incremental](../evidence/RF-11/README.md).
+
+Actualización del 2026-10-16: el desarrollador aprueba RF-11 con doce criterios,
+maestros WAV/BWF, FLAC o AIFF de al menos 48000 Hz y 24 bits y conservación del
+archivo comprado. En esa fecha la aprobación fue documental; los avances técnicos posteriores
+se describen en la revisión del 2026-10-22. El orden por criterio se
+recoge en la sección 2 y en RF-11.
+
+Actualización de alcance registrada el **2026-10-21**: el instructor confirma
+el cierre con **RF-11 → RF-15 → validación y entrega**. La API privada
+(RF-13 y RF-14) y la clasificación jerárquica (RF-16) quedan como evolutivos
+posteriores. Esta decisión sustituye la secuencia de cierre anterior y la
+confirmación pendiente; no acredita implementación ni verificación adicional.
+Las observaciones técnicas del 14 y 16 de octubre se conservan como contexto.
+La revisión actual incorpora servicios y pruebas implementados después.
+El recorrido manual completo se reserva para el final de la integración web;
+se mantienen pruebas concretas y regresiones durante cada incremento.
 
 ## 1. Estado comprobado antes de planificar
 
@@ -13,19 +28,20 @@ crear un pedido, consultar su historia y simular pagos aprobados, rechazos y
 reintentos. Ya emite permisos al aprobar el pago y ofrece listado/detalle
 privados con condiciones capturadas, regularización y prevención de recompra.
 RF-10 tiene cierre documentado. Todavía no entrega el maestro comprado: la
-siguiente ampliación funcional de adquisición sigue en RF-11; antes se atiende
-el recorrido de navegación y las evidencias conforme a la sección 7.
+ampliación actual incluye preparación del maestro, captura de su referencia
+en checkout y rechazo de compras o aprobaciones sin preparación o archivo.
+La descarga y la asociación revisada de compras antiguas siguen pendientes.
 
-| Área | Código observado | Qué falta para el recorrido completo |
+| Área | Código observado | Cierre de entrega o evolución posterior |
 |---|---|---|
 | Catálogo y API pública | Modelos, selectores, web, previews y endpoints públicos | Cerrar evidencias pendientes; conservar este contrato |
-| Usuarios | Registro, sesión, logout y `UserAdmin` | Reutilizar sesión en la futura API privada |
-| Carrito | Servicios atómicos, resumen propio y web | Adaptadores DRF privados y equivalencia web/API |
-| Pedidos | Checkout atómico, condiciones completas, referencias a producto/tipo y consultas propias | Preparación histórica de entrega RF-11; evidencias pendientes de RF-06/09 |
-| Pagos | Intentos, replay, emisión atómica, bloqueo de recompra y rechazo de condiciones/identidades incompletas | Preparación de entrega RF-11; conservar RF-07/08 |
+| Usuarios | Registro, sesión, logout y `UserAdmin` | Conservar autenticación web; reutilizar sesión en la API privada como evolutivo |
+| Carrito | Servicios atómicos, resumen propio y web | Conservar el recorrido web; adaptadores DRF y equivalencia web/API como evolutivos |
+| Pedidos | Checkout atómico, condiciones históricas y preparación del maestro capturada | Completar casos RF-11, asociación de compras antiguas y evidencias RF-06/09 |
+| Pagos | Intentos, replay, emisión atómica y rechazo de líneas sin preparación o archivo disponible | Completar pruebas del maestro capturado; conservar RF-07/08 |
 | Licencias adquiridas | RF-10 verificado: emisión, consultas, regularización, recompra, versionado y condiciones | Conservar las garantías al integrar entrega y futura API privada |
-| Archivos | Maestro privado sin URL pública, separado de previews | Vínculo estable de compra y entrega autorizada RF-11 |
-| API privada | No existen endpoints privados de carrito, pago, pedido o licencia | RF-13 y RF-14 |
+| Archivos | Validación real, evidencia persistida, carga/sustitución por servicios y vínculo histórico | Entrega RF-11 e interfaz administrativa RF-15 |
+| API privada | No existen endpoints privados de carrito, pago, pedido o licencia | RF-13 y RF-14: evolutivos, fuera del cierre de entrega |
 | Administración | `UserAdmin` registrado; Admin de catálogo y pedidos sin configurar | RF-15 |
 
 Comprobaciones y límites de esta revisión:
@@ -54,8 +70,11 @@ autorizada ni una demo con audios reales.
 ## 2. Alcance y decisiones propuestas
 
 Los criterios completos están en [requisitos funcionales](functional-requirements.md).
-RF-07, RF-08 y RF-10 están `Verificado`. RF-11, RF-13 y RF-14 conservan
-el estado `Propuesto`; priorizarlos no aprueba todos sus contratos técnicos.
+RF-07, RF-08 y RF-10 están `Verificado`. RF-11 queda `Aprobado` el 2026-10-16;
+RF-13 y RF-14 conservan el estado `Propuesto` y quedan fuera de esta entrega,
+junto con RF-16, según la confirmación del instructor registrada el 2026-10-21.
+Sus contratos permanecen como referencia para evoluciones posteriores, no como
+condiciones de cierre de las funcionalidades web ya implementadas.
 RF-15 conserva sus siete criterios aprobados; sus cinco criterios adicionales
 y la matriz concreta de permisos se presentan como propuestas. Redactar un
 contrato no significa implementarlo ni aprobarlo automáticamente.
@@ -68,8 +87,8 @@ contrato no significa implementarlo ni aprobarlo automáticamente.
 | Emisión de un derecho por línea dentro de la aprobación | Evita pago confirmado con una emisión parcial |
 | Regularización explícita de datos anteriores | Los GET no crean derechos ni adivinan asociaciones históricas |
 | Referencia estable y clave privada capturada para la entrega | Un SKU mutable o reemplazar el maestro no debe cambiar el archivo comprado |
-| Sesión y CSRF para API privada | Reutiliza la identidad existente y evita añadir otro sistema de credenciales |
-| Consulta privada de ofertas comprables | Permite obtener `offer_id` sin cambiar la API pública ni necesitar Admin |
+| Sesión y CSRF para API privada (evolutivo) | Reutiliza la identidad existente y evita añadir otro sistema de credenciales |
+| Consulta privada de ofertas comprables (evolutivo) | Permite obtener `offer_id` sin cambiar la API pública ni necesitar Admin |
 | Historia en solo lectura desde Admin | Evita cambiar estados, precios o permisos desde formularios genéricos |
 
 Las tres primeras decisiones forman parte de RF-07/08 y la emisión por línea
@@ -78,45 +97,67 @@ RF-10 captura y valida condiciones y exige nueva versión ante cambios;
 `source_product` no sustituye el vínculo histórico al archivo de RF-11.
 
 RF-10 ya amplía la aprobación de RF-07 con emisión en la misma transacción y
-el checkout con condiciones y referencia al producto. Capturar el archivo
-histórico de entrega y rechazar compras/aprobaciones sin maestro preparado
-siguen pendientes de RF-11. No se atribuye esa protección al código actual.
+el checkout con condiciones y referencia al producto. El incremento parcial
+de RF-11 añade captura de `MasterAudioPreparation`, conservación ante
+sustitución y rechazo de checkout/aprobación sin preparación o archivo.
+Los criterios de descarga y regularización del maestro aún no están cerrados.
 
-Fuera del MVP: pasarela real, tarjetas, webhooks, reembolsos, suscripciones,
-DRM, CDN, ZIP, contratos PDF, nuevos sistemas de tokens y un backoffice propio.
+Punto de continuidad: completar pruebas de pago sin vínculo y tras cambiar
+el maestro del catálogo; después implementar asociación histórica revisada
+y descarga protegida, con autorización y fallo seguro desde su primera versión.
+Añadir el enlace del permiso, comprobar varias líneas y cerrar con recorrido
+manual de dos cuentas y sonidos reales. No se amplía a gestor de versiones,
+nube o API privada.
+
+RF-11 se implementará un criterio cada vez en este orden:
+**05 → 11 → 06 → 07 → 08 → 01 → 02 → 03 → 04 → 09 → 10 → 12**.
+Primero se revisa la protección existente, se valida la calidad mínima y se
+asegura el vínculo histórico y la preparación de compra; después se completa
+la entrega autorizada, sus errores, la navegación y el caso de varias líneas.
+La primera vista de descarga incorpora autorización y fallo seguro desde su
+creación, aunque los criterios de error se documenten por separado.
+Los [criterios aprobados de RF-11](functional-requirements.md#rf-11--descargar-un-archivo-autorizado)
+son la fuente de verdad; no se exige contratar nube ni convertir formatos.
+
+Fuera de esta entrega: API privada (RF-13/14), clasificación jerárquica (RF-16),
+pasarela real, tarjetas, webhooks, reembolsos, suscripciones, DRM, CDN, descargas
+agrupadas en ZIP, contratos PDF, nuevos sistemas de tokens y un backoffice propio.
 
 ## 3. Secuencia por hitos y cierre funcional inmediato
 
-La secuencia de referencia del alcance completo se conserva:
+La confirmación del instructor, comunicada por Álvaro y registrada el
+2026-10-21, fija la secuencia restante:
 
-**RF-07 → RF-08 → RF-10 → RF-11 → RF-13 → RF-14 → RF-15.**
+**RF-11 → RF-15 → validación y entrega.**
 
-Las versiones objetivo existentes son etiquetas de alcance; no alteran esta
-secuencia. El 1 de octubre deja de ser objetivo de entrega. El calendario
-anterior de agosto/septiembre también queda sustituido. El objetivo expresado
-el 2026-10-04 es cerrar esta fase en una semana, dos como máximo; orienta el foco
-y la reserva de tiempo para validación, sin garantizar el alcance completo en
-ese plazo ni convertirlo en una fecha de entrega certificada.
+RF-07, RF-08 y RF-10 mantienen sus evidencias previas. RF-13 y RF-14 no son
+condiciones obligatorias para esta entrega; tampoco lo es RF-16. La memoria
+debe explicar estas ampliaciones en conclusiones y evolutivos, conservando su
+estado `Propuesto`. Las versiones objetivo de la especificación original no
+imponen completar esas ampliaciones antes de cerrar el proyecto académico.
 
-El trabajo inmediato se organiza como **Cierre funcional del MVP**:
+El trabajo inmediato se organiza como **Cierre funcional del MVP acordado**:
 
-1. **Implementación del flujo de adquisición y entrega:** RF-10 verificado;
-   continuar con RF-11 y un primer sonido real preparado.
-2. **Validación de extremo a extremo con productos sonoros reales:** recorrido
-   web integrado con una muestra pequeña, evidencias y corrección de defectos.
+1. **RF-11:** completar y verificar la descarga autorizada del maestro comprado,
+   con una muestra pequeña de sonidos reales preparados.
+2. **RF-15:** completar y verificar la administración conforme a sus criterios
+   aprobados, conservando las restricciones sobre datos históricos y permisos.
+3. **Validación y entrega:** comprobar el recorrido web completo, corregir
+   defectos y reunir las evidencias de interfaz y persistencia. Completar el
+   manual de instalación desde cero y la preparación reproducible de datos,
+   archivos y cuenta de demostración.
 
-Esta validación se realiza al terminar RF-11, antes de iniciar RF-13/14.
-RF-13, RF-14 y RF-15 permanecen pendientes dentro del alcance documental.
-Cerrar el recorrido web no equivale a declarar verificados esos requisitos ni
-a entregar v1.0.0. Si se decide reducir el alcance de la primera entrega, deberá
-quedar registrado antes de presentarla como el MVP completo.
+El instructor destaca las capturas de todas las pantallas del recorrido y los
+cambios persistidos que acrediten pedido creado, pago aprobado y licencia
+generada. El manual debe concretar dependencias, entorno virtual, configuración,
+migraciones y usuario de prueba o fixture de demostración. La muestra sonora
+será corta y ligera, manteniendo los requisitos técnicos de Foleyra. El ZIP
+final excluirá el entorno virtual e incluirá un único PDF de la memoria.
 
-La propuesta de priorizar **RF-10 → RF-11 → RF-15 → validación y entrega**, dejando
-RF-13/14 como evolutivos, continúa pendiente de confirmar con el instructor.
-Esta revisión no reduce el alcance aprobado ni cambia requisitos a opcionales.
-El margen orientativo discutido para 6–7 horas diarias es de 3–4 semanas con
-ese alcance reducido, o 4–6 semanas manteniendo la API privada completa. Es una
-estimación revisable, no una fecha comprometida ni evidencia de finalización.
+La aprobación del alcance no cierra automáticamente RF-11 ni RF-15 y no
+certifica el recorrido, la instalación ni una versión final. Los calendarios
+y estimaciones anteriores quedan como antecedentes; no hay una nueva fecha
+comprometida en esta actualización.
 
 | Hito | Resultado que permite cerrarlo |
 |---|---|
@@ -124,10 +165,10 @@ estimación revisable, no una fecha comprometida ni evidencia de finalización.
 | 2 · RF-08 | Rechazar y reintentar conservando historial y estado correcto |
 | 3 · RF-10 | Registrar permisos atómicamente, conservar condiciones trazables y consultar compras propias |
 | 4 · RF-11 | Descargar el maestro correcto con autorización y conservación histórica |
-| 5 · RF-13 | Usar el carrito por API con sesión, CSRF y reglas compartidas |
-| 6 · RF-14 | Completar el flujo privado por API con los mismos resultados de negocio |
-| 7 · RF-15 | Administrar catálogo y consultar historia con permisos definidos |
-| 8 · Consolidación | Regresión completa, validación con audios reales, evidencias, instalación limpia y documentación coherente |
+| 5 · RF-15 | Administrar catálogo y consultar historia con permisos definidos |
+| 6 · Consolidación y entrega | Regresión completa, recorrido con audios reales, evidencias de interfaz y PostgreSQL, instalación limpia y ZIP con un único PDF, sin entorno virtual |
+
+RF-13, RF-14 y RF-16 se mantienen como evolutivos fuera de esta tabla de cierre.
 
 Cada hito requiere criterios comprobados, revisión del diff y puerta de calidad
 aplicable. La congelación funcional comienza al cerrar el alcance acordado,
@@ -287,7 +328,7 @@ la descarga privada continúa en RF-11.
 5. Devuelve los bytes como adjunto con cabeceras privadas, o el 404 controlado.
 6. No publica la clave ni modifica pedido, derecho o carrito al entregar el archivo.
 
-### RF-13 · Carrito por API
+### RF-13 · Carrito por API (evolutivo posterior a la entrega)
 
 1. El consumidor obtiene una sesión mediante RF-04 y el token CSRF para escribir.
 2. Envía la petición al endpoint privado; DRF autentica, comprueba permisos y valida la entrada.
@@ -296,7 +337,7 @@ la descarga privada continúa en RF-11.
 5. El serializer representa campos permitidos; la vista devuelve JSON y el código definido.
 6. Las reglas de disponibilidad, precio y pertenencia son las mismas que en la web.
 
-### RF-14 · Compra y consultas por API
+### RF-14 · Compra y consultas por API (evolutivo posterior a la entrega)
 
 1. El consumidor con sesión envía checkout; DRF valida permisos, CSRF y cuerpo.
 2. La vista llama al servicio existente de conversión y devuelve el pedido pendiente en JSON.
@@ -329,9 +370,10 @@ y después. Preparar fixtures fuera del tramo donde se miden consultas.
 Al cerrar un hito aplicar RNF-11, revisar el recorrido manual, actualizar
 evidencias y versionar cuando se solicite. La consolidación final incluye
 instalación limpia, cuentas y compras de prueba con una muestra de audios reales,
-revisión de permisos, archivos privados y equivalencia web/API según el alcance
-implementado, además de documentación e historial coherentes. Una suite verde
-es necesaria, pero no acredita por sí sola todo el MVP.
+revisión de permisos, archivos privados y conservación de la API pública,
+además de documentación e historial coherentes. La equivalencia con la futura
+API privada queda para RF-13/14 y no bloquea esta entrega. Una suite verde es
+necesaria, pero no acredita por sí sola todo el MVP.
 
 ### Validación de extremo a extremo con productos sonoros reales
 
@@ -415,9 +457,14 @@ Se documentan RF-16 (familias y subfamilias) y RF-17
 contrato y las evidencias anteriores. Documentar no equivale a implementar o
 verificar; tampoco convierte los cambios ya realizados en cobertura completa.
 
-La prioridad inmediata sigue siendo completar el recorrido que permite tomar
-las evidencias de RF-07, RF-08, RF-09 y RF-10. La clasificación jerárquica es una
-unidad posterior con impacto en modelo, consultas y API; no es condición para
+Para el cierre acordado el 2026-10-21, RF-16 se reserva como evolutivo; los pasos
+5 y 6 de la tabla describen ese trabajo posterior, no condiciones de entrega.
+La navegación necesaria para completar el recorrido principal sí forma parte
+de la validación final, sin declarar por ello verificado todo RF-17.
+
+La prioridad del recorrido descrito en esta sección es completar la navegación
+que permite tomar las evidencias de RF-07, RF-08, RF-09 y RF-10. La clasificación
+jerárquica es una unidad posterior con impacto en modelo, consultas y API; no es condición para
 aprobar un pago simulado ni para consultar permisos propios.
 
 | Paso | Trabajo | Cómo se comprueba y cuándo termina |
@@ -426,8 +473,8 @@ aprobar un pago simulado ni para consultar permisos propios.
 | 2 · Conectar | Completar las transiciones pendientes de RF-17, una cada vez | Recorrer los seis pasos desde la interfaz sin introducir URLs manualmente; conservar los controles HTTP y de propiedad |
 | 3 · Preparar datos | Revisar dos productos distintos con ofertas completas: nombres, descripciones, metadatos del original, previews, condiciones, identidades y precios de oferta | Ambos se pueden seleccionar y comprar; una copia de referencia identifica cada original; no se reconstruyen compras antiguas con el catálogo actual |
 | 4 · Registrar evidencias | Retomar RF-07 → RF-08 → RF-09 → RF-10 con esos datos | Capturas legibles, consultas persistidas y pruebas pertinentes; misma compra trazable cuando los escenarios lo permitan |
-| 5 · Clasificar | Concretar y aprobar el contrato técnico de RF-16; implementar primero familia/subfamilia y después filtros web/API | Una muestra de dos familias y dos subfamilias distingue inclusión/exclusión; migración revisada, compatibilidad y regresión comprobadas |
-| 6 · Presentar | Mejorar etiquetas, distribución y tarjetas de familias sobre las consultas ya comprobadas | Selección clara, uso por teclado y revisión visual en escritorio y móvil; las tarjetas usan recursos propios |
+| Evolutivo 5 · Clasificar | Concretar y aprobar el contrato técnico de RF-16; implementar primero familia/subfamilia y después filtros web/API | Una muestra de dos familias y dos subfamilias distingue inclusión/exclusión; migración revisada, compatibilidad y regresión comprobadas |
+| Evolutivo 6 · Presentar | Mejorar etiquetas, distribución y tarjetas de familias sobre las consultas ya comprobadas | Selección clara, uso por teclado y revisión visual en escritorio y móvil; las tarjetas usan recursos propios |
 
 En el paso 3, el catálogo comercial describe los sonidos, mientras que los casos
 negativos deliberados se mantienen identificados en una preparación separada.

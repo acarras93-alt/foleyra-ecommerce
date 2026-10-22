@@ -18,6 +18,7 @@ from apps.orders.selectors import get_order_for_owner, get_orders_for_owner
 from apps.orders.services import (
     EmptyCart,
     InvalidPaymentInput,
+    MasterNotPrepared,
     OfferNotAvailable,
     PaymentConflict,
     approve_simulated_payment,
@@ -80,7 +81,7 @@ def order_detail(request, order_id):
 def create_order(request):
     try:
         create_order_from_cart(owner=request.user)
-    except (EmptyCart, OfferNotAvailable):
+    except (EmptyCart, OfferNotAvailable, MasterNotPrepared):
         return HttpResponse(status=409)
     except (
         LicenseAlreadyOwned,
@@ -124,7 +125,7 @@ def simulate_payment(request, order_id):
         raise Http404("Pedido no encontrado") from None
     except InvalidPaymentInput:
         return HttpResponse(status=400)
-    except PaymentConflict:
+    except (PaymentConflict, MasterNotPrepared):
         return HttpResponse(status=409)
     except (
         LicenseAlreadyOwned,

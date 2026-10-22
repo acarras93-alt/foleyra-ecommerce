@@ -163,15 +163,15 @@
         <button type="submit">Filtrar</button>
     </form>
     <ul class="catalog-products">
-        {% for product in products %}
+        {% for product in products.object_list %}
             <li class="catalog-product">
                 <div class="catalog-product-body">
                     <a class="catalog-product-name" href="{% url 'catalog:product-detail' slug=product.slug %}">{{ product.name }}</a>
                     {% if product.preview_file %}
                         <div class="catalog-product-preview">
                             <audio controls preload="none"
-                                   src="{{ product.preview_file.url }}"
-                                   aria-label="Escuchar muestra de {{ product.name }}">
+                                src="{{ product.preview_file.url }}"
+                                aria-label="Escuchar muestra de {{ product.name }}">
                                 Tu navegador no admite la reproducción de audio.
                             </audio>
                         </div>
@@ -185,7 +185,7 @@
                                 Licencia
                                 <select id="catalog-offer-{{ product.pk }}" name="offer_id" required>
                                     <option value="">Selecciona una licencia</option>
-                                    {% for offer in product.license_offers.all %}
+                                    {% for offer in product.license_offers %}
                                         <option value="{{ offer.pk }}">{{ offer.license_type.name }} · {{ offer.price|floatformat:"2g" }} €</option>
                                     {% endfor %}
                                 </select>

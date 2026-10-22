@@ -339,7 +339,7 @@ def test_public_product_api_matches_web_for_valid_query_parameters(client, order
     }
     expected_slugs = expected_slugs_by_ordering[ordering]
     assert [
-        product.slug for product in web_response.context["products"]
+        product["slug"] for product in web_response.context["products"]["object_list"]
     ] == expected_slugs
     assert [
         product["slug"] for product in api_response.json()["results"]

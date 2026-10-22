@@ -3123,3 +3123,75 @@ capturas temporales. Los datos y previews locales de demostración siguen sin
 constituir una preparación reproducible versionada. Tampoco se acredita con
 esta puerta instalación limpia, recorrido manual completo, RF-11, API privada,
 administración completa o despliegue de producción.
+
+## 2026-10-21 — Alcance de entrega confirmado con el instructor
+
+Por solicitud de Álvaro, Codex actualiza `README.md` y
+`docs/requirements/mvp-implementation-plan.md` con la respuesta del instructor
+comunicada en esta conversación. El cierre acordado pasa a
+**RF-11 → RF-15 → validación y entrega**. RF-13 y RF-14 (API privada), junto
+con RF-16 (clasificación jerárquica), quedan como evolutivos posteriores que
+deben explicarse en las conclusiones y la memoria. Se retira la confirmación
+pendiente y se ajustan la secuencia, la tabla de hitos y las referencias a la
+equivalencia web/API para que esas ampliaciones no bloqueen esta entrega.
+
+La consolidación recoge las indicaciones del instructor: capturas de las
+pantallas y los cambios persistidos, instalación desde cero con datos y cuenta
+de demostración, sonidos cortos que mantengan los requisitos técnicos, y un ZIP
+sin entorno virtual con un único PDF de memoria. Esta decisión cambia el
+alcance de entrega, no los estados de implementación o verificación de los
+requisitos ni sus criterios. Se conservan los cambios locales de RF-11 y los
+contratos de las ampliaciones como referencia futura.
+
+Se revisa el diff de ambos documentos. Una comprobación local con Python valida
+la nueva secuencia, la ausencia de la secuencia antigua y de la confirmación
+pendiente, la exclusión de RF-13/14 de la tabla de cierre y la existencia de los
+destinos de los enlaces locales; termina correctamente. `git diff --check --
+README.md docs/requirements/mvp-implementation-plan.md` termina sin incidencias.
+No se ejecutan pruebas funcionales porque el cambio es documental; no se
+modifican código, datos, migraciones, dependencias ni el documento Pages, y no
+se crea un commit.
+
+## 2026-10-22 — RF-11 parcial: preparación y captura histórica del maestro
+
+Por solicitud de Álvaro se consolida el trabajo pendiente de RF-11 y el alcance
+confirmado el 2026-10-21. RF-11 mantiene `Aprobado`; no hay descarga protegida.
+El catálogo representa campos públicos permitidos. `MasterAudioPreparation`
+persiste clave única, SHA-256, tamaño, propiedades reales y fecha de creación.
+Los servicios validan WAV/BWF, FLAC y AIFF y coordinan carga/sustitución con
+claves nuevas, conservación del original y transacción de los datos.
+
+El checkout captura `OrderItem.master_preparation` con `PROTECT` y nulo para
+líneas antiguas. Checkout y nueva aprobación rechazan preparación ausente o
+archivo desaparecido con 409 sin efectos parciales. El pago usa el maestro de
+la línea y conserva replay e historial. Migraciones: `catalog.0004/0005` y
+`orders.0010`, sin asignación automática a compras antiguas.
+
+Se completan las ofertas de compras válidas con WAV reales y almacenamiento
+temporal mediante auxiliares compartidos; se conservan las aserciones, los
+casos negativos y los históricos sin vínculo. Se corrigen importaciones sin
+usar y una asignación al descriptor de FK de prueba mediante ORM y recarga.
+Los bloqueos de dependencias se sincronizan con SoundFile, conservando las
+versiones previas del resto del proyecto.
+
+Matriz y límites en [RF-11](evidence/RF-11/README.md); resultados en la
+[puerta de calidad](evidence/RF-11/quality-gate-2026-10-22.md).
+La suite completa termina con **399 passed, 1 xfailed en 46,89 s**. Django,
+compatibilidad de dependencias, formato, comprobaciones de migraciones,
+simulación de instalación de los bloqueos y enlaces locales pasan.
+
+La puerta no queda totalmente en verde: al final de `test_views.py` se ha
+guardado un borrador de pago sin preparación capturada. Ruff detecta una
+importación y dos variables sin uso. Se conserva el código del autor y se
+registra explícitamente que esta prueba aún no ejercita el rechazo ni contiene
+las aserciones; su ejecución correcta no acredita el comportamiento. El commit
+se guarda como trabajo en curso. Antes de continuar, completar la prueba y
+repetir Ruff y las regresiones afectadas.
+
+Pendientes: pruebas del pago sin vínculo y tras sustitución del catálogo,
+asociación revisada de compras antiguas, descarga autorizada, enlace y varias
+líneas. El recorrido manual completo con dos cuentas y sonidos reales queda
+para el final. La carga mediante interfaz pertenece a RF-15. API privada y
+clasificación jerárquica siguen como evolutivos. Se crea un commit local con
+el incremento y su documentación; no se solicita publicación remota. No se
+incluyen datos privados, audios reales, entorno virtual, credenciales ni capturas.

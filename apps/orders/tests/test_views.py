@@ -21,15 +21,23 @@ from pytest_django.asserts import assertContains, assertNotContains
 
 from apps.cart.models import Cart, CartItem
 from apps.cart.services import add_offer_to_cart
-from apps.catalog.models import Category, LicenseType, Product, ProductLicenseOffer
+from apps.catalog.models import (
+    Category,
+    LicenseType,
+    MasterAudioPreparation,
+    Product,
+    ProductLicenseOffer,
+)
 from apps.orders.models import LicenseGrant, Order, OrderItem, PaymentAttempt
 from apps.orders.services import approve_simulated_payment, create_order_from_cart
+from apps.orders.tests.helpers import prepare_product_master
 
 
 def create_available_offer(
     *,
     terms_text="Condiciones completas de prueba.",
     usage_scope="Uso de prueba web",
+    with_master=True,
 ):
     category = Category.objects.create(name="Pedidos web", slug="pedidos-web")
     product = Product.objects.create(
@@ -44,6 +52,9 @@ def create_available_offer(
         sample_rate_hz=48_000,
         bit_depth=24,
     )
+    if with_master:
+        prepare_product_master(product)
+
     license_type = LicenseType.objects.create(
         name="Licencia web",
         slug="licencia-web",
@@ -102,10 +113,13 @@ def create_payable_order_item(
         },
     )
 
+    preparation = prepare_product_master(product)
+
     return OrderItem.objects.create(
         order=order,
         source_product=product,
         source_license_type=license_type,
+        master_preparation=preparation,
         product_name=product_name,
         product_sku=product_sku,
         license_name=license_name,
@@ -4514,6 +4528,7 @@ def test_rf10_repurchase_rule_allows_distinct_acquisitions(
             sample_rate_hz=48000,
             bit_depth=24,
         )
+        prepare_product_master(other_product)
         candidate_offer = ProductLicenseOffer.objects.create(
             product=other_product,
             license_type=offer.license_type,
@@ -5038,3 +5053,147 @@ def test_license_detail_query_count_does_not_grow_with_owned_grants(
     assert second_response.context["grant"].pk == first_grant.pk
     assertContains(second_response, expected["terms_text"])
     assert len(queries_with_five) == len(queries_with_one)
+
+
+@pytest.mark.django_db
+def test_checkout_without_master_file_returns_conflict_and_preserves_cart(
+    client,
+):
+    # Preparar: cliente y oferta con condiciones completas.
+    owner = get_user_model().objects.create_user(
+        username="checkout-without-master",
+    )
+    offer = create_available_offer(with_master=False)
+
+    # Preparar explícitamente un producto sin maestro.
+    product = offer.product
+    product.master_file.name = ""
+    product.save(update_fields=["master_file"])
+
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    client.force_login(owner)
+
+    cart_before = list(
+        CartItem.objects.filter(cart__owner=owner).order_by("pk").values()
+    )
+
+    # Actuar: solicitar el checkout mediante HTTP
+    response = client.post(reverse("orders:create"))
+
+    assert response.status_code == 409
+    assert not Order.objects.filter(owner=owner).exists()
+    assert not OrderItem.objects.filter(order__owner=owner).exists()
+
+    # Comprobar: todas las líneas del carrito conservan sus valores.
+    cart_after = list(
+        CartItem.objects.filter(cart__owner=owner).order_by("pk").values()
+    )
+    assert cart_after == cart_before
+
+
+@pytest.mark.django_db
+def test_checkout_with_missing_stored_master_returns_conflict_without_changes(
+    client,
+):
+    # Preparar: cliente y producto con un maestro realmente preparado.
+    owner = get_user_model().objects.create_user(
+        username="checkout-missing-stored-master",
+    )
+    offer = create_available_offer(with_master=False)
+    product = offer.product
+    preparation = prepare_product_master(product)
+    storage = product.master_file.storage
+
+    assert storage.exists(preparation.storage_key)
+
+    # Preparar: eliminar únicamente el archivo del almacenamiento temporal.
+    storage.delete(preparation.storage_key)
+
+    assert not storage.exists(preparation.storage_key)
+
+    # El registro de preparación sigue existiendo en PostgreSQL
+    preparation.refresh_from_db()
+
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    client.force_login(owner)
+    before = capture_purchase_business_data()
+
+    # Actuar:intentar crear el pedido.
+    response = client.post(reverse("orders:create"))
+
+    # Comprobar:rechazo sin modificar los datos de negocio.
+    assert response.status_code == 409
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+def test_payment_with_missing_captured_master_returns_conflict_without_changes(
+    client,
+):
+    # Preparar: cliente y pedido con un maestro disponible.
+    owner = get_user_model().objects.create_user(
+        username="payment-missing-captured-master",
+    )
+    offer = create_available_offer()
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    order = create_order_from_cart(owner=owner)
+
+    # Recuperar la preparación que quedó capturada por la línea.
+    order_item = OrderItem.objects.get(order=order)
+    preparation = order_item.master_preparation
+
+    assert preparation is not None
+    assert order.status == Order.Status.PENDING_PAYMENT
+
+    storage = offer.product.master_file.storage
+    assert storage.exists(preparation.storage_key)
+
+    # Preparar: el archivo desaparece después de crear el pedido.
+    storage.delete(preparation.storage_key)
+
+    assert not storage.exists(preparation.storage_key)
+    preparation.refresh_from_db()
+
+    client.force_login(owner)
+    before = capture_purchase_business_data()
+
+    # Actuar: solicitar una nueva aprobación de pago.
+    response = client.post(
+        reverse(
+            "orders:simulate_payment",
+            kwargs={"order_id": order.pk},
+        ),
+        {
+            "result": PaymentAttempt.Result.APPROVED,
+            "idempotency_key": str(uuid4()),
+        },
+    )
+
+    # Comprobar: rechazo y conservación del estado pendiente.
+    assert response.status_code == 409
+
+    order.refresh_from_db()
+    assert order.status == Order.Status.PENDING_PAYMENT
+    assert not PaymentAttempt.objects.filter(order=order).exists()
+    assert not LicenseGrant.objects.filter(
+        order_item__order=order,
+    ).exists()
+
+    # También se conservan las líneas y los demás datos de negocio.
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+def test_payment_without_captured_master_returns_conflict_without_changes(
+    client,
+):
+    # Preparar: cliente y pedido con condiciones completas.
+    owner = get_user_model().objects.create_user(
+        username="payment-without-captured-master"
+    )
+    offer = create_available_offer()
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    order = create_order_from_cart(owner=owner)
+
+    # El catálogo dispone de un archivo válido.
+    master_file = offer.product.master_file

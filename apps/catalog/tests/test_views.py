@@ -1,19 +1,23 @@
 import html
 import importlib
+import io
 import re
+import wave
 from decimal import Decimal
 from pathlib import Path
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.core.paginator import Page
 from django.test import Client, override_settings
 from django.urls import clear_url_caches, reverse
 from django.utils.html import strip_tags
 
 from apps.cart.models import CartItem
 from apps.catalog.models import Category, LicenseType, Product, ProductLicenseOffer
+from apps.catalog.storage import PreviewStorage, PrivateMasterStorage
 from config import urls as project_urls
 
 
@@ -1171,7 +1175,7 @@ def test_anonymous_visitor_receives_the_public_preview_file(
     tmp_path,
 ):
     preview_bytes = b"ID3\x04\x00\x00fictional-preview-bytes"
-    preview_storage = Product._meta.get_field("preview_file").storage
+    preview_storage = Product().preview_file.storage
     monkeypatch.setattr(preview_storage, "_location", tmp_path)
     preview_storage.__dict__.pop("base_location", None)
     preview_storage.__dict__.pop("location", None)
@@ -1207,7 +1211,7 @@ def test_anonymous_visitor_receives_the_public_preview_file(
 def test_catalog_form_adds_the_selected_public_offer_with_csrf_protection():
     _create_available_products(1)
     product = Product.objects.get()
-    first_offer = product.license_offers.get()
+    first_offer = ProductLicenseOffer.objects.get(product=product)
     second_license = LicenseType.objects.create(
         name="Publicidad",
         slug="publicidad",
@@ -1248,7 +1252,9 @@ def test_catalog_form_adds_the_selected_public_offer_with_csrf_protection():
     assert f'value="{second_offer.pk}"' in form
     assert f'value="{hidden_offer.pk}"' not in form
     assert not CartItem.objects.filter(cart__owner=owner).exists()
-    token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', form).group(1)
+    token_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', form)
+    assert token_match is not None
+    token = token_match.group(1)
 
     rejected = client.post(add_url, {"offer_id": second_offer.pk})
     assert rejected.status_code == 403
@@ -1262,7 +1268,7 @@ def test_catalog_form_adds_the_selected_public_offer_with_csrf_protection():
         },
     )
     assert added.status_code == 302
-    assert added.url == reverse("cart:detail")
+    assert added.headers["Location"] == reverse("cart:detail")
     assert list(
         CartItem.objects.filter(cart__owner=owner).values_list(
             "offer_id",
@@ -1282,3 +1288,169 @@ def test_anonymous_catalog_offers_login_before_cart_addition(client):
     assert f"{reverse('users:login')}?next={detail_url}" in content
     assert 'action="' + reverse("cart:add-item") + '"' not in content
     assert not CartItem.objects.exists()
+
+
+@pytest.fixture
+def rf11_private_product(db):
+    _create_available_products(1)
+    product = Product.objects.get()
+    product.master_file.name = "masters/rf11-identifiable-private-master.wav"
+    product.save(update_fields=["master_file"])
+    return product
+
+
+def test_catalog_list_keeps_master_out_of_html_and_context(
+    client,
+    rf11_private_product,
+):
+    # Preparar: identificar la información que debe permanecer privada.
+    product = rf11_private_product
+    private_values = (
+        product.master_file.name,
+        Path(product.master_file.name).name,
+        str(product.master_file.storage.location),
+    )
+
+    # Actuar: consultar el listado sin iniciar sesión.
+    response = client.get(reverse("catalog:product-list"))
+
+    # Comprobar: la página funciona sin publicar información del maestro.
+    assert response.status_code == 200
+    assert not response.wsgi_request.user.is_authenticated
+
+    content = response.content.decode()
+    public_context = {}
+    for context in response.context:
+        public_context.update(context.flatten())
+
+    for private_value in private_values:
+        assert private_value not in content
+        assert private_value not in str(public_context)
+
+    # Tampoco se entregan objetos que permitan acceder al campo privado.
+    for value in public_context.values():
+        assert not hasattr(value, "master_file")
+        if isinstance(value, Page):
+            assert all(not hasattr(item, "master_file") for item in value.object_list)
+
+
+@pytest.mark.parametrize("debug", [True, False])
+def test_anonymous_direct_urls_cannot_download_a_private_master(
+    client,
+    tmp_path,
+    debug,
+):
+    # Preparar: generar un WAV temporal válido de 48 kHz y 24 bits.
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(3)
+        audio.setframerate(48_000)
+        audio.writeframes(b"\x12\x34\x56" * 48)
+    master_bytes = buffer.getvalue()
+    preview_bytes = b"ID3-fictional-public-preview"
+
+    try:
+        with override_settings(
+            BASE_DIR=tmp_path,
+            MEDIA_ROOT=tmp_path / "media",
+            MEDIA_URL="/media/",
+            DEBUG=debug,
+        ):
+            private_storage = PrivateMasterStorage()
+            preview_storage = PreviewStorage()
+
+            master_name = private_storage.save(
+                "masters/rf11-private-master.wav",
+                ContentFile(master_bytes),
+            )
+            preview_name = preview_storage.save(
+                "previews/rf11-public-preview.mp3",
+                ContentFile(preview_bytes),
+            )
+
+            # Confirmar que el maestro existe y contiene los bytes previstos.
+            with private_storage.open(master_name, "rb") as stored:
+                assert stored.read() == master_bytes
+
+            importlib.reload(project_urls)
+            clear_url_caches()
+
+            if debug:
+                preview_response = client.get(preview_storage.url(preview_name))
+                assert preview_response.status_code == 200
+                assert b"".join(preview_response.streaming_content) == preview_bytes
+
+            for direct_url in (
+                f"/media/{master_name}",
+                f"/private_media/{master_name}",
+            ):
+                # Actuar: intentar acceder sin autenticación.
+                response = client.get(direct_url)
+
+                # Comprobar: no hay descarga ni exposición de la raíz privada.
+                assert not response.wsgi_request.user.is_authenticated
+                assert response.status_code == 404
+                assert master_bytes not in response.content
+                assert "Content-Disposition" not in response.headers
+                assert str(private_storage.location).encode() not in response.content
+
+                if not debug:
+                    assert master_name.encode() not in response.content
+                    assert Path(master_name).name.encode() not in response.content
+    finally:
+        importlib.reload(project_urls)
+        clear_url_caches()
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_status"),
+    [
+        ("/catalog/producto-inexistente/", 404),
+        ("/catalog/?ordering=invalido", 400),
+        ("/api/v1/catalog/products/producto-inexistente/", 404),
+        ("/api/v1/catalog/products/?page=999", 404),
+    ],
+)
+def test_public_errors_do_not_expose_private_master_information(
+    client,
+    rf11_private_product,
+    url,
+    expected_status,
+):
+    product = rf11_private_product
+
+    with override_settings(DEBUG=False):
+        response = client.get(url)
+
+    assert response.status_code == expected_status
+    assert not response.wsgi_request.user.is_authenticated
+
+    for private_value in (
+        product.master_file.name,
+        Path(product.master_file.name).name,
+        str(product.master_file.storage.location),
+    ):
+        assert private_value.encode() not in response.content
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="CA-RF11-02 pendiente: la ruta de descarga protegida aún no está implementada.",
+)
+def test_anonymous_master_download_redirects_to_login(client):
+    download_url = "/licenses/1/download/"
+
+    response = client.get(download_url)
+
+    assert response.status_code == 302
+    assert not response.wsgi_request.user.is_authenticated
+
+    destination = urlsplit(response.headers["Location"])
+
+    assert destination.scheme == ""
+    assert destination.netloc == ""
+    assert destination.path == reverse("users:login")
+    assert parse_qs(destination.query) == {"next": [download_url]}
+    assert "Content-Disposition" not in response.headers

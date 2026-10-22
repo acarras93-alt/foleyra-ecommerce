@@ -16,9 +16,10 @@ las pruebas, la implementación y las evidencias académicas.
 
 ## 3. Índice de requisitos
 
-> Los requisitos incluidos en este índice forman parte del alcance previsto
-> del MVP. Su presencia no implica que estén implementados. El estado de cada
-> requisito indica su grado real de definición, desarrollo y verificación.
+> El índice reúne requisitos y evoluciones previstas. El cierre acordado con
+> el instructor el 2026-10-21 requiere RF-11, RF-15 y validación del recorrido
+> web. RF-13/14 y RF-16 quedan como evolutivos. Su presencia no implica
+> implementación; el estado indica su grado real de desarrollo y verificación.
 
 | ID | Título | Actor principal | Prioridad | Versión | Estado |
 |---|---|---|---|---|---|
@@ -32,7 +33,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-08 | Simular un pago fallido y reintentarlo | Cliente autenticado | Must | v0.5.0 | Verificado |
 | RF-09 | Consultar los pedidos propios | Cliente autenticado | Must | v0.4.0 | Implementado |
 | RF-10 | Registrar y consultar permisos de uso con condiciones trazables | Cliente autenticado | Must | v0.6.0 | Verificado |
-| RF-11 | Descargar un archivo autorizado | Cliente autenticado | Must | v0.6.0 | Propuesto |
+| RF-11 | Descargar un archivo autorizado | Cliente autenticado | Must | v0.6.0 | Aprobado |
 | RF-12 | Consultar el catálogo mediante una API pública | Consumidor de la API | Must | v0.2.0 | Verificado |
 | RF-13 | Gestionar el carrito mediante una API autenticada | Cliente de la API autenticado | Must | v0.3.0 | Propuesto |
 | RF-14 | Ejecutar checkout, pago y consultas privadas mediante API | Cliente de la API autenticado | Must | v0.7.0 | Propuesto |
@@ -60,14 +61,18 @@ encuentran en el
 [checkpoint de decisiones del catálogo](catalog-decision-checkpoint.md).
 
 RF-07 queda verificado el 2026-10-02, RF-08 el 2026-10-03 y RF-10 el 2026-10-14.
-El orden funcional restante del alcance original es
-**RF-11 → RF-13 → RF-14 → RF-15**. Antes de retomarlo, el recorrido manual y
-las evidencias se atienden según el plan por etapas enlazado arriba. El
+La secuencia original incluía RF-13/14 antes de RF-15. La delimitación
+confirmada con el instructor y registrada el 2026-10-21 fija el cierre en
+**RF-11 → RF-15 → validación y entrega**; RF-13/14 y RF-16 permanecen como
+evolutivos. El recorrido manual completo se realizará al finalizar la
+integración web, conservando pruebas y regresiones por incremento. El
 [plan de cierre y metodología](mvp-implementation-plan.md) registra el cierre
 automatizado de RF-10
 y la premisa de revisar cobertura existente y profundizar según dudas o riesgos.
-Los seis requisitos antes vacíos se desarrollan como propuestas; RF-15 conserva
-CA01–CA07 aprobados y separa expresamente sus ampliaciones propuestas.
+De los seis requisitos antes vacíos, RF-11 queda aprobado el 2026-10-16;
+RF-13/14 continúan como propuestas y los estados restantes se consultan en el
+índice. RF-15 conserva CA01–CA07 aprobados y separa expresamente sus
+ampliaciones propuestas.
 
 ## 4. Especificación detallada
 
@@ -1868,7 +1873,9 @@ Descargas, API privada y administración continúan en RF-11, RF-13/14 y RF-15.
 #### Metadatos y alcance
 
 - Actor: cliente autenticado con derecho adquirido. Prioridad: Must. Versión: v0.6.0.
-- Estado: `Propuesto`. Dependencias: RF-06 a RF-10 y separación de maestros ya
+- Estado: `Aprobado` por el desarrollador el 2026-10-16; implementación parcial
+  revisada el 2026-10-22. Descarga y cierre de verificación pendientes.
+  Dependencias: RF-06 a RF-10 y separación de maestros ya
   existente; RNF-01 a RNF-06, RNF-08 y RNF-10 a RNF-13.
 - `GET /licenses/{license_id}/download/` entrega el archivo como adjunto mediante
   streaming, después de validar propietario, derecho activo, línea y pedido pagado.
@@ -1877,11 +1884,57 @@ Descargas, API privada y administración continúan en RF-11, RF-13/14 y RF-15.
   No se ofrecen enlaces públicos, firmados ni permanentes a almacenamiento en el MVP.
 - Se permiten descargas repetidas del mismo archivo mientras exista el derecho.
   DRM, ZIP, conversión de audio, CDN y límites comerciales de descargas quedan fuera.
+- Un pedido con varias líneas emite un derecho por línea y ofrece descargas
+  individuales. Cada producto tiene un maestro; paquetes de varios archivos
+  dentro de un producto y selección de formatos quedan fuera del MVP.
+- El paso a `PAID` habilita el acceso; la descarga comienza cuando el cliente la
+  solicita. El navegador se comunica con Django, nunca con PostgreSQL.
 
-#### Identidad del archivo y política de entrega propuestas
+#### Reglas de negocio de calidad del maestro
+
+- RN-RF11-01: todo maestro admitido debe tener una frecuencia de muestreo
+  **igual o superior a 48000 Hz** y una profundidad de **al menos 24 bits por
+  muestra**. Ambos mínimos son obligatorios, también para archivos asociados a
+  compras antiguas; 44100 Hz o 16 bits no cumplen aunque el otro valor sea mayor.
+- RN-RF11-02: se admiten WAV, incluido BWF con extensión `.wav`, y AIFF con
+  audio PCM lineal sin compresión, y FLAC sin pérdida. BWF se representa como
+  `audio_format=wav`; no introduce otra opción del catálogo. FLAC y AIFF están
+  sujetos a los mismos mínimos que WAV.
+- RN-RF11-03: la preparación valida el formato y las propiedades reales del
+  archivo y su correspondencia con los metadatos del producto. No bastan la
+  extensión, el tipo MIME declarado ni los valores introducidos en PostgreSQL.
+  Un archivo ilegible, corrupto, de formato no admitido o inferior a los mínimos
+  no se considera preparado. La validación debe corresponder al objeto privado
+  que se captura y conserva para la compra, no al maestro actual del catálogo.
+- RN-RF11-04: la entrega conserva los bytes completos, formato, resolución y
+  metadatos embebidos del objeto comprado. No convierte FLAC/AIFF a WAV ni
+  normaliza, limita, remuestrea o vuelve a codificar el audio durante el GET.
+- RN-RF11-05: la preparación parte de material que cumple el mínimo; aumentar
+  artificialmente frecuencia o profundidad de una fuente inferior no recupera
+  información ni acredita esta regla. La inspección técnica automatizada no
+  demuestra por sí sola la resolución de origen ni sustituye la revisión de
+  procedencia y escucha del maestro real.
+
+Foleyra adopta estos mínimos como regla de negocio obligatoria a partir de la
+recomendación de IASA-TC 04 para grabaciones de campo (apartado 5.7.2.1: WAV/BWF,
+al menos 48 kHz y grabación aconsejada a 24 bits). La admisión adicional de FLAC
+y AIFF es una decisión de Foleyra; no se atribuye a IASA una recomendación de
+esos formatos ni una certificación del producto. Esta revisión actualiza
+[D-CAT-04](catalog-decision-checkpoint.md#d-cat-04--características-del-archivo-adquirido).
+
+#### Identidad del archivo y política de entrega aprobadas
+
+PostgreSQL conserva las referencias y datos de negocio; los bytes se guardan
+en almacenamiento privado. El MVP utiliza el almacenamiento de disco ya
+existente. Un despliegue puede usar un volumen persistente del servidor o un
+almacenamiento de objetos privado con un adaptador compatible; RF-11 no exige
+contratar nube ni implementa ahora esa migración. En cualquier despliegue se
+deben conservar y respaldar tanto los archivos comprados como sus referencias,
+sin publicar la raíz privada ni depender del disco del ordenador del autor.
 
 Además de la referencia estable introducida en RF-10, la nueva línea de pedido
-captura la clave interna del maestro en el almacenamiento privado. Esta clave
+captura, durante el checkout, la clave interna del maestro preparado en el
+almacenamiento privado. No se espera al pago para elegirlo. Esta clave
 no se acepta desde el cliente, no es una URL y nunca se expone en HTML, JSON,
 contextos de plantillas, errores ni logs. Las representaciones seleccionan los
 campos permitidos y no incluyen objetos que expongan la clave. Reemplazar el maestro del catálogo produce otra clave y debe
@@ -1889,15 +1942,19 @@ conservar el objeto referenciado por compras anteriores. No se añade un gestor
 de versiones: la aplicación y el Admin de RF-15 comparten una política que
 escribe un objeto nuevo y no borra ni sobrescribe claves de compras anteriores.
 
-«Maestro preparado» significa clave privada configurada, objeto existente y
-asociación inequívoca con la compra; no basta una cadena no vacía.
+«Maestro preparado» significa clave privada configurada, objeto existente,
+calidad validada según RN-RF11-01 a RN-RF11-03 y asociación inequívoca con la
+compra; no basta una cadena no vacía. La validación previa se vincula al objeto
+conservado; no se exige decodificar de nuevo el audio en cada GET.
 
 Al activar RF-11, el checkout debe rechazar con 409 una oferta cuyo maestro no
 esté preparado para capturarse. El servicio de pago debe rechazar un pedido
-pendiente sin maestro preparado con 409, sin crear una aprobación.
+pendiente sin maestro preparado con 409, sin crear una aprobación. Se comprueba
+el objeto capturado por la línea, aunque el catálogo publique otro antes del pago.
 Se amplían las pruebas y la documentación de RF-06/07 para estos dos guardas;
 no se cambian los precios ni snapshots originales. Una pérdida operativa posterior
-del archivo devuelve un error controlado de descarga, nunca otro archivo.
+del archivo o una asociación cuya calidad no esté validada devuelve un error
+controlado de descarga, nunca otro archivo ni una versión de menor calidad.
 
 Para compras antiguas sin clave se exige una asociación explícita y revisada
 con el archivo correcto. No se adivina por SKU, por nombre ni por el maestro
@@ -1906,22 +1963,25 @@ detalle propio informa de indisponibilidad. La regularización solo modifica el
 vínculo técnico autorizado, conserva los datos históricos y es idempotente.
 
 Anónimo: 302 al login con `next` interno. Licencia ajena, inexistente, inactiva,
-pedido no pagado o archivo ausente: 404 genérico sin información interna.
+pedido no pagado o maestro no preparado: 404 genérico sin información interna.
 Métodos no admitidos: 405. Una respuesta exitosa es 200 con
-`Content-Disposition: attachment`, nombre seguro derivado de datos públicos y
+`Content-Disposition: attachment`, nombre seguro derivado de datos históricos
+públicos, extensión correspondiente al formato real del objeto comprado y
 `Cache-Control: private, no-store`; no permite elegir rutas mediante parámetros.
 
-#### Criterios de aceptación propuestos
+#### Criterios de aceptación aprobados
 
 - CA-RF11-01: dada una compra propia pagada y un derecho activo con archivo
   preparado, cuando se solicita la descarga, entonces recibe 200 y los bytes
-  del maestro correcto como adjunto, con cabeceras privadas y nombre seguro.
+  completos del maestro correcto como adjunto, con cabeceras privadas, nombre
+  seguro y extensión de su formato, sin conversión ni alteración de metadatos.
 - CA-RF11-02: dado un visitante anónimo, cuando solicita la descarga, entonces
   se redirige al login con `next` interno y no recibe bytes privados.
 - CA-RF11-03: dado un identificador ajeno/inexistente, derecho inactivo o pedido
   no pagado, cuando se solicita la descarga, entonces recibe 404 sin bytes ni
   detalles que revelen la existencia de una compra ajena.
-- CA-RF11-04: dado un maestro ausente o una línea antigua sin asociación segura,
+- CA-RF11-04: dado un maestro ausente, inválido o sin calidad validada, o una
+  línea antigua sin asociación segura,
   cuando el propietario solicita la descarga, entonces recibe un error 404
   controlado; no se usa la preview ni un maestro de otro producto como alternativa.
 - CA-RF11-05: dado el almacenamiento del maestro, cuando se inspeccionan rutas
@@ -1936,7 +1996,8 @@ Métodos no admitidos: 405. Una respuesta exitosa es 200 con
   cambio de estado ni derechos.
 - CA-RF11-08: dada una compra antigua con correspondencia revisada, cuando se
   regulariza su vínculo de archivo, entonces queda asociada solo al maestro
-  indicado, sin modificar propiedad, precios o términos; repetirlo no cambia
+  indicado y preparado conforme al mínimo de calidad, sin modificar propiedad,
+  precios o términos; repetirlo no cambia
   el resultado y un mapeo inexistente o ambiguo se rechaza sin asociación.
 - CA-RF11-09: dado un derecho válido, cuando se repite la descarga o se usa un
   método no admitido, entonces el GET autorizado mantiene los mismos derechos
@@ -1944,15 +2005,85 @@ Métodos no admitidos: 405. Una respuesta exitosa es 200 con
 - CA-RF11-10: dado el detalle de una licencia propia preparada, cuando se abre,
   entonces ofrece un enlace de descarga autenticada; la autorización se vuelve
   a comprobar en el servidor aunque el cliente escriba la URL directamente.
+- CA-RF11-11: dados maestros controlados WAV/BWF, FLAC y AIFF, cuando se valida
+  su preparación, entonces se admiten los archivos válidos de al menos 48000 Hz
+  y 24 bits, incluidos valores superiores compatibles. Se rechazan archivos por
+  debajo de cualquiera de los mínimos, corruptos, de formato no admitido o con
+  propiedades reales distintas de las declaradas, aunque su extensión y MIME
+  aparenten ser correctos. El resultado se vincula al objeto conservado y lo
+  reutilizan las guardas de checkout/pago y la regularización; no se modifica el
+  archivo para hacerlo admisible.
+- CA-RF11-12: dado un pedido propio pagado con varias líneas preparadas y un
+  derecho activo por línea, cuando se accede a los permisos y se descarga cada
+  uno, entonces cada enlace entrega únicamente los bytes del maestro de su
+  línea; no mezcla archivos, no crea un ZIP y mantiene la autorización individual.
 
 #### Orden y pruebas previstas
 
-05: regresión de almacenamiento existente; 06–08: identidad de entrega y
-preparación de compras; 01–04: entrega y permisos; 09–10: ausencia de efectos y
-navegación. Se amplía CA-RF09-09 para los modelos de pago y derechos ya creados.
-Las pruebas usan archivos temporales controlados y consumen `streaming_content`
-para verificar los bytes. No se leen ni copian maestros reales como fixtures.
-Evidencia prevista: `docs/evidence/RF-11/`.
+Orden aprobado, un criterio cada vez:
+
+1. CA-RF11-05: revisar y reutilizar la protección de almacenamiento existente.
+2. CA-RF11-11: validar formatos y mínimo técnico del objeto preparado.
+3. CA-RF11-06: capturar el maestro histórico y conservarlo ante cambios.
+4. CA-RF11-07: impedir checkout y pago sin ese maestro preparado, sin efectos parciales.
+5. CA-RF11-08: regularizar asociaciones antiguas mediante correspondencia revisada.
+6. CA-RF11-01: entregar los bytes correctos con nombre y cabeceras de descarga.
+7. CA-RF11-02: redirigir al anónimo al login con retorno a la descarga.
+8. CA-RF11-03: rechazar identificadores ajenos y derechos o pedidos no habilitados.
+9. CA-RF11-04: controlar archivos ausentes, inválidos o sin asociación segura.
+10. CA-RF11-09: admitir repetición sin escrituras y rechazar otros métodos.
+11. CA-RF11-10: incorporar el enlace autenticado al detalle del permiso.
+12. CA-RF11-12: verificar el recorrido con varios maestros en un pedido.
+
+La autorización y el fallo seguro forman parte de la primera entrega de la
+vista; los criterios 02–04 se verifican como incrementos separados sin dejar
+una descarga privada públicamente accesible durante el desarrollo.
+Se amplía CA-RF09-09 para los modelos de pago y derechos ya creados.
+Las pruebas usan archivos de audio temporales válidos y controlados para cada
+formato, además de casos inválidos. Se incluyen los límites 48000 Hz/24 bits,
+44100 Hz/24 bits y 48000 Hz/16 bits, valores superiores y metadatos engañosos.
+Se consume `streaming_content` para verificar los bytes exactos en los tres
+formatos. No se leen ni copian maestros reales como fixtures. La procedencia y
+escucha se comprueban después con una muestra real en la validación manual.
+Evidencia incremental: [RF-11](../evidence/RF-11/README.md).
+
+#### Avance parcial revisado el 2026-10-22
+
+- El catálogo público representa campos permitidos y comprueba la privacidad
+  del maestro en HTML, contextos, API y rutas directas de medios.
+- `validate_master_audio` inspecciona propiedades reales y calcula tamaño y
+  SHA-256. `prepare_master_audio` persiste evidencia idempotente y rechaza
+  contenido o evidencia distintos bajo una clave ya preparada.
+- `set_product_master_audio` guarda otra clave, prepara y asigna el maestro
+  mediante transacción de datos, conservando los anteriores. No hay interfaz
+  administrativa de carga conectada.
+- El checkout captura `OrderItem.master_preparation`. La sustitución posterior
+  del catálogo conserva vínculo, datos históricos y bytes originales en las
+  pruebas específicas. Las migraciones no asignan archivos a compras antiguas.
+- Checkout y nueva aprobación rechazan preparación ausente o archivo perdido
+  mediante `MasterNotPrepared`, que sus vistas traducen a 409. El pago usa la
+  preparación de la línea y conserva el tratamiento de intentos repetidos.
+  Hay pruebas HTTP de ausencia de maestro y pérdida antes de checkout/pago.
+- Faltan pruebas específicas del pago sin vínculo capturado y tras cambiar
+  el maestro del catálogo. La prueba de línea sin vínculo está guardada como borrador
+  incompleto y todavía no acredita ese comportamiento.
+- Continúan pendientes la asociación revisada de compras antiguas, la ruta
+  protegida, controles HTTP y de autorización, entrega exacta y cabeceras,
+  enlace, varias líneas y recorrido manual con sonidos reales y dos cuentas.
+  La prueba anónima conserva `xfail(strict=True)` y no acredita su criterio.
+
+Este registro no cambia RF-11 a `Implementado` ni `Verificado`, ni cierra
+los criterios que también requieren comprobar la descarga final.
+
+#### Referencias oficiales revisadas el 2026-10-16
+
+- [IASA-TC 04, 5.7.2: grabaciones de campo](https://www.iasa-web.org/tc04/field-recording-standards).
+- [IASA-TC 04, principios digitales: frecuencia y profundidad, 2.2 y 2.3](https://www.iasa-web.org/tc04/key-digital-principles).
+- [IASA-TC 04, edición española: formatos WAVE y BWF, 2.8](https://www.iasa-web.org/book/export/html/3489).
+- [RFC 9639: FLAC, audio PCM con compresión sin pérdida](https://www.rfc-editor.org/rfc/rfc9639.html).
+- [Apple, especificación original AIFF 1.3, copia en McGill: Common Chunk y Sample Points](https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/AIFF/Docs/AIFF-1.3.pdf).
+- [Django 5.2: FileField y almacenamiento de referencias](https://docs.djangoproject.com/en/5.2/ref/models/fields/#filefield).
+- [Django 5.2: FileResponse y entrega como adjunto](https://docs.djangoproject.com/en/5.2/ref/request-response/#fileresponse-objects).
 
 ### RF-12 — Consultar el catálogo mediante una API pública
 
