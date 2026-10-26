@@ -21,6 +21,11 @@ urlpatterns = [
         order_views.license_detail,
         name="license_detail",
     ),
+    path(
+        "licenses/<int:license_id>/download/",
+        order_views.license_download,
+        name="license_download",
+    ),
 ]
 
 if settings.DEBUG:

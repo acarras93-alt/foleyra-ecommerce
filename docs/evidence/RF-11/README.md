@@ -1,112 +1,91 @@
-# RF-11 — Preparación y captura del maestro: avance parcial
+# RF-11 — Preparación y descarga autorizada del maestro: verificado
 
-Revisión: **2026-10-22**. RF-11 conserva el estado **Aprobado** con implementación
-parcial. Esta evidencia no cierra el requisito: la ruta y el enlace de descarga
-todavía no existen y la validación manual completa queda pendiente.
+Revisión: **2026-10-26**. RF-11 está **Verificado** en el alcance aprobado del
+MVP. Se validan la preparación técnica del maestro, su captura en cada línea
+comprada, las guardas de checkout y pago y la descarga individual desde la
+licencia adquirida.
 
-## Recorrido conectado con el código
+## Alcance verificado
 
-1. Antes de la compra, `set_product_master_audio` recibe `uploaded_file`, guarda
-   una clave privada nueva, valida el archivo y registra su preparación. El
-   servicio sirve para primera carga y sustitución; aún no tiene interfaz Admin.
-2. El comprador autenticado selecciona una oferta y la añade al carrito.
-3. `POST /orders/create/` llega a `create_order`, que llama a
-   `create_order_from_cart(owner=request.user)`. El servidor resuelve la
-   preparación a partir del maestro del producto; no acepta una clave del cliente.
-4. El checkout rechaza una clave sin preparación o un archivo inexistente con
-   `MasterNotPrepared`. La vista responde 409, sin pedido parcial ni vaciado.
-   Si puede continuar, cada `OrderItem` captura la preparación correspondiente.
-5. `POST /orders/{order_id}/payments/simulate/` llega a `simulate_payment` y
-   `approve_simulated_payment`. Una nueva aprobación comprueba la preparación
-   capturada por cada línea y su archivo antes de crear el intento, pasar a
-   `PAID` o emitir derechos. Rechaza con 409 sin efectos parciales. Los replays
-   se resuelven antes de esa comprobación, conservando la idempotencia existente.
-6. Mis licencias permite consultar derechos y condiciones históricas. El paso
-   siguiente, solicitar y recibir el archivo autorizado, continúa pendiente.
+CA-RF11-08 fue retirado del MVP el 2026-10-22, sin renumerar los criterios.
+Quedan activos CA-RF11-01 a CA-RF11-07 y CA-RF11-09 a CA-RF11-12. No se
+asocian automáticamente los pedidos de desarrollo antiguos que carecen de una
+referencia segura al maestro.
 
-## Datos y almacenamiento
+El recorrido comprobado es:
 
-- `MasterAudioPreparation` conserva `storage_key` única, SHA-256, tamaño,
-  formato, frecuencia, profundidad y fecha de creación. Sus restricciones
-  exigen formato admitido, tamaño positivo, al menos 48 kHz y al menos 24 bits.
-- `validate_master_audio` inspecciona WAV/BWF, FLAC y AIFF soportados y todos
-  los bytes, sin convertir, normalizar ni remuestrear. Extensión y MIME no
-  acreditan el contenido. SHA-256 identifica bytes, incluidos metadatos; no
-  certifica calidad sonora ni resolución de origen.
-- `prepare_master_audio` reutiliza la validación y la evidencia persistida.
-  Repetir el mismo objeto es idempotente; otra evidencia bajo esa clave se
-  rechaza. No restaura físicamente bytes que alguien haya sobrescrito.
-- `set_product_master_audio` bloquea el producto, escribe otra clave y conserva
-  los objetos anteriores. Ante un fallo tras el guardado intenta borrar el
-  archivo nuevo y la transacción revierte los cambios de base de datos.
-- `OrderItem.master_preparation` es una FK con `PROTECT`. Permite nulo para
-  líneas anteriores y no inventa correspondencias. El checkout nuevo la captura
-  antes del pago. Una sustitución del catálogo conserva el vínculo y el archivo
-  original en los escenarios comprobados.
-- PostgreSQL conserva referencias; los archivos están en almacenamiento privado
-  en disco. Base de datos y archivos requieren conservación y respaldo conjuntos.
+1. `set_product_master_audio` guarda una clave privada nueva, inspecciona el
+   archivo real y registra su preparación.
+2. El checkout captura esa preparación en `OrderItem.master_preparation` para
+   cada línea; no acepta del navegador una ruta o clave de almacenamiento.
+3. El pago comprueba la preparación capturada y la existencia del archivo antes
+   de aprobar una compra nueva y emitir sus derechos.
+4. «Mis licencias» presenta el enlace de descarga para un derecho activo de un
+   pedido pagado.
+5. `GET /licenses/<license_id>/download/` vuelve a comprobar la propiedad,
+   el pago, el derecho y la preparación, y transmite como adjunto los bytes del
+   maestro histórico de esa línea.
 
-Migraciones del incremento: `catalog.0004_masteraudiopreparation`,
-`catalog.0005_alter_masteraudiopreparation_prepared_at` y
-`orders.0010_orderitem_master_preparation`.
+La sustitución del maestro del catálogo crea otra clave y conserva el objeto
+capturado por las compras anteriores. Cada línea tiene una descarga propia;
+no se ofrece un ZIP ni se combinan maestros.
 
-## Matriz incremental de criterios
+## Validación y almacenamiento
 
-| Criterio | Estado en este incremento | Evidencia y trabajo restante |
-|---|---|---|
-| CA05 · Privacidad | Parcial | Catálogo con campos permitidos; pruebas de HTML/contextos, API y acceso directo a medios. Revisar las nuevas superficies de entrega. |
-| CA11 · Calidad | Parcial integrado | Validación y preparación implementadas y probadas; checkout/pago consumen la preparación persistida. Falta reutilizarla en la asociación de compras antiguas y completar el recorrido. |
-| CA06 · Histórico | Parcial | Captura en checkout, conservación de línea y bytes tras sustituir el maestro. Falta comprobar la descarga histórica y los demás cambios del catálogo en ese recorrido. |
-| CA07 · Checkout/pago | Parcial | Rechazos por ausencia de preparación o archivo implementados; pruebas HTTP de producto sin maestro y pérdida del archivo antes de checkout/pago. Faltan casos específicos indicados abajo. |
-| CA08 · Compras antiguas | Pendiente | Falta asociación explícita y revisada del maestro. Los servicios RF-10 regularizan derechos/documentación, no este vínculo. |
-| CA01 · Entrega | Pendiente | Ruta, streaming de bytes completos, nombre público seguro, extensión real y cabeceras privadas. |
-| CA02 · Anónimo | Pendiente | La prueba mantiene `xfail(strict=True)`; la ruta aún no redirige al login. |
-| CA03 · Autorización | Pendiente | Comprobar propiedad, derecho activo y pedido pagado en la ruta de descarga. |
-| CA04 · Error de entrega | Pendiente | 404 genérico para archivo ausente/ inválido o asociación no segura. |
-| CA09 · Repetición/métodos | Pendiente | GET sin escrituras y repetible; métodos no permitidos con 405. |
-| CA10 · Enlace | Pendiente | Enlace autenticado desde el detalle del derecho y aviso de indisponibilidad. |
-| CA12 · Varias líneas | Pendiente | Descargas individuales del maestro correcto por línea, sin ZIP ni mezcla. |
+- Se admiten WAV/BWF, FLAC y AIFF que cumplan los mínimos de 48 kHz y 24 bits.
+  La validación inspecciona el contenido y las propiedades reales; no convierte
+  ni remuestrea el audio.
+- `MasterAudioPreparation` conserva clave interna, SHA-256, tamaño, formato,
+  frecuencia, profundidad y fecha de preparación.
+- PostgreSQL conserva las relaciones y el archivo se guarda en `private_media/`.
+  El maestro no tiene URL pública. Deben conservarse juntos la base de datos y
+  el almacenamiento privado.
+- Una descarga válida responde 200 con los bytes completos, tipo de contenido,
+  nombre y extensión acordes con la compra, `Content-Disposition: attachment`
+  y `Cache-Control: private, no-store`.
+- El visitante anónimo se redirige al login. Licencias ajenas o inexistentes,
+  pedidos no pagados, preparación ausente y archivos desaparecidos responden
+  con error controlado sin entregar bytes privados. Las peticiones GET
+  repetidas no cambian el pedido, el pago ni la licencia; otros métodos
+  responden 405.
 
-## Pruebas principales existentes
+## Evidencia automatizada
 
-- `apps/catalog/tests/test_services.py`: validación real de formatos, mínimos,
-  codificación, truncamiento, propiedades declaradas, SHA-256 y conservación de
-  bytes; preparación persistida/idempotente y carga/sustitución del maestro.
-- `test_create_order_from_cart_captures_prepared_master_for_order_item`:
-  preparación capturada en PostgreSQL antes de pagar y sin emitir derechos.
-- `test_order_item_preserves_captured_master_after_catalog_replacement`:
-  producto con otra clave, línea histórica conservada y ambos archivos exactos.
-- `test_checkout_without_master_file_returns_conflict_and_preserves_cart`:
-  409, sin pedido parcial y carrito conservado.
-- `test_checkout_with_missing_stored_master_returns_conflict_without_changes`:
-  permanece la preparación pero desaparecen los bytes; 409 sin cambios de negocio.
-- `test_payment_with_missing_captured_master_returns_conflict_without_changes`:
-  pérdida posterior al checkout; 409, pedido pendiente, sin intento ni derechos.
-- Las pruebas del catálogo cubren no exposición de claves, nombres y raíz
-  privada, separación de previews y acceso directo con DEBUG activado/desactivado.
+Las pruebas usan archivos temporales; no copian la biblioteca comercial al
+repositorio.
 
-La función compartida `prepare_product_master` genera un WAV real y llama al
-servicio. La fixture de pedidos aísla el almacenamiento en una carpeta temporal.
-Las ofertas válidas se preparan por defecto; `with_master=False` conserva los
-escenarios que construyen expresamente su maestro o deben carecer de él. Las
-líneas históricas creadas directamente no se asocian automáticamente.
+- `apps/catalog/tests/test_services.py`: formatos admitidos, mínimos, contenido
+  truncado o mal declarado, integridad, huella SHA-256, preparación idempotente,
+  claves nuevas y conservación del objeto anterior al sustituirlo.
+- `apps/catalog/tests/test_views.py`: el acceso anónimo a la ruta de descarga
+  redirige al login; las URL públicas de medios no permiten obtener el maestro.
+- `apps/orders/tests/test_services.py` y `test_views.py`: captura en checkout,
+  rechazos de checkout/pago sin maestro, pago tras sustituir el maestro, acceso
+  propio, rechazo de licencias ajenas/inexistentes y pedidos sin pagar, errores
+  por vínculo o archivo ausente, respuesta y cabeceras de WAV/FLAC/AIFF,
+  repetición sin cambios, métodos no permitidos y descargas distintas por cada
+  línea de un pedido con varios productos.
 
-## Resultados y límites
+La última regresión completa registrada obtuvo **434 pruebas aprobadas** y
+superó Django checks, comprobaciones de migraciones, Ruff y dependencias. El
+resultado está en la [puerta de calidad registrada el 2026-10-26](../RF-15/quality-gate-2026-10-26.md).
 
-Los resultados actuales ejecutados se registran en la
-[puerta de calidad del 2026-10-22](quality-gate-2026-10-22.md). Los 62 casos de
-catálogo aportados anteriormente por Álvaro y las regresiones de pedidos son
-evidencia de sus ejecuciones concretas, no sustituyen esta revisión completa.
+## Evidencia manual y límites
 
-Pendientes inmediatos: incorporar y ejecutar la prueba del pago sin preparación
-capturada (borrador guardado, todavía incompleto), probar el pago después de sustituir
-el maestro del catálogo y cubrir una clave con archivo pero sin preparación.
-Después: asociación revisada de compras antiguas y descarga autorizada.
+El recorrido manual de entrega se documenta con capturas en el material final:
+inicio de sesión, catálogo, carrito, pedido, pago simulado, licencia y descarga
+del archivo esperado. El pago no realiza un cargo real. Las capturas visuales
+complementan la regresión automatizada y acreditan la experiencia observada con
+el producto de demostración preparado.
 
-Las comprobaciones actuales consultan la preparación y la existencia del
-archivo; no vuelven a decodificar ni recalculan el hash en checkout/pago.
-Se conserva la política de claves nuevas y de no sobrescritura. No se han
-probado todos los errores de almacenamiento ni todos los fallos de base de
-datos posteriores a preparar el archivo. Las pruebas usan archivos controlados;
-procedencia, escucha, instalación limpia, interfaz Admin y validación manual
-de extremo a extremo siguen pendientes. Esta revisión no acredita despliegue.
+La verificación corresponde al MVP y al entorno local documentado. No acredita
+un despliegue en producción, la procedencia de todos los sonidos de una
+biblioteca, la carga del maestro desde Django Admin, DRM, descargas masivas ni
+la redistribución de archivos de audio. Para reproducir el recorrido se prepara
+localmente un maestro autorizado mediante el servicio descrito en el [manual de
+instalación](../../installation.md).
+
+La puerta del **2026-10-22** conserva los resultados de una fase anterior y
+parcial de RF-11; se mantiene como registro histórico. La evidencia de cierre
+actual es la revisión de esta página junto con la regresión completa del
+2026-10-26 y las capturas del recorrido manual.

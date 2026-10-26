@@ -4,19 +4,16 @@ Foleyra es un proyecto de comercio electrónico de productos sonoros, construido
 con Python, Django, Django REST Framework y PostgreSQL como proyecto final de
 mi formación.
 
-**Estado: MVP en desarrollo.** Ya incluye catálogo web y API pública, cuentas de
-usuario, carrito privado, creación y consulta de pedidos propios, pagos
-simulados aprobados/fallidos y emisión y consulta de permisos de uso.
-RF-10 queda **Verificado el 2026-10-14** para el contrato web, servicios y
-persistencia comprobados. RF-11 incorpora preparación del maestro y protección
-del checkout y pago; la descarga autorizada continúa pendiente. El avance y
-sus límites se registran en [RF-11](docs/evidence/RF-11/README.md).
+**Estado: MVP implementado; documentación y paquete de entrega en cierre.**
+Incluye catálogo web y API pública de lectura, cuentas, carrito, pedidos,
+pagos simulados, licencias y descarga protegida del maestro adquirido. El
+proyecto usa PostgreSQL y conserva los maestros fuera del almacenamiento
+público. El pago es simulado y no realiza cargos reales.
 
 **Alcance de entrega confirmado con el instructor, registrado el 2026-10-21:**
 el cierre requiere RF-11, RF-15 y el recorrido web completo, con evidencias y
 una instalación reproducible. La API privada (RF-13 y RF-14) y la clasificación
 jerárquica del catálogo (RF-16) quedan como evolutivos posteriores a la entrega.
-Esta delimitación no declara implementado ni verificado ningún requisito.
 
 ## Recorrido del proyecto
 
@@ -29,9 +26,11 @@ de un pedido pendiente puede simular un pago aprobado sin consumir su carrito
 actual ni efectuar un cobro real.
 
 La aprobación emite un permiso por línea en la misma transacción que el pago.
-«Mis licencias» permite consultar los permisos activos de pedidos pagados y
-abrir sus condiciones históricas. Las compras antiguas sin condiciones completas
-o referencia al producto muestran avisos, sin reconstruir datos desde el catálogo.
+«Mis licencias» permite consultar los permisos activos de pedidos pagados,
+abrir sus condiciones históricas y descargar el maestro capturado por cada línea
+del pedido. El enlace requiere iniciar sesión y el servidor vuelve a comprobar
+la propiedad, el pago y el derecho antes de enviar el archivo. Las descargas son
+individuales; no se genera un ZIP de todos los sonidos.
 
 El trabajo reúne modelado de datos, autenticación, vistas y formularios Django,
 una API REST de lectura, operaciones atómicas y pruebas con PostgreSQL.
@@ -102,15 +101,13 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
     Dos servicios explícitos regularizan permisos faltantes y documentación
     histórica revisada. La matriz CA01–CA16 y los límites están en
     [RF-10](docs/evidence/RF-10/README.md).
-- RF-11 continúa `Aprobado`, con implementación parcial: `MasterAudioPreparation`
-    conserva clave, SHA-256, tamaño y propiedades reales. Los servicios validan
-    WAV/BWF, FLAC y AIFF de al menos 48 kHz y 24 bits sin convertirlos. Carga y
-    sustitución escriben otra clave privada y conservan los archivos anteriores.
-    El checkout captura la preparación en cada línea; checkout y aprobación
-    rechazan preparación ausente o archivo desaparecido con 409 sin efectos
-    parciales. El pago consulta el maestro histórico de la línea. Faltan casos
-    específicos de prueba, asociación de compras antiguas, descarga protegida
-    y enlace. La carga sigue disponible mediante servicios, sin interfaz Admin.
+- RF-11 implementa la preparación del maestro, su captura en cada línea del
+    pedido y la descarga autorizada desde «Mis licencias». La preparación valida
+    WAV/BWF, FLAC y AIFF con un mínimo de 48 kHz y 24 bits; reemplazar el maestro
+    del catálogo conserva el que quedó asociado a compras anteriores. Checkout
+    y pago rechazan maestros no preparados o desaparecidos sin cambios
+    parciales. El enlace entrega los bytes del maestro histórico como adjunto;
+    no ofrece una descarga masiva ni genera un ZIP.
 - `apps.core` proporciona una página de inicio pública en `/`, con la marca
     Foleyra, la presentación «Biblioteca de sonidos para proyectos audiovisuales»,
     acceso al catálogo y una indicación del carácter académico y simulado de las compras.
@@ -123,37 +120,31 @@ local. La presencia de una ruta no implica que exista una demo pública desplega
 - `apps.catalog` contiene los modelos de categorías, productos, tipos de licencia y ofertas. La lista pública `/catalog/` muestra productos disponibles, excluye productos inactivos, muestra un estado vacío comprensible, pagina en bloques de 12 con enlaces anterior y siguiente y presenta como `Desde <precio> EUR` el mínimo de las ofertas y tipos de licencia activos. Admite búsqueda por texto normalizado (`q`), filtro combinado por `category` y `license`, ordenación por `name`/`-name`/`price`/`-price`, conserva el estado de consulta al paginar y responde 400 ante parámetros conocidos inválidos.
 - El detalle público `/catalog/{slug}/` muestra los metadatos técnicos y las ofertas activas de un producto disponible. Ofrece un reproductor cuando existe una preview y muestra un aviso cuando no está disponible.
 - La API pública de solo lectura `/api/v1/catalog/products/` y `/api/v1/catalog/products/{slug}/` ofrece la misma selección disponible en web, filtros y ordenación aprobados, paginación de 12 elementos, detalle con previews y ofertas públicas, y errores JSON contractuales. No expone archivos maestros ni campos administrativos.
-- Las previews usan una raíz pública independiente y pueden obtenerse mediante `/media/` en desarrollo con `DEBUG=True`. Los archivos maestros permanecen en almacenamiento privado sin URL pública, y su nombre, ruta y contenido no se incluyen en el HTML ni en el contexto público. La preparación y captura histórica del maestro están implementadas parcialmente en RF-11; su descarga autorizada sigue pendiente.
-- RF-01, RF-02 y RF-15 están `Aprobado`; RF-03 y RF-12 están `Verificado`.
-    Sus evidencias de pruebas y puertas de calidad están disponibles en
-    `docs/evidence/RF-03/` y `docs/evidence/RF-12/`. RF-06 permanece
-    `Implementado`, no `Verificado`, hasta incorporar sus evidencias. RF-09 también
-    queda `Implementado`, con pruebas automatizadas y verificación visual pendiente.
-    RF-10 queda `Verificado` en su alcance automatizado. Descargas y configuración
-    administrativa de RF-15 continúan pendientes para el cierre; la API privada
-    se reserva para una evolución posterior.
+- Las previews usan una raíz pública independiente y pueden obtenerse mediante
+    `/media/` en desarrollo con `DEBUG=True`. Los maestros se guardan en
+    `private_media/`, sin URL pública; solo se entregan desde la ruta protegida
+    de una licencia propia y pagada.
+- RF-15 está verificado en el alcance aprobado CA-RF15-01 a CA-RF15-07: el Admin
+    permite gestionar el catálogo y consultar pedidos, pagos y licencias en modo
+    de solo lectura. La puerta de calidad del 2026-10-26 registra 434 pruebas
+    aprobadas y los controles de Django, migraciones, Ruff y dependencias
+    superados. Los criterios adicionales CA-RF15-08 a CA-RF15-12 permanecen
+    propuestos y fuera del alcance de esta entrega.
 
-## Pendiente para completar el MVP
+## Cierre y alcance de entrega
 
-El catálogo y la API pública de lectura están implementados. El cierre acordado
-requiere completar la entrega autorizada de archivos maestros (RF-11) y la
-administración del catálogo y pedidos (RF-15), además de comprobar el recorrido
-principal de extremo a extremo. Los contratos se consultan en los
-[requisitos funcionales](docs/requirements/functional-requirements.md); los
-estados de implementación y verificación se registran por separado.
+El recorrido manual descrito en el [manual de instalación](docs/installation.md)
+cubre catálogo, carrito, pedido, pago simulado, licencia y descarga. Sus
+capturas complementan las pruebas automatizadas; no las sustituyen. La puerta
+de calidad registrada para el 2026-10-26 obtuvo 434 pruebas aprobadas. Consulta
+las [evidencias de RF-15](docs/evidence/RF-15/quality-gate-2026-10-26.md) y los
+[requisitos funcionales](docs/requirements/functional-requirements.md).
 
-El orden restante es **RF-11 → RF-15 → validación y entrega**.
-El [plan de cierre y metodología](docs/requirements/mvp-implementation-plan.md)
-registra la confirmación del instructor, los criterios y la premisa acordada:
-un criterio cada vez, cobertura existente primero y profundización cuando una
-duda o riesgo lo requiera. Las seis preguntas son una guía de apoyo.
-
-La consolidación incluye capturas del recorrido y de los datos persistidos
-(pedido, intento de pago y licencia), un manual de instalación desde cero con
-dependencias, entorno virtual, migraciones y datos/cuenta de demostración, y
-una muestra pequeña de sonidos cortos que cumplan los requisitos técnicos.
-El ZIP se entrega sin entorno virtual y con un único PDF de la memoria. El
-cierre se gestiona por hitos, sin una nueva fecha comprometida.
+La entrega acordada contiene el código fuente y un documento final PDF o DOC
+con objetivos, tecnología, base de datos, requisitos, instalación, capturas,
+conclusiones y evolutivos. Los datos de catálogo y archivos de audio se preparan
+localmente; el repositorio no incluye la biblioteca comercial ni los maestros
+privados. No incluyas `.env`, `.venv`, bases locales ni secretos en el ZIP.
 
 ## Evolutivos posteriores a la entrega
 
@@ -173,12 +164,14 @@ deben identificarse como evolutivos en las conclusiones y la memoria.
 - Un entorno virtual creado con las dependencias bloqueadas del proyecto.
 - Un archivo `.env` configurado sin exponer sus valores.
 
-Desde la raíz del repositorio, en macOS o Linux, prepara un entorno nuevo:
+El [manual de instalación](docs/installation.md) explica cómo crear el entorno,
+preparar PostgreSQL, configurar el catálogo de demostración y recorrer la
+compra y descarga desde la web. Desde la raíz del repositorio, en macOS o Linux,
+prepara un entorno nuevo:
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python --version
 python -m pip install --require-hashes -r requirements-dev.txt
 ```
 
@@ -198,12 +191,12 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Abre `http://127.0.0.1:8000/`. La cuenta administrativa permite entrar en
-`/admin/`; la gestión de catálogo aún requiere implementar RF-15. Actualmente
-está registrado `UserAdmin`, no los modelos de catálogo. El [manual de instalación](docs/installation.md)
-contiene contexto adicional; algunas secciones siguen pendientes de completar.
-Estos pasos describen la configuración existente y no certifican un despliegue
-en producción.
+Abre `http://127.0.0.1:8000/`. El Admin permite gestionar categorías,
+productos, tipos de licencia y ofertas, y consultar pedidos, pagos y licencias
+históricos en modo de solo lectura. La preparación del maestro se realiza con
+el servicio documentado en el manual; el Admin no tiene un formulario de carga
+de maestros. Estos pasos describen una instalación local de desarrollo, no un
+despliegue en producción.
 
 ## Verificación
 

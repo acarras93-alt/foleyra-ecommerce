@@ -1,6 +1,7 @@
 import io
 import wave
 
+import soundfile as sf
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.catalog.services import set_product_master_audio
@@ -19,7 +20,6 @@ def create_master_wav_bytes(*, sample_value):
 
 
 def prepare_product_master(product):
-    """Preparar un WAV real para una oferta de prueba que debe permitir comprar."""
     preparation = set_product_master_audio(
         product_id=product.pk,
         uploaded_file=SimpleUploadedFile(
@@ -33,3 +33,13 @@ def prepare_product_master(product):
     )
     product.refresh_from_db()
     return preparation
+
+
+def create_master_audio_bytes(*, audio_format):
+    buffer = io.BytesIO()
+
+    sf.write(
+        buffer, [0.25] * 480, 48_000, format=audio_format.upper(), subtype="PCM_24"
+    )
+
+    return buffer.getvalue()

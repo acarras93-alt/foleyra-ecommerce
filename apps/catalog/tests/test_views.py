@@ -1434,11 +1434,6 @@ def test_public_errors_do_not_expose_private_master_information(
         assert private_value.encode() not in response.content
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="CA-RF11-02 pendiente: la ruta de descarga protegida aún no está implementada.",
-)
 def test_anonymous_master_download_redirects_to_login(client):
     download_url = "/licenses/1/download/"
 

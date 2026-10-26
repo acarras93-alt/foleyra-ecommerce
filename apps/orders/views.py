@@ -3,11 +3,14 @@ from uuid import uuid4
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
+from apps.cart.selectors import get_cart_summary
+from apps.catalog.models import private_master_storage
 from apps.orders.models import LicenseGrant, Order, PaymentAttempt
 from apps.orders.policies import (
     IncompleteLicenseConditions,
@@ -81,17 +84,35 @@ def order_detail(request, order_id):
 def create_order(request):
     try:
         create_order_from_cart(owner=request.user)
-    except (EmptyCart, OfferNotAvailable, MasterNotPrepared):
-        return HttpResponse(status=409)
+    except EmptyCart:
+        error_message = "Tu carrito está vacío."
+    except OfferNotAvailable:
+        error_message = "No se puede crear el pedido porque una de las ofertas ya no está disponible."
+    except MasterNotPrepared:
+        error_message = (
+            "No se puede crear el pedido porque uno de los sonidos no tiene "
+            "su archivo maestro preparado. Tu carrito se conserva. "
+            "Puedes seguir comprando o intentarlo más tarde."
+        )
     except (
         LicenseAlreadyOwned,
         IncompleteLicenseConditions,
         UnresolvedLicenseIdentity,
     ) as error:
-        return HttpResponse(str(error), status=409)
+        error_message = str(error)
+    else:
+        messages.success(request, "Pedido creado.")
+        return redirect("cart:detail")
 
-    messages.success(request, "Pedido creado.")
-    return redirect("cart:detail")
+    return render(
+        request,
+        "cart/cart_detail.html",
+        {
+            "cart_summary": get_cart_summary(owner=request.user),
+            "checkout_error": error_message,
+        },
+        status=409,
+    )
 
 
 @require_POST
@@ -188,6 +209,12 @@ def license_detail(request, license_id):
         )
     )
 
+    can_download = bool(
+        grant.status == LicenseGrant.Status.ACTIVE
+        and item.order.status == Order.Status.PAID
+        and item.master_preparation_id
+    )
+
     # Mostrar el detalle sin reconstruir condiciones desde el catálogo.
     return render(
         request,
@@ -196,5 +223,68 @@ def license_detail(request, license_id):
             "grant": grant,
             "item": item,
             "has_documented_terms": has_documented_terms,
+            "can_download": can_download,
         },
     )
+
+
+@require_GET
+@login_required
+def license_download(request, license_id):
+    # Autorizar únicamente un derecho propio, activo y de un pedido pagado.
+    grant = (
+        LicenseGrant.objects.filter(
+            pk=license_id,
+            order_item__order__owner=request.user,
+            order_item__order__status=Order.Status.PAID,
+            status=LicenseGrant.Status.ACTIVE,
+        )
+        .select_related(
+            "order_item__order",
+            "order_item__master_preparation",
+        )
+        .first()
+    )
+
+    if grant is None:
+        raise Http404("Archivo no disponible.")
+
+    # Resolver el maestro histórico de la línea comprada.
+    item = grant.order_item
+    preparation = item.master_preparation
+
+    if preparation is None:
+        raise Http404("Archivo no disponible.")
+
+    content_type = {
+        "wav": "audio/wav",
+        "flac": "audio/flac",
+        "aiff": "audio/aiff",
+    }.get(preparation.audio_format)
+
+    if content_type is None:
+        raise Http404("Archivo no disponible.")
+
+    # Construir un nombre público a partir del nombre histórico.
+    public_name = slugify(item.product_name)[:100] or "sonido"
+    filename = f"{public_name}.{preparation.audio_format}"
+
+    # Abrir únicamente la clave guardada en la preparación.
+    try:
+        stored = private_master_storage.open(
+            preparation.storage_key,
+            "rb",
+        )
+    except OSError:
+        raise Http404("Archivo no disponible.") from None
+
+    # FileResponse envía los bytes y gestiona el cierre del archivo.
+    response = FileResponse(
+        stored,
+        as_attachment=True,
+        filename=filename,
+        content_type=content_type,
+    )
+    response["Cache-Control"] = "private, no-store"
+
+    return response

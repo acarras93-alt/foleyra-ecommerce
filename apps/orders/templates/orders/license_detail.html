@@ -1,9 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Detalle del permiso | SoundMarket{% endblock %}
+{% block title %}Detalle del permiso | Foleyra{% endblock %}
 
 {% block extra_css %}
     <style>
+        .license-product-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 24px 0 16px;
+        }
+        .license-product-header h2 {
+            min-width: 0;
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
         .license-actions {
             display: flex;
             flex-wrap: wrap;
@@ -27,14 +39,25 @@
             font: 600 0.875rem system-ui, sans-serif;
             text-decoration: none;
         }
-        .license-actions a:first-child {
-            border-color: #111;
-            background: #111;
-            color: #fff;
+        .license-download {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            background: transparent;
+            color: #52525b;
+            text-decoration: none;
         }
         .license-actions a:hover { background: #f0f1f3; }
-        .license-actions a:first-child:hover { background: #333; }
-        .license-actions a:focus-visible {
+        .license-download:hover {
+            background: #f0f1f3;
+            color: #111;
+        }
+        .license-actions a:focus-visible,
+        .license-download:focus-visible {
             outline: 3px solid #2563eb;
             outline-offset: 3px;
         }
@@ -48,7 +71,16 @@
         <p>Identificador: {{ grant.pk }}</p>
         <p>Pedido: {{ item.order.pk }}</p>
 
-        <h2>{{ item.product_name }}</h2>
+        <div class="license-product-header">
+            <h2>{{ item.product_name }}</h2>
+            {% if can_download %}
+                <a class="license-download" href="{% url 'license_download' license_id=grant.pk %}" aria-label="Descargar archivo" title="Descargar archivo">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4" />
+                    </svg>
+                </a>
+            {% endif %}
+        </div>
         <p>SKU: {{ item.product_sku }}</p>
         <p>Licencia: {{ item.license_name }}</p>
         <p>Términos: {{ item.terms_version }}</p>

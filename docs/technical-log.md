@@ -3195,3 +3195,128 @@ para el final. La carga mediante interfaz pertenece a RF-15. API privada y
 clasificación jerárquica siguen como evolutivos. Se crea un commit local con
 el incremento y su documentación; no se solicita publicación remota. No se
 incluyen datos privados, audios reales, entorno virtual, credenciales ni capturas.
+
+
+## 2026-10-24 — Checkout con conflicto visible y maestro de demostración
+
+Álvaro comunica una página en blanco al crear un pedido durante la validación
+manual de RF-11. Codex identifica que `create_order` devuelve un HTTP 409 vacío
+ante `MasterNotPrepared`, carrito vacío u oferta no disponible. Se conserva
+el código 409 y se representa el carrito propio con una explicación y sus
+acciones, mediante `checkout_error` y un aviso `role="alert"`. También los
+conflictos documentales existentes usan esa presentación. No se omiten las
+guardas de compra ni se alteran las reglas del servicio.
+
+Archivos de código afectados: `apps/orders/views.py`,
+`apps/cart/templates/cart/cart_detail.html` y las pruebas existentes en
+`apps/orders/tests/test_views.py`. Se amplían los casos de carrito vacío,
+oferta no disponible, maestro ausente y archivo perdido para comprobar la
+explicación, el contenido del carrito y la ausencia de claves privadas. La
+primera ejecución termina en Red por una respuesta vacía; después pasan los
+cuatro casos. La regresión de vistas de pedidos y carrito obtiene **215 passed
+in 34.18s** con `.venv/bin/python -B -m pytest apps/orders/tests/test_views.py
+apps/cart/tests -q --tb=short -x -p no:cacheprovider`. Django check no detecta
+incidencias; Ruff check y format --check de los dos archivos Python y
+`git diff --check` terminan correctamente.
+
+La consulta de datos locales confirma que el carrito #1 conserva el producto
+#20, «Atmospheric Low 01», sin maestro configurado y sin preparaciones
+persistidas. Se localiza su original WAV en la biblioteca local de MotionPulse:
+24 bits, 96000 Hz, estéreo y duración de 9,379833 segundos. Su SHA-256 coincide
+con el manifiesto utilizado para preparar la preview el 2026-10-14. Mediante
+`set_product_master_audio` se guarda una copia privada íntegra y su preparación;
+se actualiza la frecuencia declarada a 96000 Hz y la duración a 9380 ms. No se
+convierte el audio ni se modifica el original. Precios, condiciones y registros
+de carrito, pedidos, pagos y permisos se conservan.
+
+Antes de cargar el maestro se reproduce el rechazo con explicación y carrito
+visible. Después, un ensayo HTTP con Django Client comprueba checkout 302,
+aprobación 302, permiso 200 con «Descargar maestro» y descarga 200 cuyo SHA-256
+coincide con el original. Las operaciones del ensayo se revierten y se compara
+la instantánea de datos de negocio antes y después: el carrito original se
+conserva. Las secuencias de identificadores pueden avanzar por estos ensayos.
+El respaldo local y los resultados quedan en el directorio de trabajo de Codex,
+`outputs/checkout-fix-2026-10-24/`; no se publican claves de almacenamiento.
+
+El cambio prepara únicamente este producto para el recorrido manual. No carga
+el resto de la biblioteca, no reconstruye compras antiguas, no implementa
+RF-15 ni acredita un cierre completo de RF-11. Se conservan los cambios de
+descarga y pruebas que ya estaban en curso. No se crean migraciones, no se
+cambian dependencias, no se ejecuta una compra definitiva del usuario y no se
+crea un commit. Las capturas manuales de la memoria siguen pendientes.
+
+
+## 2026-10-24 — Descarga identificada por formato junto al producto
+
+Por solicitud de Álvaro, Codex sustituye «Descargar maestro» por «Descargar
+WAV», «Descargar FLAC» o «Descargar AIFF», según el formato de la preparación
+capturada por la línea comprada. La vista consulta únicamente ese dato para
+la etiqueta pública; no utiliza el formato actual del catálogo ni incorpora
+claves privadas al nuevo contexto. Se conservan las condiciones de permiso
+activo, pedido pagado y preparación capturada para mostrar la acción.
+
+En `apps/orders/templates/orders/license_detail.html`, la descarga pasa a una
+fila flexible junto al título del producto. El enlace principal es negro y la
+fila admite salto de línea cuando falta espacio. «Ver pedido» y «Volver a
+licencias» permanecen al final como navegación secundaria con borde. Se
+mantienen la URL protegida y todos los controles de la descarga.
+
+Se adaptan las pruebas existentes de navegación y descarga en
+`apps/orders/tests/test_views.py` para comprobar la etiqueta de los tres
+formatos. Red inicial por el texto anterior; la regresión seleccionada con
+`.venv/bin/python -B -m pytest apps/orders/tests/test_views.py -k
+'license_detail or owner_can_download_the_prepared_master' -q --tb=short -x
+-p no:cacheprovider` obtiene **10 passed, 168 deselected in 1.94s**. Django
+check, Ruff check y format --check de los archivos Python afectados y
+`git diff --check` terminan correctamente.
+
+En Safari se recarga el permiso #7 del pedido #9: «Atmospheric Low 01» muestra
+«Descargar WAV» junto a su nombre y las dos acciones de navegación al final.
+No se ejecuta otra descarga ni se modifican datos, archivos de audio,
+migraciones o dependencias. El CSS permite adaptación a anchuras menores;
+no se atribuye una revisión visual móvil. Se registra este cambio en la
+bitácora y se conservan los demás cambios en curso, sin crear un commit.
+
+
+## 2026-10-24 — Icono de descarga independiente del formato
+
+Álvaro prefiere la acción visual de su referencia de Pixabay. Codex sustituye
+la etiqueta por formato por un icono SVG de descarga, alineado a la derecha
+en la fila del nombre del producto. El enlace conserva la URL protegida,
+`aria-label="Descargar archivo"`, título emergente, foco visible y un área
+interactiva de 44 × 44 px. El icono usa el color del enlace y un fondo discreto
+al pasar el puntero; no se incorpora ningún recurso externo ni dependencia.
+Las acciones de navegación permanecen al final.
+
+La vista vuelve a necesitar únicamente un booleano `can_download` para la
+presentación, conservando permiso activo, pedido pagado y preparación
+capturada. Se elimina la consulta adicional usada para la etiqueta de formato.
+La descarga sigue resolviendo el objeto histórico y su formato real, sin
+conversión ni cambios en la autorización del servidor.
+
+Se adaptan las comprobaciones existentes de navegación y de descarga WAV,
+FLAC y AIFF para exigir el nombre accesible genérico, manteniendo la
+comparación de bytes y cabeceras de cada formato. Red inicial por la etiqueta
+anterior. Django check, Ruff check y format --check de los archivos Python
+afectados y `git diff --check` terminan correctamente. En Safari se recarga el
+permiso #7 del pedido #9 y se observa el icono en el extremo derecho de la fila;
+el árbol de accesibilidad lo identifica como «Descargar archivo». No se pulsa
+la descarga, no se modifican datos ni archivos de audio y no se crea un commit.
+
+La regresión seleccionada de detalle de permiso y descarga de los tres formatos
+obtiene **10 passed, 168 deselected in 1.70s** con
+`.venv/bin/python -B -m pytest apps/orders/tests/test_views.py -k
+'license_detail or owner_can_download_the_prepared_master' -q --tb=short -x
+-p no:cacheprovider`.
+
+
+## 2026-10-24 — Icono de descarga inmediato al título
+
+Por solicitud de Álvaro, Codex elimina el crecimiento flexible del título y
+el margen automático del enlace en `apps/orders/templates/orders/license_detail.html`.
+La separación del grupo pasa a 8 px; el icono queda inmediatamente después del
+nombre del producto, conservando el área interactiva de 44 px y su nombre
+accesible. Se revisa visualmente en Safari, permiso #7: título e icono aparecen
+juntos. `git diff --check` termina sin incidencias. El ajuste es únicamente CSS;
+no se repiten las pruebas funcionales del incremento anterior ni se modifican
+datos, descarga o permisos. Se registra el cambio sin crear un commit.

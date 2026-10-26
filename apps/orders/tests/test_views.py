@@ -10,6 +10,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection, connections
 from django.http import HttpResponse
 from django.template.defaultfilters import date as format_date
@@ -28,9 +29,14 @@ from apps.catalog.models import (
     Product,
     ProductLicenseOffer,
 )
+from apps.catalog.services import set_product_master_audio
 from apps.orders.models import LicenseGrant, Order, OrderItem, PaymentAttempt
 from apps.orders.services import approve_simulated_payment, create_order_from_cart
-from apps.orders.tests.helpers import prepare_product_master
+from apps.orders.tests.helpers import (
+    create_master_audio_bytes,
+    create_master_wav_bytes,
+    prepare_product_master,
+)
 
 
 def create_available_offer(
@@ -322,6 +328,8 @@ def test_authenticated_user_with_empty_cart_receives_conflict_without_order(clie
     response = client.post(reverse("orders:create"))
 
     assert response.status_code == 409
+    assertContains(response, "Tu carrito está vacío.", status_code=409)
+    assertContains(response, "Seguir comprando", status_code=409)
     assert not Order.objects.filter(owner=owner).exists()
 
 
@@ -342,6 +350,12 @@ def test_authenticated_user_with_unavailable_offer_receives_conflict_and_keeps_c
     response = client.post(reverse("orders:create"))
 
     assert response.status_code == 409
+    assertContains(
+        response,
+        "No se puede crear el pedido porque una de las ofertas ya no está disponible.",
+        status_code=409,
+    )
+    assertContains(response, offer.product.name, status_code=409)
     assert not Order.objects.filter(owner=owner).exists()
     assert CartItem.objects.filter(pk=cart_item.pk).exists()
 
@@ -4051,6 +4065,15 @@ def test_authenticated_user_can_navigate_to_own_license_detail(
     assertContains(detail_response, expected["product_name"])
     assertContains(detail_response, expected["terms_text"])
 
+    download_url = reverse(
+        "license_download",
+        kwargs={"license_id": grant.pk},
+    )
+    assertContains(
+        detail_response,
+        f'href="{download_url}" aria-label="Descargar archivo"',
+    )
+
 
 @pytest.mark.django_db
 def test_license_list_query_count_does_not_grow_with_grants(
@@ -5081,6 +5104,19 @@ def test_checkout_without_master_file_returns_conflict_and_preserves_cart(
     response = client.post(reverse("orders:create"))
 
     assert response.status_code == 409
+    assertContains(
+        response,
+        "No se puede crear el pedido porque uno de los sonidos no tiene su archivo maestro preparado.",
+        status_code=409,
+    )
+    assertContains(response, product.name, status_code=409)
+    assertContains(response, 'role="alert"', status_code=409)
+    assertContains(response, reverse("catalog:product-list"), status_code=409)
+    assertContains(
+        response,
+        reverse("cart:remove-item", args=[cart_before[0]["id"]]),
+        status_code=409,
+    )
     assert not Order.objects.filter(owner=owner).exists()
     assert not OrderItem.objects.filter(order__owner=owner).exists()
 
@@ -5123,6 +5159,13 @@ def test_checkout_with_missing_stored_master_returns_conflict_without_changes(
 
     # Comprobar:rechazo sin modificar los datos de negocio.
     assert response.status_code == 409
+    assertContains(
+        response,
+        "No se puede crear el pedido porque uno de los sonidos no tiene su archivo maestro preparado.",
+        status_code=409,
+    )
+    assertContains(response, product.name, status_code=409)
+    assertNotContains(response, preparation.storage_key, status_code=409)
     assert capture_purchase_business_data() == before
 
 
@@ -5189,7 +5232,7 @@ def test_payment_without_captured_master_returns_conflict_without_changes(
 ):
     # Preparar: cliente y pedido con condiciones completas.
     owner = get_user_model().objects.create_user(
-        username="payment-without-captured-master"
+        username="payment-without-captured-master",
     )
     offer = create_available_offer()
     add_offer_to_cart(owner=owner, offer_id=offer.pk)
@@ -5197,3 +5240,596 @@ def test_payment_without_captured_master_returns_conflict_without_changes(
 
     # El catálogo dispone de un archivo válido.
     master_file = offer.product.master_file
+    assert master_file.storage.exists(master_file.name)
+
+    # Simular una línea antigua que no capturó su maestro.
+    OrderItem.objects.filter(order=order).update(
+        master_preparation=None,
+    )
+    client.force_login(owner)
+    before = capture_purchase_business_data()
+
+    # Actuar: solicitar la aprobación del pago
+    response = client.post(
+        reverse(
+            "orders:simulate_payment",
+            kwargs={"order_id": order.pk},
+        ),
+        {
+            "result": PaymentAttempt.Result.APPROVED,
+            "idempotency_key": str(uuid4()),
+        },
+    )
+
+    # Comprobar: rechazo sin aprobación de nuevos derechos.
+    assert response.status_code == 409
+
+    order.refresh_from_db()
+    assert order.status == Order.Status.PENDING_PAYMENT
+    assert not PaymentAttempt.objects.filter(order=order).exists()
+    assert not LicenseGrant.objects.filter(
+        order_item__order=order,
+    ).exists()
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+def test_payment_after_catalog_master_replacement_preserves_captured_master(
+    client,
+):
+    # Preparar: el checkout captura el maestro original antes del pago.
+    owner = get_user_model().objects.create_user(
+        username="payment-after-master-replacement",
+    )
+    offer = create_available_offer()
+    product = offer.product
+
+    original_preparation = MasterAudioPreparation.objects.get(
+        storage_key=product.master_file.name,
+    )
+    storage = product.master_file.storage
+
+    with storage.open(original_preparation.storage_key, "rb") as stored:
+        original_bytes = stored.read()
+
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    order = create_order_from_cart(owner=owner)
+    order_item = OrderItem.objects.get(order=order)
+
+    assert order.status == Order.Status.PENDING_PAYMENT
+    assert order_item.master_preparation == original_preparation
+
+    original_line_values = OrderItem.objects.values().get(
+        pk=order_item.pk,
+    )
+
+    # Preparar: sustituir el maestro del catálogo por otro archivo.
+    replacement_bytes = create_master_wav_bytes(sample_value=2)
+    assert replacement_bytes != original_bytes
+
+    replacement_preparation = set_product_master_audio(
+        product_id=product.pk,
+        uploaded_file=SimpleUploadedFile(
+            "maestro-sustituto.wav",
+            replacement_bytes,
+            content_type="audio/wav",
+        ),
+        declared_format="wav",
+        declared_sample_rate_hz=48_000,
+        declared_bit_depth=24,
+    )
+    product.refresh_from_db()
+
+    assert product.master_file.name == replacement_preparation.storage_key
+    assert replacement_preparation.pk != original_preparation.pk
+    assert replacement_preparation.storage_key != original_preparation.storage_key
+
+    # Actuar: el propietario paga su pedido anterior a la sustitución.
+    client.force_login(owner)
+    response = request_payment_approval(client, order)
+
+    # Comprobar: aprobación y redirección al detalle del pedido.
+    assert response.status_code == 302
+    assert response.url == reverse(
+        "orders:detail",
+        kwargs={"order_id": order.pk},
+    )
+
+    order.refresh_from_db()
+    assert order.status == Order.Status.PAID
+
+    attempt = PaymentAttempt.objects.get(order=order)
+    assert attempt.result == PaymentAttempt.Result.APPROVED
+
+    grant = LicenseGrant.objects.get(order_item=order_item)
+    assert grant.status == LicenseGrant.Status.ACTIVE
+
+    # Comprobar: la línea conserva todos sus valores históricos.
+    order_item.refresh_from_db()
+
+    assert order_item.master_preparation == original_preparation
+    assert (
+        OrderItem.objects.values().get(
+            pk=order_item.pk,
+        )
+        == original_line_values
+    )
+
+    # Desde la línea seguimos accediendo a los bytes originales.
+    captured_preparation = order_item.master_preparation
+    assert captured_preparation is not None
+
+    with storage.open(captured_preparation.storage_key, "rb") as stored:
+        assert stored.read() == original_bytes
+
+    # El catálogo conserva por separado el maestro de futuras compras.
+    product.refresh_from_db()
+
+    assert product.master_file.name == replacement_preparation.storage_key
+
+    with storage.open(product.master_file.name, "rb") as stored:
+        assert stored.read() == replacement_bytes
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("audio_format", "content_type"),
+    [
+        ("wav", "audio/wav"),
+        ("flac", "audio/flac"),
+        ("aiff", "audio/aiff"),
+    ],
+)
+def test_owner_can_download_the_prepared_master_of_a_paid_purchase(
+    client,
+    prepared_purchase_offer,
+    audio_format,
+    content_type,
+):
+    # Preparar el archivo del formato que corresponde a esta ejecución.
+    owner, offer = prepared_purchase_offer
+    expected_bytes = create_master_audio_bytes(audio_format=audio_format)
+
+    preparation = set_product_master_audio(
+        product_id=offer.product.pk,
+        uploaded_file=SimpleUploadedFile(
+            f"maestro.{audio_format}",
+            expected_bytes,
+            content_type=content_type,
+        ),
+        declared_format=audio_format,
+        declared_sample_rate_hz=48_000,
+        declared_bit_depth=24,
+    )
+
+    # Comprar y pagar después de preparar ese archivo.
+    add_offer_to_cart(owner=owner, offer_id=offer.pk)
+    order = create_order_from_cart(owner=owner)
+
+    approve_simulated_payment(
+        owner=owner,
+        order_id=order.pk,
+        result=PaymentAttempt.Result.APPROVED,
+        idempotency_key=uuid4(),
+    )
+
+    grant = LicenseGrant.objects.get(order_item__order=order)
+    assert grant.order_item.master_preparation == preparation
+
+    # Solicitar la descarga como propietario.
+    client.force_login(owner)
+    detail_response = client.get(
+        reverse("license_detail", kwargs={"license_id": grant.pk}),
+    )
+    assertContains(detail_response, 'aria-label="Descargar archivo"')
+    assertNotContains(detail_response, f"Descargar {audio_format.upper()}")
+    assertNotContains(detail_response, "Descargar maestro")
+    response = client.get(
+        reverse(
+            "license_download",
+            kwargs={"license_id": grant.pk},
+        ),
+    )
+
+    # Comprobar que recibe el archivo completo y sin alteraciones.
+    assert response.status_code == 200
+    assert response.streaming
+    assert b"".join(response.streaming_content) == expected_bytes
+
+    # Comprobar que la respuesta identifica correctamente el formato.
+    assert response["Content-Type"] == content_type
+    assert response["Content-Disposition"] == (
+        f'attachment; filename="impacto-web.{audio_format}"'
+    )
+    assert response["Cache-Control"] == "private, no-store"
+
+
+@pytest.mark.django_db
+def test_authenticated_user_cannot_download_another_users_master(
+    client,
+    documented_purchase,
+):
+    # Preparar: compra pagada que pertenece al propietario.
+    owner, _, grant, _ = documented_purchase
+
+    # Preparar: otro usuario autenticado.
+    other_user = get_user_model().objects.create_user(
+        username="anorher-user-master-requester",
+    )
+
+    assert other_user.pk != owner.pk
+    client.force_login(other_user)
+
+    # Actuar: solicitar la descarga de una compra ajena.
+    response = client.get(
+        reverse(
+            "license_download",
+            kwargs={"license_id": grant.pk},
+        )
+    )
+
+    # Comprobar: recahzo sin respuesta de descarga.
+    assert response.status_code == 404
+    assert not response.streaming
+    assert "Content-Disposition" not in response.headers
+
+
+@pytest.mark.django_db
+def test_autenthicated_user_cannot_download_a_noneexistent_license(
+    client,
+    documented_purchase,
+):
+    # Preparar: propietario autenticado con una compra valida.
+    owner, _, grant, _ = documented_purchase
+    client.force_login(owner)
+
+    # Preparar: un identifcador que no corresponde a ningún derecho.
+    missing_license_id = grant.pk + 1
+
+    assert not LicenseGrant.objects.filter(
+        pk=missing_license_id,
+    ).exists()
+
+    # Actuar: solicitar la descarga del derecho inexistente.
+    response = client.get(
+        reverse(
+            "license_download",
+            kwargs={"license_id": missing_license_id},
+        ),
+    )
+
+    # Comprobar: rechazo sin respuesta de descarga.
+    assert response.status_code == 404
+    assert not response.streaming
+    assert "Content-Disposition" not in response.headers
+
+
+@pytest.mark.django_db
+def test_owner_cannot_download_master_when_order_is_not_paid(
+    client,
+    documented_purchase,
+):
+    # Preparar: derecho propio con un maestro disponible.
+    owner, _, grant, _ = documented_purchase
+    order = grant.order_item.order
+
+    assert grant.status == LicenseGrant.Status.ACTIVE
+
+    # Preparar: simular un pedido que no consta como pagado.
+    order.status = Order.Status.PENDING_PAYMENT
+    order.save(update_fields=["status"])
+
+    client.force_login(owner)
+
+    # Actuar: el propietario solicita la descarga.
+    response = client.get(reverse("license_download", kwargs={"license_id": grant.pk}))
+
+    # Comprobar: rechazo aunque el derecho exista y sea propio.
+    assert response.status_code == 404
+    assert not response.streaming
+    assert "Content-Disposition" not in response.headers
+
+    order.refresh_from_db()
+    assert order.status == Order.Status.PENDING_PAYMENT
+
+
+@pytest.mark.django_db
+def test_download_with_missing_stored_master_returns_not_found_without_changes(
+    client, documented_purchase
+):
+    # Preparar: compra pagada, derecho activo y maestro capturado.
+    owner, offer, grant, _ = documented_purchase
+    preparation = grant.order_item.master_preparation
+
+    assert preparation is not None
+    assert grant.status == LicenseGrant.Status.ACTIVE
+    assert grant.order_item.order.status == Order.Status.PAID
+
+    storage = offer.product.master_file.storage
+    assert storage.exists(preparation.storage_key)
+
+    # Preparar: desaparece el archivo pero permanece su preparación.
+    storage.delete(preparation.storage_key)
+
+    assert not storage.exists(preparation.storage_key)
+    preparation.refresh_from_db()
+
+    client.force_login(owner)
+    before = capture_purchase_business_data()
+
+    # Actuar: el propietario solicita la descarga.
+    response = client.get(reverse("license_download", kwargs={"license_id": grant.pk}))
+
+    # Comprobar: error controlado sin respuesta de descarga.
+    assert response.status_code == 404
+    assert not response.streaming
+    assert "Content-Disposition" not in response.headers
+
+    # El error no altera pedidos, líneas, pagos, ni derechos.
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+def test_download_without_captured_master_returns_not_found_without_changes(
+    client,
+    documented_purchase,
+):
+    # Preparar: compra pagada y archivo disponible en el catálogo.
+    owner, offer, grant, _ = documented_purchase
+    item = grant.order_item
+
+    assert item.master_preparation is not None
+    assert item.order.status == Order.Status.PAID
+    assert grant.status == LicenseGrant.Status.ACTIVE
+
+    master_file = offer.product.master_file
+    assert master_file.storage.exists(master_file.name)
+
+    # Provocar una inconsistencia: la línea pierde su referencia.
+    OrderItem.objects.filter(pk=item.pk).update(
+        master_preparation=None,
+    )
+    item.refresh_from_db()
+    assert item.master_preparation is None
+
+    client.force_login(owner)
+    before = capture_purchase_business_data()
+
+    # Actuar: solicitar la descarga de la compra.
+    response = client.get(
+        reverse(
+            "license_download",
+            kwargs={"license_id": grant.pk},
+        ),
+    )
+
+    # Comprobar: no entrega el maestro actual del catálogo como sustituto.
+    assert response.status_code == 404
+    assert not response.streaming
+    assert "Content-Disposition" not in response.headers
+
+    # La petición no modifica ni repara automáticamente la compra.
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+def test_download_after_catalog_master_replacement_returns_purchased_master(
+    client,
+    documented_purchase,
+):
+    # Preparar: compra pagada que conserva su maestro original.
+    owner, offer, grant, _ = documented_purchase
+    item = grant.order_item
+    original_preparation = grant.order_item.master_preparation
+
+    assert original_preparation is not None
+
+    product = offer.product
+    storage = product.master_file.storage
+
+    with storage.open(original_preparation.storage_key, "rb") as stored:
+        original_bytes = stored.read()
+
+    # Sustituir el archivo del mismo producto para futuras compras.
+    replacement_bytes = create_master_wav_bytes(sample_value=2)
+    assert replacement_bytes != original_bytes
+
+    replacement_preparation = set_product_master_audio(
+        product_id=product.pk,
+        uploaded_file=SimpleUploadedFile(
+            "maestro-sustituto.wav",
+            replacement_bytes,
+            content_type="audio/wav",
+        ),
+        declared_format="wav",
+        declared_sample_rate_hz=48_000,
+        declared_bit_depth=24,
+    )
+
+    product.refresh_from_db()
+    item.refresh_from_db()
+
+    assert product.master_file.name == replacement_preparation.storage_key
+    assert replacement_preparation.pk != original_preparation.pk
+    assert item.master_preparation == original_preparation
+
+    client.force_login(owner)
+    before = capture_purchase_business_data()
+
+    # Actuar: descargar el maestro de la compra anterior.
+    response = client.get(
+        reverse(
+            "license_download",
+            kwargs={"license_id": grant.pk},
+        ),
+    )
+
+    # Comprobar: el navegador recibe exactamente el archivo adquirido.
+    assert response.status_code == 200
+    assert response.streaming
+
+    downloaded_bytes = b"".join(response.streaming_content)
+
+    assert downloaded_bytes == original_bytes
+    assert downloaded_bytes != replacement_bytes
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+def test_repeated_master_download_preserves_purchase(
+    client,
+    documented_purchase,
+):
+    # Preparar: compra pagada y contenido esperado.
+    owner, offer, grant, _ = documented_purchase
+    preparation = grant.order_item.master_preparation
+
+    assert preparation is not None
+
+    storage = offer.product.master_file.storage
+    with storage.open(preparation.storage_key, "rb") as stored:
+        expected_bytes = stored.read()
+
+    client.force_login(owner)
+    download_url = reverse(
+        "license_download",
+        kwargs={"license_id": grant.pk},
+    )
+    before = capture_purchase_business_data()
+
+    # Actuar y comprobar; descargar dos veces la misma compra.
+    for _ in range(2):
+        response = client.get(download_url)
+
+        assert response.status_code == 200
+        assert response.streaming
+        assert b"".join(response.streaming_content) == expected_bytes
+        assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "method",
+    ["POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+)
+def test_master_download_rejects_unsupported_methods(
+    client,
+    documented_purchase,
+    method,
+):
+    # Prepapar: cliente autenticado con una compra pagada.
+    owner, _, grant, _ = documented_purchase
+    client.force_login(owner)
+
+    download_url = reverse(
+        "license_download",
+        kwargs={"license_id": grant.pk},
+    )
+    before = capture_purchase_business_data()
+
+    # Actuar: solicitar la misma URL con un método distinto de GET.
+    response = client.generic(method, download_url)
+
+    # Comprobar: rechazo y comunicación del método permitido.
+    assert response.status_code == 405
+    assert response["Allow"] == "GET"
+    assert not response.streaming
+    assert "Content-Disposition" not in response.headers
+
+    assert capture_purchase_business_data() == before
+
+
+@pytest.mark.django_db
+def test_each_order_line_downloads_its_own_master(
+    client,
+    prepared_purchase_offer,
+):
+    # Preparar: oferta A y su archivo correspondiente.
+    owner, first_offer = prepared_purchase_offer
+    first_product = first_offer.product
+    first_master = first_product.master_file
+
+    with first_master.storage.open(first_master.name, "rb") as stored:
+        first_bytes = stored.read()
+
+    # Preparar: oferta B y su archivo correspondiente.
+    second_product = Product.objects.create(
+        category=first_product.category,
+        name="Ambiente bosque",
+        slug="ambiente-bosque",
+        sku="BOSQUE-002",
+        summary="Segundo sonido de prueba",
+        description="Ambiente para comprobar la descarga por línea.",
+        duration_ms=1,
+        audio_format="wav",
+        sample_rate_hz=48_000,
+        bit_depth=24,
+    )
+
+    second_bytes = create_master_wav_bytes(sample_value=2)
+    assert second_bytes != first_bytes
+
+    set_product_master_audio(
+        product_id=second_product.pk,
+        uploaded_file=SimpleUploadedFile(
+            "bosque-wav",
+            second_bytes,
+            content_type="audio/wav",
+        ),
+        declared_format="wav",
+        declared_sample_rate_hz=48_000,
+        declared_bit_depth=24,
+    )
+
+    second_offer = ProductLicenseOffer.objects.create(
+        product=second_product,
+        license_type=first_offer.license_type,
+        price=Decimal("8.00"),
+        grantor_name="Concedente de prueba",
+        rights_holder_name="Titular de prueba",
+    )
+
+    # Comprar amnbos productos en un mismo pedido y pagarlo.
+    for offer in (first_offer, second_offer):
+        add_offer_to_cart(owner=owner, offer_id=offer.pk)
+
+    order = create_order_from_cart(owner=owner)
+
+    approve_simulated_payment(
+        owner=owner,
+        order_id=order.pk,
+        result=PaymentAttempt.Result.APPROVED,
+        idempotency_key=uuid4(),
+    )
+
+    assert OrderItem.objects.filter(order=order).count() == 2
+    assert LicenseGrant.objects.filter(order_item__order=order).count() == 2
+
+    client.force_login(owner)
+    before = capture_purchase_business_data()
+
+    # Decargar cada licencia y comprobar su archivo concreto.
+    for product, expected_bytes, expected_filename in (
+        (first_product, first_bytes, "impacto-web.wav"),
+        (second_product, second_bytes, "ambiente-bosque.wav"),
+    ):
+        grant = LicenseGrant.objects.get(
+            order_item__order=order,
+            order_item__source_product=product,
+        )
+
+        response = client.get(
+            reverse(
+                "license_download",
+                kwargs={"license_id": grant.pk},
+            ),
+        )
+
+        assert response.status_code == 200
+        assert response.streaming
+        assert b"".join(response.streaming_content) == expected_bytes
+        assert response["Content-Disposition"] == (
+            f'attachment; filename="{expected_filename}"'
+        )
+
+    assert capture_purchase_business_data() == before

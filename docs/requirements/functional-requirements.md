@@ -37,7 +37,7 @@ las pruebas, la implementación y las evidencias académicas.
 | RF-12 | Consultar el catálogo mediante una API pública | Consumidor de la API | Must | v0.2.0 | Verificado |
 | RF-13 | Gestionar el carrito mediante una API autenticada | Cliente de la API autenticado | Must | v0.3.0 | Propuesto |
 | RF-14 | Ejecutar checkout, pago y consultas privadas mediante API | Cliente de la API autenticado | Must | v0.7.0 | Propuesto |
-| RF-15 | Administrar el sistema mediante Django Admin | Administrador | Must | v0.9.0 | Aprobado |
+| RF-15 | Administrar el sistema mediante Django Admin | Administrador | Must | v0.9.0 | Verificado |
 
 ### Ampliaciones solicitadas el 2026-10-14
 
@@ -1866,15 +1866,17 @@ auditoría persistente; su referencia documental debe conservarla el operador.
 
 La verificación automatizada no acredita revisión visual, instalación limpia,
 audios reales, despliegue, firma ni autenticidad jurídica del respaldo histórico.
-Descargas, API privada y administración continúan en RF-11, RF-13/14 y RF-15.
+La descarga autorizada queda verificada en RF-11; la API privada sigue propuesta
+en RF-13/14 y la administración se verifica en el alcance aprobado de RF-15.
 
 ### RF-11 — Descargar un archivo autorizado
 
 #### Metadatos y alcance
 
 - Actor: cliente autenticado con derecho adquirido. Prioridad: Must. Versión: v0.6.0.
-- Estado: `Aprobado` por el desarrollador el 2026-10-16; implementación parcial
-  revisada el 2026-10-22. Descarga y cierre de verificación pendientes.
+- Estado: `Verificado` el 2026-10-26 en el alcance aprobado. Incluye preparación
+  del maestro, captura por línea, guardas de checkout/pago y descarga autorizada;
+  la regresión completa y el recorrido manual se documentan en la evidencia RF-11.
   Dependencias: RF-06 a RF-10 y separación de maestros ya
   existente; RNF-01 a RNF-06, RNF-08 y RNF-10 a RNF-13.
 - `GET /licenses/{license_id}/download/` entrega el archivo como adjunto mediante
@@ -1890,12 +1892,37 @@ Descargas, API privada y administración continúan en RF-11, RF-13/14 y RF-15.
 - El paso a `PAID` habilita el acceso; la descarga comienza cuando el cliente la
   solicita. El navegador se comunica con Django, nunca con PostgreSQL.
 
+#### Decisión de alcance del 2026-10-22
+
+Por decisión expresa del desarrollador se retira CA-RF11-08 del alcance del
+MVP. Los pedidos sin referencia al maestro proceden de las pruebas realizadas
+durante la construcción del sistema, antes de implementar la captura; no son
+compras de clientes reales que deban recuperarse mediante una regularización.
+El recorrido final se valida con compras creadas conforme a las reglas actuales.
+No se requiere un servicio, una migración de datos ni una interfaz para
+asociar retrospectivamente esos pedidos de desarrollo. Esta decisión no borra
+ni modifica registros existentes.
+
+El recorrido operativo exige capturar un maestro preparado al crear cada línea
+y comprobarlo antes de aprobar un pago nuevo. Cambiar después el maestro del
+catálogo conserva el vínculo y el archivo asociados a esa compra. Una línea
+sin asociación segura no habilita una descarga ni se completa automáticamente
+con el maestro actual.
+
+El identificador CA-RF11-08 se conserva como **retirado**, sin renumerar los
+restantes: quedan once criterios activos. Esta decisión sustituye las
+referencias anteriores a la regularización del maestro como condición de
+cierre. Los criterios activos de captura, calidad, guardas de compra, entrega
+autorizada, acceso, repetición y pedidos con varias líneas quedan cubiertos por
+las pruebas y la validación manual registradas en la evidencia RF-11. Las
+regularizaciones ya implementadas y verificadas en RF-10 conservan su alcance.
+
 #### Reglas de negocio de calidad del maestro
 
 - RN-RF11-01: todo maestro admitido debe tener una frecuencia de muestreo
   **igual o superior a 48000 Hz** y una profundidad de **al menos 24 bits por
-  muestra**. Ambos mínimos son obligatorios, también para archivos asociados a
-  compras antiguas; 44100 Hz o 16 bits no cumplen aunque el otro valor sea mayor.
+  muestra**. Ambos mínimos son obligatorios para cualquier maestro admitido;
+  44100 Hz o 16 bits no cumplen aunque el otro valor sea mayor.
 - RN-RF11-02: se admiten WAV, incluido BWF con extensión `.wav`, y AIFF con
   audio PCM lineal sin compresión, y FLAC sin pérdida. BWF se representa como
   `audio_format=wav`; no introduce otra opción del catálogo. FLAC y AIFF están
@@ -1956,11 +1983,12 @@ no se cambian los precios ni snapshots originales. Una pérdida operativa poster
 del archivo o una asociación cuya calidad no esté validada devuelve un error
 controlado de descarga, nunca otro archivo ni una versión de menor calidad.
 
-Para compras antiguas sin clave se exige una asociación explícita y revisada
-con el archivo correcto. No se adivina por SKU, por nombre ni por el maestro
-actual. Mientras falte esa asociación, la descarga devuelve 404 genérico y el
-detalle propio informa de indisponibilidad. La regularización solo modifica el
-vínculo técnico autorizado, conserva los datos históricos y es idempotente.
+Los pedidos de desarrollo sin referencia al maestro quedan fuera del recorrido
+de descarga preparado. Si se solicita la descarga de una línea sin asociación
+segura, se devuelve 404 genérico y el detalle propio informa de indisponibilidad.
+No se deduce un archivo por SKU, nombre o maestro actual del catálogo. La
+nulabilidad del campo conserva esos registros de desarrollo; no autoriza a
+crear compras nuevas sin maestro ni exige implementar su recuperación.
 
 Anónimo: 302 al login con `next` interno. Licencia ajena, inexistente, inactiva,
 pedido no pagado o maestro no preparado: 404 genérico sin información interna.
@@ -1981,7 +2009,7 @@ públicos, extensión correspondiente al formato real del objeto comprado y
   no pagado, cuando se solicita la descarga, entonces recibe 404 sin bytes ni
   detalles que revelen la existencia de una compra ajena.
 - CA-RF11-04: dado un maestro ausente, inválido o sin calidad validada, o una
-  línea antigua sin asociación segura,
+  línea sin asociación segura,
   cuando el propietario solicita la descarga, entonces recibe un error 404
   controlado; no se usa la preview ni un maestro de otro producto como alternativa.
 - CA-RF11-05: dado el almacenamiento del maestro, cuando se inspeccionan rutas
@@ -1994,11 +2022,6 @@ públicos, extensión correspondiente al formato real del objeto comprado y
   convertir el carrito, entonces recibe 409 sin pedido parcial ni vaciado; un
   pedido pendiente sin maestro preparado recibe 409 al pagar, sin aprobación,
   cambio de estado ni derechos.
-- CA-RF11-08: dada una compra antigua con correspondencia revisada, cuando se
-  regulariza su vínculo de archivo, entonces queda asociada solo al maestro
-  indicado y preparado conforme al mínimo de calidad, sin modificar propiedad,
-  precios o términos; repetirlo no cambia
-  el resultado y un mapeo inexistente o ambiguo se rechaza sin asociación.
 - CA-RF11-09: dado un derecho válido, cuando se repite la descarga o se usa un
   método no admitido, entonces el GET autorizado mantiene los mismos derechos
   y datos de negocio y el método no admitido responde 405 sin escritura.
@@ -2011,69 +2034,47 @@ públicos, extensión correspondiente al formato real del objeto comprado y
   debajo de cualquiera de los mínimos, corruptos, de formato no admitido o con
   propiedades reales distintas de las declaradas, aunque su extensión y MIME
   aparenten ser correctos. El resultado se vincula al objeto conservado y lo
-  reutilizan las guardas de checkout/pago y la regularización; no se modifica el
-  archivo para hacerlo admisible.
+  reutilizan las guardas de checkout/pago; no se modifica el archivo para
+  hacerlo admisible.
 - CA-RF11-12: dado un pedido propio pagado con varias líneas preparadas y un
   derecho activo por línea, cuando se accede a los permisos y se descarga cada
   uno, entonces cada enlace entrega únicamente los bytes del maestro de su
   línea; no mezcla archivos, no crea un ZIP y mantiene la autorización individual.
 
-#### Orden y pruebas previstas
+#### Verificación del 2026-10-26
 
-Orden aprobado, un criterio cada vez:
+Los once criterios activos se verifican en el código y en las pruebas actuales:
 
-1. CA-RF11-05: revisar y reutilizar la protección de almacenamiento existente.
-2. CA-RF11-11: validar formatos y mínimo técnico del objeto preparado.
-3. CA-RF11-06: capturar el maestro histórico y conservarlo ante cambios.
-4. CA-RF11-07: impedir checkout y pago sin ese maestro preparado, sin efectos parciales.
-5. CA-RF11-08: regularizar asociaciones antiguas mediante correspondencia revisada.
-6. CA-RF11-01: entregar los bytes correctos con nombre y cabeceras de descarga.
-7. CA-RF11-02: redirigir al anónimo al login con retorno a la descarga.
-8. CA-RF11-03: rechazar identificadores ajenos y derechos o pedidos no habilitados.
-9. CA-RF11-04: controlar archivos ausentes, inválidos o sin asociación segura.
-10. CA-RF11-09: admitir repetición sin escrituras y rechazar otros métodos.
-11. CA-RF11-10: incorporar el enlace autenticado al detalle del permiso.
-12. CA-RF11-12: verificar el recorrido con varios maestros en un pedido.
+- `validate_master_audio`, `prepare_master_audio` y
+  `set_product_master_audio` validan WAV/BWF, FLAC y AIFF, sus propiedades
+  reales, mínimos de frecuencia/profundidad, integridad y persistencia privada.
+  Las pruebas de servicios incluyen formatos y propiedades válidos e inválidos,
+  contenido truncado, datos declarados incorrectos, idempotencia y sustitución
+  mediante una clave nueva que conserva el objeto anterior.
+- El checkout captura la preparación en cada `OrderItem`. Checkout y pago
+  rechazan preparaciones ausentes o archivos desaparecidos antes de mutar el
+  pedido, el carrito, los pagos o los derechos. Las compras antiguas de
+  desarrollo sin referencia no se completan automáticamente.
+- `GET /licenses/{license_id}/download/` exige sesión, derecho activo, pedido
+  pagado y propiedad. Devuelve 404 genérico ante una compra ajena/inexistente,
+  un pedido no pagado, una preparación ausente o un archivo desaparecido; el
+  visitante anónimo vuelve al login. El enlace aparece en el detalle de la
+  licencia cuando el derecho puede descargarse.
+- La respuesta correcta transmite los bytes exactos como adjunto con tipo de
+  contenido y extensión según el formato, nombre derivado de datos históricos y
+  `Cache-Control: private, no-store`. Repetir GET no modifica datos de negocio;
+  otros métodos reciben 405. Un pedido con varias líneas ofrece un enlace
+  independiente para cada maestro y no genera un ZIP.
+- La regresión completa registrada el 2026-10-26 obtuvo **434 pruebas
+  aprobadas** y superó los controles de Django, migraciones, Ruff y dependencias;
+  véase la [puerta de calidad de RF-15](../evidence/RF-15/quality-gate-2026-10-26.md).
+  La evidencia automatizada detallada por escenario está en
+  [RF-11](../evidence/RF-11/README.md). El recorrido manual de compra y
+  descarga se documenta con capturas en el material final de entrega.
 
-La autorización y el fallo seguro forman parte de la primera entrega de la
-vista; los criterios 02–04 se verifican como incrementos separados sin dejar
-una descarga privada públicamente accesible durante el desarrollo.
-Se amplía CA-RF09-09 para los modelos de pago y derechos ya creados.
-Las pruebas usan archivos de audio temporales válidos y controlados para cada
-formato, además de casos inválidos. Se incluyen los límites 48000 Hz/24 bits,
-44100 Hz/24 bits y 48000 Hz/16 bits, valores superiores y metadatos engañosos.
-Se consume `streaming_content` para verificar los bytes exactos en los tres
-formatos. No se leen ni copian maestros reales como fixtures. La procedencia y
-escucha se comprueban después con una muestra real en la validación manual.
-Evidencia incremental: [RF-11](../evidence/RF-11/README.md).
-
-#### Avance parcial revisado el 2026-10-22
-
-- El catálogo público representa campos permitidos y comprueba la privacidad
-  del maestro en HTML, contextos, API y rutas directas de medios.
-- `validate_master_audio` inspecciona propiedades reales y calcula tamaño y
-  SHA-256. `prepare_master_audio` persiste evidencia idempotente y rechaza
-  contenido o evidencia distintos bajo una clave ya preparada.
-- `set_product_master_audio` guarda otra clave, prepara y asigna el maestro
-  mediante transacción de datos, conservando los anteriores. No hay interfaz
-  administrativa de carga conectada.
-- El checkout captura `OrderItem.master_preparation`. La sustitución posterior
-  del catálogo conserva vínculo, datos históricos y bytes originales en las
-  pruebas específicas. Las migraciones no asignan archivos a compras antiguas.
-- Checkout y nueva aprobación rechazan preparación ausente o archivo perdido
-  mediante `MasterNotPrepared`, que sus vistas traducen a 409. El pago usa la
-  preparación de la línea y conserva el tratamiento de intentos repetidos.
-  Hay pruebas HTTP de ausencia de maestro y pérdida antes de checkout/pago.
-- Faltan pruebas específicas del pago sin vínculo capturado y tras cambiar
-  el maestro del catálogo. La prueba de línea sin vínculo está guardada como borrador
-  incompleto y todavía no acredita ese comportamiento.
-- Continúan pendientes la asociación revisada de compras antiguas, la ruta
-  protegida, controles HTTP y de autorización, entrega exacta y cabeceras,
-  enlace, varias líneas y recorrido manual con sonidos reales y dos cuentas.
-  La prueba anónima conserva `xfail(strict=True)` y no acredita su criterio.
-
-Este registro no cambia RF-11 a `Implementado` ni `Verificado`, ni cierra
-los criterios que también requieren comprobar la descarga final.
+La verificación corresponde al MVP y al entorno local documentado. No acredita
+un despliegue de producción, procedencia de todos los audios de una biblioteca,
+un formulario de carga de maestros en Django Admin, DRM ni una descarga masiva.
 
 #### Referencias oficiales revisadas el 2026-10-16
 
@@ -2585,7 +2586,7 @@ Evidencia prevista: `docs/evidence/RF-14/`.
 | Actor principal | Administrador autorizado |
 | Prioridad | Must |
 | Versión objetivo | v0.9.0 |
-| Estado | Aprobado |
+| Estado | Verificado |
 | Dependencias | RF-01 a RF-14 según cada modelo, RNF-01, RNF-03, RNF-04, RNF-06 a RNF-08, RNF-10 y RNF-11 |
 
 #### Objetivo
@@ -2692,7 +2693,7 @@ Las entidades históricas se presentan solo en lectura en el Admin, incluso si
 un usuario tiene permisos de cambio genéricos. Se elimina el borrado individual
 y masivo de estas entidades y del catálogo en este MVP; se desactiva catálogo.
 No se añaden acciones administrativas para pagar, cancelar, revocar o emitir
-licencias. Las regularizaciones técnicas de RF-10/11 utilizan operaciones
+licencias. Las regularizaciones técnicas ya previstas en RF-10 utilizan operaciones
 explícitas y servicios probados, no edición libre de claves o estados.
 Las condiciones de licencia publicadas respetan el versionado de RF-10:
 editar el catálogo no sobrescribe condiciones históricas de compra y cambiar
@@ -2708,6 +2709,9 @@ para subir un archivo no es la clave privada persistida. Contraseñas en claro, 
 idempotencia y detalles internos no figuran en listados, búsquedas ni errores.
 
 #### Criterios de aceptación adicionales propuestos
+
+La verificación automatizada del alcance aprobado no convierte CA-RF15-08 a
+CA-RF15-12 en criterios aprobados; esas ampliaciones permanecen propuestas.
 
 - CA-RF15-08: dados perfiles de catálogo, soporte y gestión de usuarios, cuando
   acceden al Admin, entonces cada uno puede ejercer solo las operaciones de la
@@ -2738,12 +2742,14 @@ idempotencia y detalles internos no figuran en listados, búsquedas ni errores.
    objeto y acción; no darlo por verificado solo por usar Django Admin.
 6. CA11 y CA12: consultas, validaciones y cierre de regresión.
 
-`apps/users/admin.py` ya registra `UserAdmin`; `apps/catalog/admin.py` y
-`apps/orders/admin.py` están vacíos. CA01 es candidato a pasar con una prueba
-sobre la infraestructura existente. CA05 y CA07 pueden pasar con funciones
-nativas después del registro de modelos. CA03 reutiliza selectores probados,
-pero hoy falta la modificación desde Admin. CA06 no se da por resuelto por
-`PROTECT`: los snapshots actuales no protegen por sí solos la historia comercial.
+`apps/users/admin.py` registra `UserAdmin`; `apps/catalog/admin.py` registra las
+entidades del catálogo y `apps/orders/admin.py` registra pedidos, líneas,
+intentos de pago y licencias adquiridas en modo de consulta. Las etapas CA01 a
+CA06 y CA07 tienen pruebas administrativas específicas. La comprobación explícita
+de `LogEntry` confirma actor, fecha, objeto y acción. La protección histórica no se delega solo en
+`PROTECT`: los modelos operativos se muestran sin altas, cambios, borrados ni
+acciones genéricas, y los servicios siguen siendo la única vía para transiciones
+de pago y concesión de licencias.
 
 #### Pruebas previstas
 
@@ -2773,11 +2779,11 @@ pero hoy falta la modificación desde Admin. CA06 no se da por resuelto por
 
 | Elemento | Referencia |
 |---|---|
-| Pruebas | Pendiente hasta la fase correspondiente |
-| Configuración `ModelAdmin` | Pendiente |
+| Pruebas | `apps/users/tests/test_admin.py`, `apps/catalog/tests/test_admin.py` y `apps/orders/tests/test_admin.py`; regresión completa 434 passed |
+| Configuración `ModelAdmin` | Usuarios, catálogo y operaciones históricas registradas |
 | Reglas compartidas | Pendientes según RF-01 a RF-14 |
 | Matriz de permisos | Pendiente de aprobación |
-| Evidencia | Pendiente |
+| Evidencia | quality-gate-2026-10-26.md; capturas manuales complementarias |
 | Commit | Pendiente |
 
 

@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Carrito | SoundMarket{% endblock %}
+{% block title %}Carrito | Foleyra{% endblock %}
 
 {% block content %}
     <h1>Carrito</h1>
+    {% if checkout_error %}
+        <p role="alert">{{ checkout_error }}</p>
+    {% endif %}
     {% if cart_summary.items %}
         <ul>
             {% for item in cart_summary.items %}

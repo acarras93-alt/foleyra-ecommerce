@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Catálogo | SoundMarket{% endblock %}
+{% block title %}Catálogo | Foleyra{% endblock %}
 
 {% block extra_css %}
     <style>
@@ -120,6 +120,52 @@
             font-size: 0.8rem;
         }
 
+        .catalog-pagination {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            max-width: 800px;
+            margin: 20px 0 8px;
+        }
+
+        .catalog-pagination a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: 1px solid #dce2e8;
+            border-radius: 999px;
+            background: #fff;
+            box-shadow: 0 2px 6px rgb(24 37 51 / 8%);
+            color: #182533;
+            font: 600 0.875rem system-ui, sans-serif;
+            text-decoration: none;
+            transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+        }
+
+        .catalog-pagination a:hover {
+            border-color: #182533;
+            background: #182533;
+            color: #fff;
+        }
+
+        .catalog-pagination a:focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 3px;
+        }
+
+        .catalog-pagination .previous::before {
+            content: "←";
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        .catalog-pagination .next::after {
+            content: "→";
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
         @media (max-width: 480px) {
             .catalog-product {
                 gap: 12px;
@@ -206,10 +252,14 @@
             <li>No hay productos disponibles en este momento.</li>
         {% endfor %}
     </ul>
-    {% if products.has_previous %}
-        <a href="?{% if preserved_query_string %}{{ preserved_query_string }}&{% endif %}page={{ products.previous_page_number }}">Anterior</a>
-    {% endif %}
-    {% if products.has_next %}
-        <a href="?{% if preserved_query_string %}{{ preserved_query_string }}&{% endif %}page={{ products.next_page_number }}">Siguiente</a>
+    {% if products.has_previous or products.has_next %}
+        <nav class="catalog-pagination" aria-label="Paginación del catálogo">
+            {% if products.has_previous %}
+                <a class="previous" href="?{% if preserved_query_string %}{{ preserved_query_string }}&{% endif %}page={{ products.previous_page_number }}">Anterior</a>
+            {% endif %}
+            {% if products.has_next %}
+                <a class="next" href="?{% if preserved_query_string %}{{ preserved_query_string }}&{% endif %}page={{ products.next_page_number }}">Siguiente</a>
+            {% endif %}
+        </nav>
     {% endif %}
 {% endblock %}
